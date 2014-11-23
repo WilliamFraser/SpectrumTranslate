@@ -2222,9 +2222,9 @@ def main():
     app=QtGui.QApplication(sys.argv)
     
     #todo remove once debugging complete
-    #sftGUI=SpectrumFileTranslateGUI(sys.argv[1] if len(sys.argv)>1 else None)
+    sftGUI=SpectrumFileTranslateGUI(sys.argv[1] if len(sys.argv)>1 else None)
     #sftGUI=SpectrumFileTranslateGUI('/home/william/RR.tap/REBRAID1.TAP')
-    sftGUI=SpectrumFileTranslateGUI("/home/william/java/tap reader/01.img")
+    #sftGUI=SpectrumFileTranslateGUI("/home/william/java/tap reader/01.img")
     
     #move screen to right for debugging
     screen=QtGui.QDesktopWidget().screenGeometry()
