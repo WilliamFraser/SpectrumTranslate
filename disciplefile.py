@@ -116,7 +116,10 @@ class DiscipleFile:
         return self.GetFileType(headderdata)==0
 
     def GetSectorsUsed(self,headderdata=None):
-        """Gets the number of sectors used by this file. headderdata is optional but saves resources."""
+        """
+        Gets the number of sectors used by this file.
+        headderdata is optional but saves resources.
+        """
 
         #if no headder supplied, need to load it up
         if(headderdata==None):
@@ -126,7 +129,10 @@ class DiscipleFile:
         return ord(headderdata[12])+256*ord(headderdata[11])
 
     def GetFileLength(self,headderdata=None):
-        """Returns the length of this file. headderdata is optional but saves resources."""
+        """
+        Returns the length of this file.
+        headderdata is optional but saves resources.
+        """
 
         #if no headder supplied, need to load it up
         if(headderdata==None):

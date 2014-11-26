@@ -1,6 +1,6 @@
 class SpectrumNumberException(Exception):
     """
-    A class to flag up an Exception raised during woring with SpectrumNumber class objects
+    A class to flag up an Exception raised during working with SpectrumNumber class objects
     """
     
     def __init__(self,arg):
@@ -211,7 +211,10 @@ class SpectrumNumber:
     #comparison methods
 
     def __eq__(self,other):
-        """Tests if this Spectrum Number holds the same value as another SpectrumNumber, or number"""
+        """
+        Tests if this Spectrum Number holds the same value as another SpectrumNumber, or number.
+        see details of spectrum_number_comparison_precission about how acurate the compatison is.
+        """
       
         if(isinstance(other,(SpectrumNumber,int,long,float,str))):
             try:
@@ -1217,7 +1220,37 @@ def toString(sn):
     This is the same as the Spectrum display of a number as done by the routine at 0x2DE3 in the 48K Spectrum ROM.
     SpectrumNumberException is raised if during processing the number a component is too big or small to display. In theory It should not happen, but I've not been able to work it out one way or another so I'm erring on the side of caution.
     """
+
+    #nested function
+    def digit_buffer_to_string(digitBuffer,iDigitsPrintable,iDigitsBeforeDecimal):
+        strRet=''  
+        #point to start of digit buffer
+        i=0
+        #deal with digits before decimal
+        while(True):
+            while(iDigitsBeforeDecimal>0):
+                if(iDigitsPrintable==0):
+                    strRet+='0'
+                else:
+                    strRet+=str(digitBuffer[i])
+                    i+=1
+                    iDigitsPrintable-=1
     
+                iDigitsBeforeDecimal-=1
+    
+            if(iDigitsPrintable==0):
+                return strRet
+                
+            strRet+='.'
+            iDigitsBeforeDecimal*=-1
+            while(iDigitsBeforeDecimal>0):
+                strRet+='0'
+                iDigitsBeforeDecimal-=1
+    
+            iDigitsBeforeDecimal=iDigitsPrintable
+    
+    #end nested function
+
     #deal with simple case
     if(sn.IsZero()):
         return "0"
@@ -1396,38 +1429,7 @@ def toString(sn):
         #output number
         strRet+=digit_buffer_to_string(digitBuffer,iDigitsPrintable,iDigitsBeforeDecimal);
 
-
     return strRet
-
-def digit_buffer_to_string(digitBuffer,iDigitsPrintable,iDigitsBeforeDecimal):
-    strRet=''  
-    #point to start of digit buffer
-    i=0
-    #deal with digits before decimal
-    while(True):
-        while(iDigitsBeforeDecimal>0):
-            if(iDigitsPrintable==0):
-                strRet+='0'
-            else:
-                strRet+=str(digitBuffer[i])
-                i+=1
-                iDigitsPrintable-=1
-
-            iDigitsBeforeDecimal-=1
-
-        if(iDigitsPrintable==0):
-            return strRet
-            
-        strRet+='.'
-        iDigitsBeforeDecimal*=-1
-        while(iDigitsBeforeDecimal>0):
-            strRet+='0'
-            iDigitsBeforeDecimal-=1
-
-        iDigitsBeforeDecimal=iDigitsPrintable
-
-
-
 
 class SpectrumNumberComponents:
     """

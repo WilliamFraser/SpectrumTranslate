@@ -247,6 +247,7 @@ def get_TapBlock_from_file(tapfile,position=0):
     The position variable is not used to read the tap block, only so that it can be found again if needed.
     If you don't need to know where a tap block was in the file, them you can safely ignore this.
     """ 
+    
     tb=SpectrumTapBlock(filePosition=position)
 
     #read 2 byte tap block length

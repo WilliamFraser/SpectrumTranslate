@@ -4,7 +4,7 @@ import os
 import spectrumtapblock
 import disciplefile
 import spectrumtranslate
-from PyQt4 import QtGui,QtCore
+from PyQt4 import QtGui,QtCore,QtWebKit
 from operator import itemgetter
 
 #lambda to make life simpler
@@ -612,7 +612,6 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             
         self.CheckIfKnownContainerFile()
 
-        
     def buttonPressed(self,button):
         #browse to find input file
         if(button==self.bBrowse):
@@ -810,6 +809,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         lay.addWidget(close)
         close.clicked.connect(dContainer.reject)
         lay.addStretch(1)
+        helpbutton=QtGui.QPushButton("Help",self)
+        lay.addWidget(helpbutton)
+        helpbutton.clicked.connect(self.DisplayInstructionsHelp)
 
         grid.addLayout(lay,12,0,2,0)
 
@@ -829,7 +831,42 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             self.diInstructions=[None]+[lwInstructions.item(i).di for i in range(lwInstructions.count())]
 
         del self.Ddialog
-    
+
+    def DisplayInstructionsHelp(self):
+        #create dialog
+        dContainer=QtGui.QDialog(self)
+        dContainer.setWindowTitle("Disassemble Instructions Help")
+        dContainer.setModal(True)
+
+        lay=QtGui.QVBoxLayout()
+
+        view=QtWebKit.QWebView(self)
+        lay.addWidget(view)
+        view.setUrl(QtCore.QUrl("DisassembleInstructionHelp.html"))
+
+        lay2=QtGui.QHBoxLayout()
+        lay2.addStretch(1)
+        ok=QtGui.QPushButton("Ok",self)
+        lay2.addWidget(ok)
+        ok.clicked.connect(dContainer.accept)
+        back=QtGui.QPushButton("back",self)
+        lay2.addWidget(back)
+        back.clicked.connect(view.back)
+        foreward=QtGui.QPushButton("foreward",self)
+        lay2.addWidget(foreward)
+        foreward.clicked.connect(view.forward)
+        lay2.addStretch(1)
+
+        lay.addLayout(lay2)
+
+        dContainer.setLayout(lay)
+        
+        #set to same size as parent
+        dContainer.setGeometry(self.geometry())
+
+        #run dialog
+        dContainer.exec_()
+
     def CustomDisassembleEdit(self):
         lwInstructions=self.Ddialog.lwInstructions
         di=lwInstructions.currentItem().di

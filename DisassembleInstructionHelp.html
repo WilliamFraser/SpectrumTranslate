@@ -1,0 +1,355 @@
+<html>
+    <head><Title>DisassembleInstruction details</Title></head>
+    <body>
+<center><h1>Disassembly Instructions</h1></center>
+<p>These instructions tell SpectrumTranslate how to alter the way it disassembles machine code.
+They can alter the formats of how the disassembler displays line numbers, the machine code, numbers, where
+to put line spacers, how you want to specify seperators between different parts of the output, how you want
+your line numbers displayed, if you want to list command timing, flags, etc.
+</p><p>
+They also allow you to specify data areas in the machine code. There are several in-built data formats, and
+you can specify your own if there isn't one to suit your needs. There is even the option to tell the disassembler
+to look for certain paterns and treat the area around it as data (usefull for where the data for a subroutine
+follows the call to that subroutine for example).
+</p>
+<p>
+Each Disassembly Instruction contains several atributes that tell the disasseblber how to interperate it.
+They are:
+<ul>
+    <li><strong>The instruction</strong> - this tells the disassebbler what to do. It needs to be one of the predefined values.</li>
+    <li><strong>The start address</strong>strong> - this is the first address (inclusive) to start applying the DisassembleInstruction from, or 0 if to apply to all the data.</li>
+    <li><strong>The End address</strong>strong> - the last address (inclusive) to apply the Disassemble Instruction to. The address after this will be the fist one not afected by this Disassemble Instruction. As the Spectrum is a 16 bit computer, 0xFFFF or 65535 is the last address. Use a number biger than this to ensure it aplies to the end of data.</li>
+    <li><strong>Extra data</strong>strong> - his holds data used for data blocks, and specialised commands.</li>
+</ul>
+</p>
+
+<p>
+The predefined instructions that can be used are as follows:
+<li><strong>Address Output Format Hex</strong>strong> - Sets the disassembler to output addresses in Hexadecimal format.</li>
+<li><strong>Address Output Format Decimal</strong>strong> - Sets the disassembler to output address in decimal format.</li>
+<li><strong>Address Output Format Octal</strong> - Sets the disassembler to output address in octal format.</li>
+<li><strong>Address Output Format Binary</strong> - Sets the disassembler to output address in binary format.</li>
+<li><strong>Number Output Format Hex</strong> - Sets the disassembler to output numbers in Hexadecimal format.</li>
+<li><strong>Number Output Format Decimal</strong> - Sets the disassembler to output numbers in decimal format.</li>
+<li><strong>Number Output Format Octal</strong> - Sets the disassembler to output numbers in octal format.</li>
+<li><strong>Number Output Format Binary</strong> - Sets the disassembler to output numbers in binary format.</li>
+<li><strong>Command Output Format Hex</strong> - Sets the disassembler to output bytes of the machine code commands in Hexadecimal format.</li>
+<li><strong>Command Output Format Decimal</strong> - Sets the disassembler to output bytes of the machine code commands in decimal format.</li>
+<li><strong>Command Output Format Octal</strong> - Sets the disassembler to output bytes of the machine code commands in octal format.</li>
+<li><strong>Command Output Format Binary</strong> - Sets the disassembler to output bytes of the machine code commands in binary format.</li>
+<li><strong>Output T States Format None</strong> - Sets the disassembler to output no timing information in the comment section. These are only displayed if comments are enabled.</li>
+<li><strong>Output T States Format Total</strong> - Sets the disassembler to output the total time of a command (where known) in T states. These are only displayed if comments are enabled.</li>
+<li><strong>Output T States Format List States</strong> - Sets the disassembler to output the time of a command (where known) in individual machine cycle states. These are only displayed if comments are enabled.</li>
+<li><strong>Output T States Format List All</strong> - Sets the disassembler to output the total time of a command (where known) in T states, and the machine cycle states. These are only displayed if comments are enabled.</li>
+<li><strong>Line After Jump None</strong> - Sets the disassembler to output no empty lines after a jump or return.</li>
+<li><strong>Line After Jump After Absolute</strong> - Sets the disassembler to output an empty lines after an unconditional jump or return. This can make it easier to see where functions end.</li>
+<li><strong>Line After Jump After All</strong> - Sets the disassembler to output an empty lines after all jumps or returns. This can make it easier to see where functions end.</li>
+<li><strong>Default Format Hex</strong> - Sets the disassembler back to the default formatting settings, and with addresses, numbers, and command bytes to Hexadecimal. Default format consists of display command times off, having a blank line after absolute jumps or returns, display address of every line number, have an empty line after every data block, use numbers in data as references, display the bytes of commands on, display comments on, use 2 spaces as separators for parts of output, don't display flags afected by a command, and do not make note of undocumented commands.</li>
+<li><strong>Default Format Decimal</strong> - Sets the disassembler back to the default formatting settings, and with addresses, numbers, and command bytes to decimal. Default format consists of display command times off, having a blank line after absolute jumps or returns, display address of every line number, have an empty line after every data block, use numbers in data as references, display the bytes of commands on, display comments on, use 2 spaces as separators for parts of output, don't display flags afected by a command, and do not make note of undocumented commands.</li>
+<li><strong>Default Format Octal</strong> - Sets the disassembler back to the default formatting settings, and with addresses, numbers, and command bytes to octal. Default format consists of display command times off, having a blank line after absolute jumps or returns, display address of every line number, have an empty line after every data block, use numbers in data as references, display the bytes of commands on, display comments on, use 2 spaces as separators for parts of output, don't display flags afected by a command, and do not make note of undocumented commands.</li>
+<li><strong>Default Format Binary</strong> - Sets the disassembler back to the default formatting settings, and with addresses, numbers, and command bytes to binary. Default format consists of display command times off, having a blank line after absolute jumps or returns, display address of every line number, have an empty line after every data block, use numbers in data as references, display the bytes of commands on, display comments on, use 2 spaces as separators for parts of output, don't display flags afected by a command, and do not make note of undocumented commands.</li>
+<li><strong>Custom Format</strong> - Sets the disassembler format settings all in one go. For this type of DisassembleInstruction there needs to be data. This is a String of the hexadecimal representation of a number made up of the various settings. Use the Edit Data button to edit these settings.</li>
+<li><strong>Line Numbers All</strong> - This tells the disassembler that you want every line with a command to display the address of that command. This makes it easy to see where a command is in the memory, but can make it harder to pick out lines that are referenced elsewhere.</li>
+<li><strong>Line Numbers None</strong> - This tells the disassembler not to display any addresses for command lines. This is overridden by the <strong>Line Number Every X</strong> setting, so it's still possible to get line addresses.</li>
+<li><strong>Line Numbers Referenced</strong> - This tells the disassembler to only display line addresses for commands that are referenced elsewhere. References are jump, or call commands. They can be values in commands dealing with addresses, and can be in data blocks also.</li>
+<li><strong>Line Number Every X</strong> - This tells the disassembler to display the address of a command at least every X lines. X can be a number from 1 to 255. The value of X is set in the data of the DisassembleInstruction as a 2 digit hexadecimal number. If X is 0 it will turn off displaying any aditional lines. This command will list lines in addition to lines listed by the other Line Numbers commands. Use the Edit Data button to edit X.</li>
+<li><strong>Empty Line After Data On</strong> - This tells the disassembler to insert a blank line after every data block. This can aid in making the resulting text more readable.</li>
+<li><strong>Empty Line After Data Off</strong> - This turns off displaying an empty line after a data block.</li>
+<li><strong>Reference Data Numbers On</strong> - This tells the disassembler to treat 2 byte numbers in data or used in arguments in commands as references to command lines. Depending on what Line Numbers mode has been set to, these will or won't then be referenced as described in <strong>Line Numbers All</strong>, <strong>Line Numbers None</strong>, and <strong>Line Numbers Referenced</strong>.</li>
+<li><strong>Reference Data Numbers Off</strong> - This tells the disassembler not to treat 2 byte numbers in data or used in arguments in commands as references to command lines.</li>
+<li><strong>List Command Bytes On</strong> - This tells the disassembler to display the bytes of a machine code command in the disassembly.</li>
+<li><strong>List Command Bytes Off</strong> - This tells the disassembler not to display the bytes of a machine code command in the disassembly.</li>
+<li><strong>Comments On</strong> - This tells the disassembler to include comments after every command. Comments are where timeing, flag changes, and undocumented commands are noted.</li>
+<li><strong>Comments Off</strong> - This tells the disassembler not to include comments after every command. Comments are where timeing, flag changes, and undocumented commands are noted. These will not be displayed if comments are switched off.</li>
+<li><strong>Seperators Space</strong> - This tells the disassembler to use 2 spaces as the seperator for the various fields that the disassembler outputs. Fields are line address, command bytes, Assembly command, and comments.</li>
+<li><strong>Seperators Tab</strong> - This tells the disassembler to use a tab as the seperator for the various fields that the disassembler outputs. Fields are line address, command bytes, Assembly command, and comments. This is useful if you want to import the output into some other program like a spreadsheet.</li>
+<li><strong>Display Flags Off</strong> - This tells the disassembler not to note what effect a command has on the Flags in the comment section. These would only displayed if comments are enabled.</li>
+<li><strong>Display Flags On</strong> - This tells the disassembler to note what effect a command has on the Flags in the comment section. These are only displayed if comments are enabled.</li>
+<li><strong>Mark Undocumented Command Off</strong> - This tells the disassembler to note if a command is undocumented or not in the comment section. These are only displayed if comments are enabled.</li>
+<li><strong>Mark Undocumented Command On</strong> - This tells the disassembler not to note if a command is undocumented or not in the comment section. These are only displayed if comments are enabled.</li>
+<li><strong>Reference Line</strong> - This tells the disassembler to record the address in start as a referenced address. This will then be listed in the output.</li>
+<li><strong>Data Block</strong> - This DisassembleInstruction instructs the disassembler to display the data from start, up to and including end acording to the instructions in the data. These instructions are given in a simple scripting language (<a href="#scipting">see below</a>). Also see the <a href="#DataBlocks">Predefined Data Blocks</a> to use with this instruction.</li>
+<li><strong>Pattern Data Block</strong> - This Disassemble Instruction is used to tell the disassembler to search for certain patterns in the data or
+code, and apply a script to all of them. This is useful especially when a call to a routine has inline data
+after it (see example below), or has data being loaded into a register before it. The instruction's must have
+2 code blocks followed by whatever script you want executed on each bit you've matched. The first code block
+must contain a test to be run on each address from the start to the end specified by the Instruction
+with variable 0, line address, start position, and current address all being the current address, and variable 1
+and end pos being the end position. Note that if you are having to test the address after the current address,
+or the one after that, that you will need to end the Instruction earlier because othewise you might
+test bytes after the end of the code you're disassembling and cause an exception. If the test block returns true then the
+next block is executed with variable 0 being set to the address that matched, and variable 1 being set to the end
+of the intruction end value. These may be changed so that variable 0 points to the start and
+variable 1 to the end of the actual data you want to display. For example if you are calling a routine and the
+data is inline after the call, then you will need to find the call, and add 3 to variable 0 to point to the
+address after the 3 byte call command. Internally a <strong>Data Block</strong> Instruction is created for
+each match with the start set to variable 0 after the preperation code block, end set to
+variable 1 after the preperation code block, and data set to whatever comes after the 2 code blocks.
+You don't have to calculate the end position in variable 1 if you don't want to, and can use the %Q instruction
+in the script to end the data processing for the match instead of relying on end to terminate the
+script if you want to. See Below for details of scripts. See this <a href="#PatternExample">example of how patterns work</a>.</li>
+</p>
+
+<a id="scipting"><center><h2>Data Block (and Pattern Data Block) instruction scripting.</h2></center></a>
+<p>The data that holds the instructions are carried out from the first character moving to
+the end of the data. Each character in turn is displayed (other than space, new line, or tabs) with the
+exception of '%'. This is an 'escape code' which instructs the disassembler that the next character is an
+instruction, which may process more characters as data before resuming looking for characters to
+output as normal. If the end of the data is reached and the disassembler has not reached the end address
+for the DisassembleInstruction, then it starts a new line, and starts processing again from the first
+character of the data.</p>
+<p>To help process the data, the scripting language has access to 16 (numbered 0 to 15), 16bit variables. There are
+10 general purpose variables that can be used for anything. There are some that can't be changed such as the
+start address for the current line, the line number (incremented every time a new line is started), and the
+start address for the Instruction. There are also some that can be changed such as the offset in
+bytes from the start of the line, the current address, and the end address for the Instruction
+(which allows the Instruction to end the data block early and will override the origional end value).
+The current address is used to tell the disassembler when to end the data block (when it has passed the end
+address). The current address and the offset from the start of the line are linked. If you change one, then
+the other automatically will be updated. The variables are referenced by number. 0 to 9 are the general purpose
+variables. The address of the line is 10, and the line number is 11. The offset from the start of the line is
+12. The start position of the DisassembleInstruction is held in 13. The end position of the
+DisassembleInstruction is in 14. The current position is in 15.</p>
+<h3>Formatting instructions are:</h3>
+<p><ul>
+<li><code><strong>%F00XX</strong></code> - This sets the number output format depending on the hexadecimal value in XX (where XX is a
+2 digit hexadecimal number). 0 will set the format to Hexadecimal, 1 to decimal, 2 to octal, 3 to binary,
+4 to the format currently used for machine code addresses, 5 for the format used by the disassembler to
+display numbers, and 6 to use the format used by the disassembler to display the bytes of commands.</li>
+<li><code><strong>%F01XX</strong></code> - This sets the number output mode to be signed or unsigned. XX is 00 to set to output unsigned, and
+01 to set to output numbers signed.</li>
+<li><code><strong>%F02XX</strong></code> - This sets how the disassembler extracts 16 bit numbers from memory. Typically on the Spectrum
+the least significant byte (the low 8 bits of the number) is in the first or lowest of the 2 bytes (bits 0 to 7), and the
+most significant byte (bits 8 to 15) is in the second or highest of the 2 bytes. If XX is 00 then the
+disassembler expects the bytes to be aranged least significant first. If you are dealing with numbers where
+the most significant byte is stored first in the lower memory address, then set XX to 01 and the disassembler
+will extract the number for you in this way.</li>
+<li><code><strong>%F03XXXX</strong></code> - This tells the disassebler to display the line address every XXXX lines where XXXX is a 4 digit
+hexadecimal number. The default is every 1 line.</li>
+<li><code><strong>%F04XX</strong></code> - This sets the seperator mode for this data block only. Where XX is 00 it is set to being 2
+spaces, 01 to a tab, and 02 to the seperator mode for the machine code disassembler.</li>
+</ul></p>
+<h3>Output instructions are:</h3>
+<p><ul>
+<li><code><strong>%BXX????</strong></code> - This instructs the disassembler to output an 8 bit number acording to the current format.
+If XX is FF then there should be a further 4 digit hexadecimal number (????) which holds the address of the byte
+to display. Otherwise XX is treated as a 2 digit hexadecimal number, with the low 6 bits being the variable to
+use. If bit 6 is 0 then the variable is incremented by 1 after the byte is displayed (or 1 if it's not to be
+incremeted), and bit 7 should hold 0 if the variable is holding an address, the contents of which should be
+outputted, or 1 if the value of the variable should be outputted.</li>
+<li><code><strong>%WXX????</strong></code> - This instructs the disassembler to output a 16 bit number acording to the current format.
+If XX is FF then there should be a further 4 digit hexadecimal number (????) which holds the address of the low
+byte of the 16 bit value to display. Otherwise XX is treated as a 2 digit hexadecimal number, with the low 6
+bits being the variable to use. If bit 6 is 0 then the variable is incremented by 2 after the word is displayed
+(or 1 if it's not to be incremeted), and bit 7 should hold 0 if the variable is holding an address, the contents
+of which should be outputted, or 1 if the value of the variable should be outputted.</li>
+<li><code><strong>%AXX????</strong></code> - This is the same as <code><strong>%WXX????</strong></code>, except is designed to output an address. As such
+the number is output unsigned regardless of current formating, and will have spaces around it so it lines up
+with other addresses at the start of a line.</li>
+<li><code><strong>%CXX????</strong></code> - This is the same as <code><strong>%BXX????</strong></code>, except it outputs a Spectrum character. If the
+value is not a displayable Spectrum character, then it's 2 digit hexadecimal number is output instead.</li>
+<li><code><strong>%GXX????</strong></code> - This instructs the disassembler to output a 5 byte Spectrum floating point number.
+If XX is FF then there should be a further 4 digit hexadecimal number (????) which holds the address of the low
+byte of the 5 byte value to display. Otherwise XX is treated as a 2 digit hexadecimal number, with the low 6
+bits being the variable to use. If bit 6 is 0 then the variable is incremented by 5 after the number is
+displayed (or 1 if it's not to be incremeted), and bit 7 should hold 0.</li>
+<li><code><strong>%%</strong></code> - This outputs a single '%'.</li>
+<li><code><strong>%S</strong></code> - This outputs the current seperator.</li>
+<li><code><strong>%N</strong></code> - This outputs a new line character.</li>
+<li><code><strong>'% '</strong></code> - If a '%' is followed by a space then a space is outputted.</li>
+<li><code><strong>%T</strong></code> - This outputs a tab.</li>
+</ul></p>
+
+<h3>Mathematical instructions</h3>
+<p>
+The mathematical instructions all have a destination variable to put their result in. This is specified in a 2
+digit hexadecimal number. After the 2 digit hexacecimal number specifying which mathematical function to
+perform, and the 2 digit hexadecimal number specifying the destination for the result, there are one or two
+arguments. These arguments can be one of the 16 variables (indicated by %VXX where XX is the 2 digit hexadecimal
+number of the variable), an absolute value (indicated by XXXX a 4 digit hexadecimal number), or the contents of
+a memory address. A memory address can be indicated by %M?XXXX where XXXX is the 4 digit hexadecimal number of
+where to get the value from, and ? is W if we are getting a 2 byte number or nothing if we are getting a byte.
+If we are getting a 2 byte word then where the least significant and most significant bytes are is indicated
+by the current format setting. You can also use the variables to specify which memory address to use. The way to
+specify this is %M?VXX where XX is the 2 digit hexadecimal number of the variable to use, and ? is W if we are
+extracting a 2 byte word, or nothing if we are extracting a byte.</p>
+<p>The mathematical instructions are:</p>
+<p><ul>
+<li><code><strong>%X01XXArgument1</strong></code> - This sets the variable XX to the value of Argument1.</li>
+<li><code><strong>%X02XXArgument1Argument2</strong></code> - This adds Argument1 to Argument2 and puts the result in XX.</li>
+<li><code><strong>%X03XXArgument1Argument2</strong></code> - This subtracts Argument2 from Argument1 and puts the result in XX.</li>
+<li><code><strong>%X04XXArgument1Argument2</strong></code> - This multiplies Argument1 by Argument2 and puts the result in XX.</li>
+<li><code><strong>%X05XXArgument1Argument2</strong></code> - This Divides Argument1 by Argument2 and puts the result in XX.</li>
+<li><code><strong>%X06XXArgument1Argument2</strong></code> - This gets the modulus of dividing Argument1 by Argument2 and stores it
+in XX.</li>
+<li><code><strong>%X07XXArgument1Argument2</strong></code> - This does a binary AND between Argument1 and Argument2.</li>
+<li><code><strong>%X08XXArgument1Argument2</strong></code> - This does a binary OR between Argument1 and Argument2.</li>
+<li><code><strong>%X09XXArgument1Argument2</strong></code> - This does a binary XOR between Argument1 and Argument2.</li>
+</ul></p>
+
+<h3>Comparison instructions</h3>
+Comparison are used to change the boolean state (either true or false) of the current block of scripting
+instructions. This state is then used to determine whether a loop is repeated, or whether a block of script
+is executed or not. Each code block starts off with it's boolean state set to false, and with a combination
+mode of boolean OR. The result of subsequent comparisons are then combined with the current boolean state as
+per the combination mode. So if you compare something and it's TRUE then this is combined with the current
+state which starts as FALSE, with the default combination mode of OR, the result is FALSE OR TRUE which is
+boolean TRUE. These commands can be mixed up with other scripting commands (or even normal text to output)
+which is executed in the meantime. If the script is in a test block (in an if test block, in the test block of
+a loop, or in the test block of a <code><strong>Pattern Data Block</strong></code>, then the outcome is certain the block will exit
+imediately (for example if the current boolean state is TRUE, and the current combination mode is OR, then the
+only result is TRUE, so as soon as another comparison is reached the block ends TRUE. The same is true for
+boolean state FALSE and combination mode AND). Other blocks will execute fully. Comparisons work on 2 arguments
+which are the same as the arguments in the mathematical instructions.</p>
+<p>The comparison instructions are:</p>
+<p><ul>
+<li><code><strong>%?LTArgument1Argument2</strong></code> - True if Argument1 is less than Argument2.</li>
+<li><code><strong>%?MTArgument1Argument2</strong></code> - True if Argument1 is more than Argument2.</li>
+<li><code><strong>%?EQArgument1Argument2</strong></code> - True if Argument1 is equal to Argument2.</li>
+<li><code><strong>%?LEArgument1Argument2</strong></code> - True if Argument1 is less than or equal to Argument2.</li>
+<li><code><strong>%?MEArgument1Argument2</strong></code> - True if Argument1 is more than or equal to Argument2.</li>
+<li><code><strong>%?NEArgument1Argument2</strong></code> - True if Argument1 is not equal to Argument2.</li>
+<li><code><strong>%?BA</strong></code> - Set boolean combine mode to AND.</li>
+<li><code><strong>%?BO</strong></code> - Set boolean combine mode to OR.</li>
+<li><code><strong>%?BX</strong></code> - Set boolean combine mode to XOR.</li>
+</ul></p>
+
+<h3>Commands that control thee flow of execution through the script</h3>
+<p><ul>
+<li><code><strong>%(</strong></code> - This is the start of a code block and must be matched by a coresponding %). These are used to
+hold boolean tests for if commands, loop decisions, and for the test for a <code><strong>Pattern Data Block</strong></code>. The script
+is processed as described in the comparison instruction section above. code blocks are also used to hold
+instructions such as what to do in a loop, what to do if an if or else is true, and as the setup phase of a
+<code><strong>Pattern Data Block</strong></code>.</li>
+<li><code><strong>%)</strong></code> - This marks the end of a code block.</li>
+<li><code><strong>%I</strong></code> - This is the if command. It must be followed by 2 code blocks. The first is a test to check if a
+certain condition or set of conditions are true, and the second code block is what to execute if it is true. If
+the test is false, the disassembler simply moves to the end of the 2nd code block.</li>
+<li><code><strong>%J</strong></code> - This is the else command. It can only follow an if command's 2nd code block, and is executed if
+the if test is not true, otherwise execution of the script moves to the end of the else command's code block.</li>
+<li><code><strong>%L</strong></code> - This is the loop command. It must have 2 code blocks following it, the first being the test,
+and the second what to do during each loop. It is essentially a simple while() loop.</li>
+<li><code><strong>%Y</strong></code> - This is the break command. If encountered it will leave the current loop.</li>
+<li><code><strong>%Z</strong></code> - This is the continue command. If encountered, it will move the scipt interpretation back to
+the test block, and potentially carry on looping.</li>
+<li><code><strong>%E</strong></code> - This command tels the script interpreter to finish interpreting the current line. It will
+start again interpreting at the start of the script instructions on a new line.</li>
+<li><code><strong>%Q</strong></code> - This command ends the block of data being interpreted by this DisassembleInstruction. It sets
+the end value to the current position, and leaves the DisassembleInstruction.</li>
+</ul></p>
+
+<h3>Miscelanious commands:</h3>
+<p><ul>
+<li><code><strong>%#</strong></code> - This denotes that everything after this until the end of a line is a comment.</li>
+</ul></p>
+
+<p>For examples of the scripting language I advise you to look at the source code for the DisassembleInstruction
+class. There are several pre-defined scripts that cover many simple data formatting types.</p>
+
+
+<a id="DataBlocks"><center><h2>Predefined Data Blocks.</h2></center></a>
+<p>There are several predefined Data blocks for use with a <strong><code>Data Block</code></strong> instruction.
+These allow you to quickly format common data representations, rather than haveing to generate your own
+custom ones.</p>
+<p>The predefined data blocks are:</p>
+<p><ul>
+<li><code><strong>Define Byte Hex</strong></code> - This is a predefined String that is used for a block of define bytes in hexadecimal format.</li>
+<li><code><strong>Define Byte Decimal</strong></code> - This is a predefined String that is used for a block of define bytes in decimal format.</li>
+<li><code><strong>Define Byte Octal</strong></code> - This is a predefined String that is used for a block of define bytes in octal format.</li>
+<li><code><strong>Define Byte Binary</strong></code> - This is a predefined String that is used for a block of define bytes in binary format.</li>
+<li><code><strong>Define Byte</strong></code> - This is a predefined String that is used for a block of define bytes in hexadecimal format.</li>
+<li><code><strong>Signed Byte Hex</strong></code> - This is a predefined String that is used  for a block of define signed bytes in hexadecimal format.</li>
+<li><code><strong>Signed Byte Decimal</strong></code> - This is a predefined String that is used  for a block of define signed bytes in decimal format.</li>
+<li><code><strong>Signed Byte Octal</strong></code> - This is a predefined String that is used  for a block of define signed bytes in octal format.</li>
+<li><code><strong>Signed Byte Binary</strong></code> - This is a predefined String that is used  for a block of define signed bytes in binary format.</li>
+<li><code><strong>Signed Byte</strong></code> - This is a predefined String that is used  for a block of define signed bytes in hexadecimal format.</li>
+<li><code><strong>Define Word Hex</strong></code> - This is a predefined String that is used for a block of define word (16 bit number) in hexadecimal format.</li>
+<li><code><strong>Define Word Decimal</strong></code> - This is a predefined String that is used for a block of define word (16 bit number) in decimal format.</li>
+<li><code><strong>Define Word Octal</strong></code> - This is a predefined String that is used for a block of define word (16 bit number) in octal format.</li>
+<li><code><strong>Define Word Binary</strong></code> - This is a predefined String that is used for a block of define word (16 bit number) in binary format.</li>
+<li><code><strong>Define Word</strong></code> - This is a predefined String that is used for a block of define word (16 bit number) in hexadecimal format.</li>
+<li><code><strong>Signed Word Hex</strong></code> - This is a predefined String that is used for a block of define signed word (16 bit number) in hexadecimal format.</li>
+<li><code><strong>Signed Word Decimal</strong></code> - This is a predefined String that is used for a block of define signed word (16 bit number) in decimal format.</li>
+<li><code><strong>Signed Word Octal</strong></code> - This is a predefined String that is used for a block of define signed word (16 bit number) in octal format.</li>
+<li><code><strong>Signed Word Binary</strong></code> - This is a predefined String that is used for a block of define signed word (16 bit number) in binary format.</li>
+<li><code><strong>Signed Word</strong></code> - This is a predefined String that is used for a block of define signed word (16 bit number) in hexadecimal format.</li>
+<li><code><strong>Define Word BigEndian Hex</strong></code> - This is a predefined String that is used for a block of define word big endian (16 bit number with high byte first) in hexadecimal format.</li>
+<li><code><strong>Define Word BigEndian Decimal</strong></code> - This is a predefined String that is used for a block of define word big endian (16 bit number with high byte first) in decimal format.</li>
+<li><code><strong>Define Word BigEndian Octal</strong></code> - This is a predefined String that is used for a block of define word big endian (16 bit number with high byte first) in octal format.</li>
+<li><code><strong>Define Word BigEndian Binary</strong></code> - This is a predefined String that is used for a block of define word big endian (16 bit number with high byte first) in binary format.</li>
+<li><code><strong>Define Word BigEndian</strong></code> - This is a predefined String that is used for a block of define word big endian (16 bit number with high byte first) in hexadecimal format.</li>
+<li><code><strong>Signed Word BigEndian Hex</strong></code> - This is a predefined String that is used for a block of define signed word big endian (16 bit number with high byte first) in hexadecimal format.</li>
+<li><code><strong>Signed Word BigEndian Decimal</strong></code> - This is a predefined String that is used for a block of define signed word big endian (16 bit number with high byte first) in decimal format.</li>
+<li><code><strong>Signed Word BigEndian Octal</strong></code> - This is a predefined String that is used for a block of define signed word big endian (16 bit number with high byte first) in octal format.</li>
+<li><code><strong>Signed Word BigEndian Binary</strong></code> - This is a predefined String that is used for a block of define signed word big endian (16 bit number with high byte first) in binary format.</li>
+<li><code><strong>Signed Word BigEndian</strong></code> - This is a predefined String that is used for a block of define signed word big endian (16 bit number with high byte first) in hexadecimal format.</li>
+<li><code><strong>Define Message</strong></code> - This is a predefined String that is used for a block of text. DM stands for define Message.</li>
+<li><code><strong>Define Message zero terminated</strong></code> - This is a predefined String that is used for a null terminated block of text. DM0 stands for Define Message 0 terminated.</li>
+<li><code><strong>Define Message bit 7 terminated</strong></code> - This is a predefined String that is used for a block of text where the last character of the text has bit 7 set (like the table in the 48K Spectrum ROM listing command names). DM7 stands for Define Message bit 7 set terminated.</li>
+<li><code><strong>Define Message Length Byte</strong></code> - This is a predefined String that is used for a block of text, the length of which is specified by a single byte at the start of the text. DMLB stands for define message length byte.</li>
+<li><code><strong>Define Message Length Word</strong></code> - This is a predefined String that is used for a block of text, the length of which is specified by a 2 byte number at the start of the text. DMLW stands for define message length word.</li>
+<li><code><strong>Define Message Length Word Bigendian</strong></code> - This is a predefined String that is used for a block of text, the length of which is specified by a 2 byte number (high byte first) at the start of the text. DMLWBE stands for define message length word big endian.</li>
+</ul></p>
+
+<a id="PatternDataBlocks"><center><h2>Predefined Pattern Data Blocks.</h2></center></a>
+<p>There are two predefined <code><strong>Pattern Data Blocks</strong></code> for common use rather than
+haveing to create your own.</p>
+<p>The predefined data blocks are:</p>
+<p><ul>
+<li><code><strong>RST#08 (Error)</strong></code> - This is predefined data that can be used to look for RST #08 command used in the  Spectrum for displaying error commands. There is always a single byte after the RST #08 specifying which error message to display. Beware that the code for RST #08 (#CF) can occur as part of other data and commands so if used indiscriminately this can change data that isn't actually a RST #08 command.</li>
+<li><code><strong>RST#28 (Calculator)</strong></code> - This is predefined data that can be used to look for RST #28 command used in the  Spectrum for starting the floating point calculator. There always follows byte commands for the calculator, which are terminated by a #38 byte. Beware that the code for RST #28 (#DF) can occur as part of other data and commands so if used indiscriminately this can change data that isn't actually a RST #28 command.</li>
+</ul></p>
+    
+    
+<a id="PatternExample"><center><h2>Pattern Data Block example.</h2></center></a>
+<p>Here is an example that works on the machine code for the game Colony where a routine at 0xC123 prints text
+following the call statement until a zero byte is found. This will search out each instance of the machine
+code instruction to CALL #C123 and decrypt the text afterwards stopping at a zero byte:</p>
+<p><code>
+%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start test block <br/>
+&nbsp;&nbsp;%?EQ%MWV0F23CD;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#do the first 2 bytes equal 0xCD,0x23 ( remember Z80 is little endian <br/>
+&nbsp;&nbsp;%X0200%V0F0002;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#var0=current address+2 <br/>
+&nbsp;&nbsp;%?BA&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#and mode <br/>
+&nbsp;&nbsp;%?EQ%MV0000C1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#does the byte at current address+2==0xC1 <br/>
+%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end of test block <br/>
+%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start of preperation block <br/>
+&nbsp;&nbsp;%X0200%V000003&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#add 3 to var0 to move to 1st byte after call command <br/>
+&nbsp;&nbsp;%X0101%V00&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#let var1=var0 <br/>
+&nbsp;&nbsp;%L%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#loop <br/>
+&nbsp;&nbsp;&nbsp;&nbsp;%?NE%MV010000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#while the memory address pointed to by var1 does not equal 0 <br/>
+&nbsp;&nbsp;%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end or loop while test <br/>
+&nbsp;&nbsp;%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start of loop do block <br/>
+&nbsp;&nbsp;&nbsp;&nbsp;%X0201%V010001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#add 1 to var1 and store in var1 <br/>
+&nbsp;&nbsp;%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end of loop do block <br/>
+%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end of preperation block. Everything from here on will be executed for each match <br/>
+%F0004&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#set number format to address format <br/>
+%ACA&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#output as address, the line address itself, not incrementing the value <br/>
+%S%S DM0 %S&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#output 2 seperators (address-command bytes, and commandbytes-command), "DM0" and another seperator <br/>
+%X01000000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#var0=0. Used as a marker to see if in quotes or not <br/>
+%L%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start loop <br/>
+&nbsp;&nbsp;%?NE%MV0F0000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#while current address does not contain 0 <br/>
+%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end loop test <br/>
+%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start loop do <br/>
+&nbsp;&nbsp;%I%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#if in string and not printable character (below space, or above 127 &below commands) <br/>
+&nbsp;&nbsp;&nbsp;&nbsp;%(%?EQ%V000001 %?BA% (%?LT%MV0F0020%?BO%(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;%?BO&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#or not in string and printable (command, or between space and 128) <br/>
+&nbsp;&nbsp;&nbsp;&nbsp;%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%) <br/>
+&nbsp;&nbsp;%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end test for moving from printable character to unprintable or vice versa <br/>
+&nbsp;&nbsp;%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#if is true so do change <br/>
+&nbsp;&nbsp;&nbsp;&nbsp;\"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#print a '"' <br/>
+&nbsp;&nbsp;&nbsp;&nbsp;%X03000001%V00&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#take var0 from 1 and store in var0 (toggles var0)<br/>
+&nbsp;&nbsp;%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end if action <br/>
+&nbsp;&nbsp;%C0F&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#print the contents of what current position points to as a character and increment the current poisition <br/>
+%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end loop displaying characters <br/>
+%I%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#if <br/>
+&nbsp;&nbsp;%?EQ%V000001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#var0==1 ie still in a string <br/>
+%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end if test <br/>
+%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start if action <br/>
+&nbsp;&nbsp;\"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#output '"' <br/>
+%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end if action <br/>
+,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#output a comma<br/>
+%X020C%V0C0001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#increment the position in the line by one: move past the zero termiator<br/>
+#00&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#print "#00"
+</code></p>
+</body>
+</html>

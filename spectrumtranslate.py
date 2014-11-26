@@ -1,130 +1,4 @@
 import spectrumnumber
-"""
-
-/**
- * A class that will convert data into String representations of that Spectrum data.
- * It can also convert spectrum format images to java Image types.
- * It was written to convert data blocks from Spectrum emulator tape files into human readable output,
- * but can translate any spectrum file format presented to it as a byte array.
- * Formats it will convert are: Basic Programs, Machine Code into assembly (with a wide variety of
- * formatting options), number arrays, character arrays, string arrays, and screen data.
- *
- * @author William Fraser
- * @see DisassembleInstruction
- * @see DataFormatException
- */
-
-public class SpectrumFileTranslate {
-
-
-  /**
-   *  This method will disassemble a byte array holding Z80 code.
-   *
-   * @param d This is a byte array holding the data to disassemble.
-   * @param offset This is how far into the array to start disassembling.
-   * @param origin This is the address of the first byte in the byte array.
-   * @param length This is how many bytes to disassemble
-   * @return Returns a String representation of the data.
-   * @exception DataFormatException This may be thrown if there are any problems processing Disassembly instructions.
-   * @see DataFormatException
-   */
-  public static String Disassemble(byte[] d,int offset,int origin,int length) throws DataFormatException {
-     return Disassemble(d,offset,origin,length,null);
-   }
-
-//int Settings[]
-//0=datapos
-//1=NumberFormat
-//2=NumberSigned
-//3=NumberWordOrder
-//4=DisplayEveryXLines
-//5=Seperator
-//6=Origional Seperator mode
-//7=address where start decrypting data in byte[]
-  protected static final int DATASTRINGPOS=0;
-  private static final int NUMBERFORMAT=1;
-  private static final int NUMBERSIGNED=2;
-  private static final int NUMBERWORDORDER=3;
-  private static final int DISPLAYEVERYXLINES=4;
-  private static final int SEPERATOR=5;
-  private static final int ORIGIONALSEPERATOR=6;
-  private static final int ORIGIN=7;
-  private static final int ADDRESSOUTPUT=8;
-  private static final int NUMBEROUTPUT=9;
-  private static final int COMMANDOUTPUT=10;
-
-
-//int Settings[]
-//0=datapos
-//1=NumberFormat
-//2=NumberSigned
-//3=NumberWordOrder
-//4=DisplayEveryXLines
-//5=Seperator
-//6=Origional Seperator mode
-//7=address where start decrypting data in byte[]
-//8=origin of where start block
-
-//var[0-9]  %V00-%V09
-//line address (not changable)  %V0A
-//line number (not changable)   %V0B
-//offset from line start        %V0C
-//start pos (not changable)     %V0D
-//end pos                       %V0E
-//current pos (not changable)   %V0F
-
-
-
-  private static int GetLineLength(StringBuffer sb) {
-    int i=sb.lastIndexOf("\n");
-    if(i==-1) i=0;
-    return sb.length()-i;
-  }
-
-  //format: 0=hex,1=decimal,2=octal,3=binary
-  //typeindictor: ""for decimal, "#" for hex, "b" for binary, "o" for octal
-  private static String NumberToString(int n,int bits,int format,boolean typeindicator) {
-    StringBuffer sb=new StringBuffer();
-
-    switch(format) {
-      case 0:
-        sb.append(Integer.toHexString(n).toUpperCase());
-        bits>>=2;
-        while(sb.length()<bits) sb.insert(0,"0");
-        if(typeindicator) sb.insert(0,"#");
-        return sb.toString();
-      case 1:
-        return Integer.toString(n);
-      case 2:
-        sb.append(Integer.toOctalString(n));
-        bits=(bits+2)/3;
-        while(sb.length()<bits) sb.insert(0,"0");
-        if(typeindicator) sb.insert(0,"o");
-        return sb.toString();
-      case 3:
-        sb.append(Integer.toBinaryString(n));
-        while(sb.length()<bits) sb.insert(0,"0");
-        if(typeindicator) sb.insert(0,"b");
-        return sb.toString();
-      default:
-        return "";
-    }
-  }
-
-
-
-  private static String FormatHex(int i) {
-    String s=Integer.toHexString(i).toUpperCase();
-    return ((s.length()%2==1)?"0":"")+s;
-  }
-
-  private static int GetInt(byte l,byte h) {
-    return GetInt(l)+256*GetInt(h);
-  }
-  private static int GetInt(byte b) {
-    return (int)((b+256)&255);
-  }
-"""        
 
 #tables of all the opcodes
 Z80_OPCODES={
@@ -2245,6 +2119,15 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
         return 1 if boolState else 0, soutput
 
     def DisassembleDataBlock(start,end,commandline,Settings,data,ReferencedLineNumbers):
+        """
+        var[0-9]  %V00-%V09
+        line address (not changable)  %V0A
+        line number (not changable)   %V0B
+        offset from line start        %V0C
+        start pos (not changable)     %V0D
+        end pos                       %V0E
+        current pos (not changable)   %V0F
+        """
         Vars=[0,0,0,0,0,0,0,0,0,0,di.start,0,0,di.start,di.end]
         soutput=""
 
