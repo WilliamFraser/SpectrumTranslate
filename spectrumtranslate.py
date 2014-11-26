@@ -1534,9 +1534,19 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
                 #move to end of nested block
                 MoveToEndBlock(Vars,commands,Settings,commandstart)
 
+            #return if found end of block
             elif(s[0]==')'):
                 return
             
+            #if found comment, move to end of line
+            elif(s[0]=='#'):
+                #move position to new line character
+                Settings["DATASTRINGPOS"]=commands.find("\n",Settings["DATASTRINGPOS"])
+                #if newline not found,
+                if(Settings["DATASTRINGPOS"]==-1):
+                    #set to end of line
+                    Settings["DATASTRINGPOS"]=len(commands)
+                    
             #otherwise skip command
 
         #should always find end of block with close brackets, error if block not closed
