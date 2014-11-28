@@ -1509,6 +1509,29 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
         #loop until have requested number of non whitespace characters or hit end of commands
         while(len(s)<numberToGet and Settings["DATASTRINGPOS"]<len(commands)):
             c=commands[Settings["DATASTRINGPOS"]]
+
+            #if found comment, move to end of line
+            if(c=='%' and len(commands)>Settings["DATASTRINGPOS"]+1 and commands[Settings["DATASTRINGPOS"]+1]=="#"):
+                #check just incase have %%# which is display %#
+                escapes=1
+                #see how far back escapes go
+                while(escapes>Settings["DATASTRINGPOS"] and commands[Settings["DATASTRINGPOS"]-escapes]=="%"):
+                    escapes+=1
+                
+                #should have an odd number of escapes if this a comment
+                if(escapes&1==1):
+                    #move position to new line character
+                    Settings["DATASTRINGPOS"]=commands.find("\n",Settings["DATASTRINGPOS"])
+                    #if newline not found,
+                    if(Settings["DATASTRINGPOS"]==-1):
+                        #set to end of line
+                        Settings["DATASTRINGPOS"]=len(commands)
+                    
+                    #loop back to deal with next character    
+                    continue
+                
+                #otherwise is a hash to display
+
             if(c!=' ' and c!='\t' and c!='\n'):
                 s+=c
             Settings["DATASTRINGPOS"]+=1
@@ -1538,15 +1561,6 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
             elif(s[0]==')'):
                 return
             
-            #if found comment, move to end of line
-            elif(s[0]=='#'):
-                #move position to new line character
-                Settings["DATASTRINGPOS"]=commands.find("\n",Settings["DATASTRINGPOS"])
-                #if newline not found,
-                if(Settings["DATASTRINGPOS"]==-1):
-                    #set to end of line
-                    Settings["DATASTRINGPOS"]=len(commands)
-                    
             #otherwise skip command
 
         #should always find end of block with close brackets, error if block not closed
@@ -1680,7 +1694,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
             if(s[0]!='%'):
                 soutput+=get_spectrum_char(s[0])
                 continue
-          
+
             #get next char (command
             s=GetNextCharacters(commands,Settings,1)
           
@@ -2884,191 +2898,190 @@ class DisassembleInstruction:
         "Signed Word BigEndian Binary":"%F0004%ACA%S%SSWBE%S%F0003%F0101%F0201b%W0F",
         "Signed Word BigEndian":"%F0004%ACA%S%SSWBE%S%F0000%F0101%F0201#%W0F",
                                                 
-        "Define Message":("%F0004\n"
-            "%ACA\n"
-            "%S%S DM %S\n"
-            "%X01000000\n"
-            "%L%(\n"
-            "  %?LE%V0F%V0E\n"
-            "%)\n"
-            "%(\n"
-            "  %I%(\n"
-            "    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)\n"
-            "    %?BO\n"
-            "    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)\n"
-            "  %)\n"
-            "  %(\n"
-            "    \"\n"
-            "    %X03000001%V00\n"
-            "  %)\n"
-            "  %C0F\n"
-            "%)\n"
-            "%I%(\n"
-            "  %?EQ%V000001\n"
-            "%)\n"
-            "%(\n"
-            "  \"\n"
-            "%)"),
-        
-        "Define Message zero terminated":("%F0004\n"
-            "%ACA\n"
-            "%S%S DM0 %S\n"
-            "%X01000000\n"
-            "%L%(\n"
-            "  %?NE%MV0F0000\n"
-            "%)\n"
-            "%(\n"
-            "  %I%(\n"
-            "    %(%?EQ%V000001 %?BA% (%?LT%MV0F0020%?BO%(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)\n"
-            "    %?BO\n"
-            "    %(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)\n"
-            "  %)\n"
-            "  %(\n"
-            "    \"\n"
-            "    %X03000001%V00\n"
-            "  %)\n"
-            "  %C0F\n"
-            "%)\n"
-            "%I%(\n"
-            "  %?EQ%V000001\n"
-            "%)\n"
-            "%(\n"
-            "  \"\n"
-            "%)\n"
-            ",\n"
-            "%X020C%V0C0001\n"
-            "#00"),
-        "Define Message bit 7 terminated":("%F0004\n"   #number format to same as general address format
-            "%ACA\n"     #output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
-            "%S%S DM7 %S\n" #output seperator then "DM7" then another seperator
-            "%X01000000\n"  #set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
-            
-            "%L%(\n"        #enter while() do{} loop
-            "  %?EQ00000000\n" # 0==0: ie true. this will loop until loop is broken out of
-            "%)\n"             #end of while test
-            "%(\n"             #enter do part of loop
-            "  %X0701%MV0F007F\n"  #set var1 to contents of current position & 0x7F
-            "  %X0702%MV0F0080\n"  #set var2 to contents of current position & 0x80
-            "  %X020C%V0C0001\n"   #increment current position
-            "  %I%(\n"     #check if entering or leaving printable character
-            "    %( %?EQ%V000001 %?BA %?LT%V010020 %)\n" #if in quotes & var1<0x20
-            "    %?BO\n"   #or
-            "    %( %?EQ%V000000 %?BA %?MT%V01001F %)\n" #if not in quotes & var1>0x1F
-            "  %)\n" #end of if test
-            "  %(\n" #start of what to do if test true
-            "    \"\n" #output quotes
-            "    %X03000001%V00\n"   #set var0 to 1-var0 (so will set to 1 if was 0 and 0 if was 1: toggles if in quotes)
-            "  %)\n" #end if action
-            "  %CC1\n" #output character: var1 (what's at current position&0x7F) (bit 6=don't increment, bit7=contents of address pointer to by current address register)
-            "  %I%(\n" #start if
-            "    %?EQ%V020080\n" #is var2==0x80 (ie was bit 7 set in currentcharacter before incrementing?
-            "  %)\n" #end of if test
-            "  %(\n" #start of what to do if test true
-            "    %Y\n" #break out of loop: as have reached character with bit 7 set
-            "  %)\n" #end if action
-            "%)\n"   #end of loop
-            
-            "%I%(\n"  #start of if
-            "  %?EQ%V000001\n" #if var0==1 (is inside a quote)
-            "%)\n" #end of if test
-            "%(\n" #start of what to do if test true
-            "  \"\n" #print closing quote
-            "%)"), #end of what to do if test true
+        "Define Message":
+"""%F0004
+%ACA
+%S%S DM %S
+%X01000000
+%L%(
+  %?LE%V0F%V0E
+%)
+%(
+  %I%(
+    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)
+    %?BO
+    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)
+  %)
+  %(
+    "
+    %X03000001%V00
+  %)
+  %C0F
+%)
+%I%(
+  %?EQ%V000001
+%)
+%(
+  "
+%)""",
+        "Define Message zero terminated":
+"""%F0004
+%ACA
+%S%S DM0 %S
+%X01000000
+%L%(
+  %?NE%MV0F0000
+%)
+%(
+  %I%(
+    %(%?EQ%V000001 %?BA% (%?LT%MV0F0020%?BO%(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)
+    %?BO
+    %(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)
+  %)
+  %(
+    "
+    %X03000001%V00
+  %)
+  %C0F
+%)
+%I%(
+  %?EQ%V000001
+%)
+%(
+  "
+%)
+,
+%X020C%V0C0001
+#00""",
+        "Define Message bit 7 terminated":
+"""%F0004          %#number format to same as general address format
+%ACA               %#output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
+%S%S DM7 %S        %#output seperator then "DM7" then another seperator
+%X01000000         %#set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
 
-        "Define Message Length Byte":(
-            "%F0004\n" #number format to same as general address format
-            "%ACA\n"   #output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
-            "%S%S DMLB %S\n" #output seperator then "DM7" then another seperator
-            "%X01000000\n" #set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
-            "%X0101%MV0F\n" #var1 to contents of current address (number of bytes in string)
-            "%X020C%V0C0001\n" #increment current position to point to 1st byte of string
-            
-            "%L%(\n"       #enter while() do{} loop
-            "  %?MT%V010000\n" # Var1>0: ie true while still have characters to print
-            "%)\n"         #end of while test
-            "%(\n"         #enter do part of loop
-            "  %I%(\n"     #enter if check
-            "    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F %?BA %?LT%MV0F00A3%)%)%)\n" #if in quotes & not prinatable character
-            "    %?BO\n"   #or
-            "    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F %?BA %?LT%MV0F0080%)%)%)\n" #not in quotes & printable character
-            "  %)\n"       #end condition block
-            "  %(\n"       #start block if true
-            "    \"\n"     #print quote
-            "    %X03000001%V00\n" #toggle var1 stateing in quotes
-            "  %)\n"
-            "  %C0F\n"     #print char at current position, and increase current position
-            "  %X0301%V010001\n"  #decrement var1 by 1
-            "%)\n"         #end loop
-            "%I%(\n"       #start if block
-            "  %?EQ%V000001\n" #are we in quotes
-            "%)\n"
-            "%(\n"
-            "  \"\n"       #if so print close quotes
-            "%)"),
-        
+%L%(               %#enter while() do{} loop
+  %?EQ00000000     %# 0==0: ie true. this will loop until loop is broken out of
+%)                 %#end of while test
+%(                 %#enter do part of loop
+  %X0701%MV0F007F  %#set var1 to contents of current position & 0x7F
+  %X0702%MV0F0080  %#set var2 to contents of current position & 0x80
+  %X020C%V0C0001   %#increment current position
+  %I%(             %#check if entering or leaving printable character
+    %( %?EQ%V000001 %?BA %?LT%V010020 %)   %#if in quotes & var1<0x20
+    %?BO           %#or
+    %( %?EQ%V000000 %?BA %?MT%V01001F %)   %#if not in quotes & var1>0x1F
+  %)               %#end of if test
+  %(               %#start of what to do if test true
+    "              %#output quotes
+    %X03000001%V00 %#set var0 to 1-var0 (so will set to 1 if was 0 and 0 if was 1: toggles if in quotes)
+  %)               %#end if action
+  %CC1             %#output character: var1 (what's at current position&0x7F) (bit 6=don't increment, bit7=contents of address pointer to by current address register)
+  %I%(             %#start if
+    %?EQ%V020080   %#is var2==0x80 (ie was bit 7 set in currentcharacter before incrementing?
+  %)               %#end of if test
+  %(               %#start of what to do if test true
+    %Y             %#break out of loop: as have reached character with bit 7 set
+  %)               %#end if action
+%)                 %#end of loop
+
+%I%(               %#start of if
+  %?EQ%V000001     %#if var0==1 (is inside a quote)
+%)                 %#end of if test
+%(                 %#start of what to do if test true
+  "                %#print closing quote
+%)                 %#end of what to do if test true""",
+        "Define Message Length Byte":
+"""%F0004      %#number format to same as general address format
+%ACA           %#output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
+%S%S DMLB %S   %#output seperator then "DM7" then another seperator
+%X01000000     %#set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
+%X0101%MV0F    %#var1 to contents of current address (number of bytes in string)
+%X020C%V0C0001 %#increment current position to point to 1st byte of string
+
+%L%(           %#enter while() do{} loop
+  %?MT%V010000 %# Var1>0: ie true while still have characters to print
+%)             %#end of while test
+%(             %#enter do part of loop
+  %I%(         %#enter if check
+    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F %?BA %?LT%MV0F00A3%)%)%) %#if in quotes & not prinatable character
+    %?BO       %#or
+    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F %?BA %?LT%MV0F0080%)%)%) %#not in quotes & printable character
+  %)               %#end condition block
+  %(               %#start block if true
+    "              %#print quote
+    %X03000001%V00 %#toggle var1 stateing in quotes
+  %)
+  %C0F             %#print char at current position, and increase current position
+  %X0301%V010001   %#decrement var1 by 1
+%)                 %#end loop
+%I%(               %#start if block
+  %?EQ%V000001     %#are we in quotes
+%)
+%(
+  "                %#if so print close quotes
+%)""",
         "Define Message Length Word":(
-            "%F0004\n" #number format to same as general address format
-            "%ACA\n"   #output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
-            "%S%S DMLW %S\n" #output seperator then "DM7" then another seperator
-            "%X01000000\n" #set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
-            "%F0200\n"     #set little endian
-            "%X0101%MWV0F\n" #set var1 to contents of current address (number of bytes in string)
-            "%X020F%V0F0002\n" #increment current position to point to 1st byte of string
-            
-            "%L%(\n"       #enter while() do{} loop
-            "  %?NE%V010000\n" # Var1!=0: ie true while still have characters to print
-            "%)\n"         #end of while test
-            "%(\n"         #enter do part of loop
-            "  %I%(\n"     #enter if check
-            "    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F %?BA %?LT%MV0F00A3%)%)%)\n" #if in quotes & not prinatable character
-            "    %?BO\n"   #or
-            "    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F %?BA %?LT%MV0F0080%)%)%)\n" #not in quotes & printable character
-            "  %)\n"       #end condition block
-            "  %(\n"       #start block if true
-            "    \"\n"     #print quote
-            "    %X03000001%V00\n" #toggle var1 stateing in quotes
-            "  %)\n"
-            "  %C0F\n"     #print char at current position, and increase current position
-            "  %X0301%V010001\n"  #decrement var1 by 1
-            "%)\n"         #end loop
-            "%I%(\n"       #start if block
-            "  %?EQ%V000001\n" #are we in quotes
-            "%)\n"
-            "%(\n"
-            "  \"\n"       #if so print close quotes
-            "%)"),
-        
-        "Define Message Length Word Bigendian":(
-            "%F0004\n" #number format to same as general address format
-            "%ACA\n"   #output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
-            "%S%S DMLWBE %S\n" #output seperator then "DM7" then another seperator
-            "%X01000000\n" #set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
-            "%F0201\n"     #set big endian
-            "%X0101%MWV0F\n" #set var1 to contents of current address (number of bytes in string)
-            "%X020F%V0F0002\n" #increment current position to point to 1st byte of string
-            
-            "%L%(\n"       #enter while() do{} loop
-            "  %?NE%V010000\n" # Var1!=0: ie true while still have characters to print
-            "%)\n"         #end of while test
-            "%(\n"         #enter do part of loop
-            "  %I%(\n"     #enter if check
-            "    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F %?BA %?LT%MV0F00A3%)%)%)\n" #if in quotes & not prinatable character
-            "    %?BO\n"   #or
-            "    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F %?BA %?LT%MV0F0080%)%)%)\n" #not in quotes & printable character
-            "  %)\n"       #end condition block
-            "  %(\n"       #start block if true
-            "    \"\n"     #print quote
-            "    %X03000001%V00\n" #toggle var1 stateing in quotes
-            "  %)\n"
-            "  %C0F\n"     #print char at current position, and increase current position
-            "  %X0301%V010001\n"  #decrement var1 by 1
-            "%)\n"         #end loop
-            "%I%(\n"       #start if block
-            "  %?EQ%V000001\n" #are we in quotes
-            "%)\n"
-            "%(\n"
-            "  \"\n"       #if so print close quotes
-            "%)"),
+"""%F0004      %#number format to same as general address format
+%ACA           %#output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
+%S%S DMLW %S   %#output seperator then "DM7" then another seperator
+%X01000000     %#set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
+%F0200         %#set little endian
+%X0101%MWV0F   %#set var1 to contents of current address (number of bytes in string)
+%X020F%V0F0002 %#increment current position to point to 1st byte of string
+
+%L%(           %#enter while() do{} loop
+  %?NE%V010000 %# Var1!=0: ie true while still have characters to print
+%)             %#end of while test
+%(             %#enter do part of loop
+  %I%(         %#enter if check
+    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F %?BA %?LT%MV0F00A3%)%)%) %#if in quotes & not prinatable character
+    %?BO       %#or
+    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F %?BA %?LT%MV0F0080%)%)%) %#not in quotes & printable character
+  %)               %#end condition block
+  %(               %#start block if true
+    "              %#print quote
+    %X03000001%V00 %#toggle var1 stateing in quotes
+  %)
+  %C0F             %#print char at current position, and increase current position
+  %X0301%V010001   %#decrement var1 by 1
+%)                 %#end loop
+%I%(               %#start if block
+  %?EQ%V000001     %#are we in quotes
+%)
+%(
+  "                %#if so print close quotes
+%)""",
+        "Define Message Length Word Bigendian":
+"""%F0004      %#number format to same as general address format
+%ACA           %#output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
+%S%S DMLWBE %S %#output seperator then "DM7" then another seperator
+%X01000000     %#set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
+%F0201         %#set big endian
+%X0101%MWV0F   %#set var1 to contents of current address (number of bytes in string)
+%X020F%V0F0002 %#increment current position to point to 1st byte of string
+
+%L%(           %#enter while() do{} loop
+  %?NE%V010000 %# Var1!=0: ie true while still have characters to print
+%)             %#end of while test
+%(             %#enter do part of loop
+  %I%(         %#enter if check
+    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F %?BA %?LT%MV0F00A3%)%)%) %#if in quotes & not prinatable character
+    %?BO       %#or
+    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F %?BA %?LT%MV0F0080%)%)%) %#not in quotes & printable character
+  %)               %#end condition block
+  %(               %#start block if true
+    "              %#print quote
+    %X03000001%V00 %#toggle var1 stateing in quotes
+  %)
+  %C0F             %#print char at current position, and increase current position
+  %X0301%V010001   %#decrement var1 by 1
+%)                 %#end loop
+%I%(               %#start if block
+  %?EQ%V000001     %#are we in quotes
+%)
+%(
+  "                %#if so print close quotes
+%)""",
         "Custom":""
         }
 
@@ -3113,41 +3126,43 @@ class DisassembleInstruction:
         "Custom")
         
     DisassemblePatternBlockCodes={
-        "RST#08 (Error)":("%(\n" #start test block
-            "  %?EQ%MV0F00CF\n" #does the first byte equal 0xCF (code for RST #08)
-            "%)\n" #end test block
-            
-            "%(\n" #block to define first & last address of data block
-            "  %X0200%V0F0001\n" #start position (var0) is position of RST #08 command +1
-            "  %X0101%V00\n" #end position (var1) is start position (only 1 byte affter error restart)
-            "%)" #end variable setup block
-            
-            #start of data handling block
-            "%S%S DEFB %S\n" #no address, simply define byte
-            "%F0000\n" #set hex mode
-            "%F0100\n" #set unsigned
-            "#%B0F"),   #output contents of current address as byte and increment current address
+        "RST#08 (Error)":
+"""%(            %#start test block
+  %?EQ%MV0F00CF  %#does the first byte equal 0xCF (code for RST #08)
+%)               %#end test block
 
-        "RST#28 (Calculator)":("%(\n" #start test block
-            "  %?EQ%MV0F00EF\n" #does the first byte equal 0xEF (code for RST #28)
-            "%)\n" #end test block
-            
-            "%(\n" #block to define first & last address of data block
-            "  %X0200%V0F0001\n" #start position (var0) is position of RST #28 command +1
-            "  %X0101%V00\n" #set end pos (var1) is start position
-            "  %L%(\n"
-            "    %?NE%MV010038\n" #loop until reach a byte #38 used to denote end of calculate
-            "  %)\n"
-            "  %(\n"
-            "    %X0201%V010001\n" #add 1 to end pos (var1) each time byte is not #38
-            "  %)\n"
-            "%)" #end variable setup block
-            
-            #start of data handling block
-            "%S%S DEFB %S\n" #no address, simply define byte
-            "%F0000\n" #set hex mode
-            "%F0100\n" #set unsigned
-            "#%B0F"),   #output contents of current address as byte and increment current address
+%(               %#block to define first & last address of data block
+  %X0200%V0F0001 %#start position (var0) is position of RST #08 command +1
+  %X0101%V00     %#end position (var1) is start position (only 1 byte affter error restart)
+%)"              %#end variable setup block
+
+                 %#start of data handling block
+%S%S DEFB %S     %#no address, simply define byte
+%F0000           %#set hex mode
+%F0100           %#set unsigned
+#%B0F            %#output contents of current address as byte and increment current address""",
+
+        "RST#28 (Calculator)":
+"""%(              %#start test block
+  %?EQ%MV0F00EF    %#does the first byte equal 0xEF (code for RST #28)
+%)                 %#end test block
+
+%(                 %#block to define first & last address of data block
+  %X0200%V0F0001   %#start position (var0) is position of RST #28 command +1
+  %X0101%V00       %#set end pos (var1) is start position
+  %L%(
+    %?NE%MV010038  %#loop until reach a byte #38 used to denote end of calculate
+  %)
+  %(
+    %X0201%V010001 %#add 1 to end pos (var1) each time byte is not #38
+  %)
+%)                 %#end variable setup block
+
+                   %#start of data handling block
+%S%S DEFB %S       %#no address, simply define byte
+%F0000             %#set hex mode
+%F0100             %#set unsigned
+#%B0F              %#output contents of current address as byte and increment current address""",
         "Custom":""
     }
 
@@ -3511,6 +3526,7 @@ if __name__=="__main__":
             DisassembleInstruction.DisassembleCodes["Display Flags Off"],
             DisassembleInstruction.DisassembleCodes["Mark Undocumented Command Off"])),
 
-    DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,35,38,3B,42,96,9F,F3,F8,FD,103,116,11B,122,125,12A,139,13C,13F,143#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
+    #DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,35,38,3B,42,96,9F,F3,F8,FD,103,116,11B,122,125,12A,139,13C,13F,143#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
+    DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,4A,4D,50,57,AB,B4,108,10D,11A,120,133,138,13F,142,147,156,159,15C,160#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E            %#testing%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(  %#test    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
     data='\xdd!\x00\x80\x11\x0e\x00\xcdBu\xdd!\x0e\x80\xed[\x0b\x80\xaf=\xcd\xc2\x04\x06\x19v\x10\xfd\xc9LPICTITLGAM1GAM2MSFXBAN4L0MAL0DEL0REL0ALL0B0L0B1L1MAL1DEL1REL1ALL1B0L1B1L2MAL2DEL2REL2ALL2B0L2B1L3MAL3DEL3REL3ALL3B0L3B1L4MAL4DEL4REL4ALL4B1'
     print disassemble(data,0,0x7530,len(data),diInstructions)

@@ -810,6 +810,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         close.clicked.connect(dContainer.reject)
         lay.addStretch(1)
         helpbutton=QtGui.QPushButton("Help",self)
+        helpbutton.setToolTip("Displays information about Disassemble Instructions.")
         lay.addWidget(helpbutton)
         helpbutton.clicked.connect(self.DisplayInstructionsHelp)
 
