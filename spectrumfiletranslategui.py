@@ -62,8 +62,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             qp.setPen(QtGui.QPen(QtCore.Qt.NoPen))
             qp.drawRect(0,0,self.width(),self.height())
 
-            #is there selected area in screen? If so then highlight it in grey
-            if(self.selectStart<self.topleftaddress+self.rows*self.columns and self.selectEnd>self.topleftaddress):
+            #Are we doing selection?
+            #if so, is there selected area in screen? If so then highlight it in grey
+            if(self.radiobutton!=None and self.selectStart<self.topleftaddress+self.rows*self.columns and self.selectEnd>self.topleftaddress):
                 #selection background to grey
                 qp.setBrush(QtGui.QColor(128,128,128))
                 
@@ -173,6 +174,10 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 self.scroll.setMaximum(((len(self.data)+self.columns-1)/self.columns)-self.rows)
         
         def mouseReleaseEvent(self,event):
+            #Are we selecting or just displaying. If just Displaying can ignore mouse events
+            if(self.radiobutton==None):
+                return
+                
             row=event.y()/self.cHeight
             #if to below last row of bytes then invalid place to click
             if(row>=self.rows):
@@ -290,6 +295,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         cbDataType.addItem("Machine Code",1)
         cbDataType.addItem("Variable Array",2)
         cbDataType.addItem("Screen",3)
+        cbDataType.addItem("Raw Data",4)
         cbDataType.setToolTip("Specifies what to translate data as.")
         self.cbDataType=cbDataType
         setCombo(cbDataType,"Basic Program")
@@ -572,6 +578,12 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         gbImage.setLayout(grid2)
 
         stack.addWidget(gbImage)
+
+        #panel to hold image variables
+        gbRaw=QtGui.QGroupBox("Raw Data",self)
+        stack.addWidget(gbRaw)
+
+
         self.settingsstack=stack
 
         #layout after processing options
@@ -1639,6 +1651,48 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             
             return
             
+        #handle images
+        if(self.cbDataType.currentText()=="Raw Data"):
+            #get data and exit of error
+            data=self.GetSelectedData()
+            if(data==None):
+                return
+
+            #create dialog
+            dContainer=QtGui.QDialog(self)
+            dContainer.setWindowTitle("View Raw code")
+            dContainer.setModal(True)
+            
+            lay=QtGui.QVBoxLayout()
+            
+            lay2=QtGui.QHBoxLayout()
+            lay2.addStretch(1)
+            ok=QtGui.QPushButton("Ok",self)
+            lay2.addWidget(ok)
+            ok.clicked.connect(dContainer.accept)
+            lay2.addStretch(1)
+            
+            lay3=QtGui.QHBoxLayout()
+            scroll=QtGui.QScrollBar(QtCore.Qt.Vertical)
+            hexview=self.StartStopDisplayPanel(data,0,len(data),None,scroll)
+            lay3.addWidget(hexview)
+            hexview.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
+            hexview.sizePolicy().setHorizontalStretch(1)
+            lay3.addWidget(scroll)
+            
+            lay.addLayout(lay3)
+            lay.addLayout(lay2)
+            
+            dContainer.setLayout(lay)
+            
+            #set to same size as parent
+            dContainer.setGeometry(self.geometry())
+            
+            #run dialog
+            dContainer.exec_()
+            
+            return
+
         #otherwise translate into text
         s=self.DoTextTranslation()
         if(s==None):
