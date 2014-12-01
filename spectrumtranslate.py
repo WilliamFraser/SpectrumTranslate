@@ -1478,728 +1478,6 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
     Returns a String representation of the data.
     """
 
-    #define nested function to avoid namespace polution
-    
-    #format: 0=hex,1=decimal,2=octal,3=binary
-    #typeindictor: ""for decimal, "#" for hex, "b" for binary, "o" for octal
-    def NumberToString(n,bits,form,typeindicator=True):
-        if(form==0):
-            #hex
-            return ("%s%0"+str(bits>>2)+"X") % ("#" if typeindicator else "",n)
-        
-        elif(form==1):
-            #decimal
-            return "%d" % n
-        
-        elif(form==2):
-            #octal
-            return ("%s%0"+str((bits+2)/3)+"o") % ("o" if typeindicator else "",n)
-
-        elif(form==3):
-            #binary
-            return ("%s%0"+str(bits)+"b") % ("b" if typeindicator else "",n)
-
-        else:
-            return ""
-    
-    #returns required number of characters skipping space, new line, and tabs
-    def GetNextCharacters(commands,Settings,numberToGet):
-        s=""
-
-        #loop until have requested number of non whitespace characters or hit end of commands
-        while(len(s)<numberToGet and Settings["DATASTRINGPOS"]<len(commands)):
-            c=commands[Settings["DATASTRINGPOS"]]
-
-            #if found comment, move to end of line
-            if(c=='%' and len(commands)>Settings["DATASTRINGPOS"]+1 and commands[Settings["DATASTRINGPOS"]+1]=="#"):
-                #check just incase have %%# which is display %#
-                escapes=1
-                #see how far back escapes go
-                while(escapes>Settings["DATASTRINGPOS"] and commands[Settings["DATASTRINGPOS"]-escapes]=="%"):
-                    escapes+=1
-                
-                #should have an odd number of escapes if this a comment
-                if(escapes&1==1):
-                    #move position to new line character
-                    Settings["DATASTRINGPOS"]=commands.find("\n",Settings["DATASTRINGPOS"])
-                    #if newline not found,
-                    if(Settings["DATASTRINGPOS"]==-1):
-                        #set to end of line
-                        Settings["DATASTRINGPOS"]=len(commands)
-                    
-                    #loop back to deal with next character    
-                    continue
-                
-                #otherwise is a hash to display
-
-            if(c!=' ' and c!='\t' and c!='\n'):
-                s+=c
-            Settings["DATASTRINGPOS"]+=1
-        
-        return s
-
-    #move to end of specified command block
-    def MoveToEndBlock(Vars,commands,Settings,commandstart):
-        #for each line go through commands instructions character by chracter
-        while(Settings["DATASTRINGPOS"]<len(commands)):
-            #get next char
-            s=GetNextCharacters(commands,Settings,1)
-          
-            #skip non-control characters first
-            if(s!="%"):
-                continue
-          
-            #get next char
-            s=GetNextCharacters(commands,Settings,1)
-          
-            #what command is it?
-            if(s[0]=="("):
-                #move to end of nested block
-                MoveToEndBlock(Vars,commands,Settings,commandstart)
-
-            #return if found end of block
-            elif(s[0]==')'):
-                return
-            
-            #otherwise skip command
-
-        #should always find end of block with close brackets, error if block not closed
-        raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"no closing brackets to  block")
-
-    def ProcessCommandBlock(Vars,commands,Settings,data,inBrackets,InTest,ReferencedLineNumbers):
-        """processes an instruction block.
-           return bit 0 1=true, 0=false
-           bit 1 2=break, 0=not break
-           bit 2 4=continue, 0=not continue
-           ,output text
-        """
-
-        #nested functions needed by ProcessCommandBlock
-        def inc_var_if_needed(var_num,Vars,inc_amount):
-            """increment variable if apropriate"""
-            if((var_num&0x40)==0 and ((var_num&0x3F)<0x0A or (var_num&0x3F)==0x0C or (var_num&0x3F)==0x0F)):
-                Vars[0x0C if ((var_num&0x3F)==0x0F) else var_num&0x3F]+=inc_amount
-
-        def GetNumberVarOrMemory(Vars,commands,Settings,data,commandstart):
-            #how many bytes are we getting
-            getByte=True;
-            #remember where we started
-            pos=Settings["DATASTRINGPOS"]
-            
-            #get next char
-            s=GetNextCharacters(commands,Settings,1)
-            
-            #first check if is a number
-            if(s[0]!="%"):
-                #restore pointer to where it was
-                Settings["DATASTRINGPOS"]=pos
-              
-                #extract number
-                i=int(GetNextCharacters(commands,Settings,4),16)
-                #deal with error
-                if(i<0):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"number must be 4 digit hexadecimal number")
-
-                return i
-            
-            #get next char
-            s=GetNextCharacters(commands,Settings,1)
-            
-            if(s[0]=="V"):
-                #get variable number
-                i=int(GetNextCharacters(commands,Settings,2),16)
-                #deal with invalid variable number
-                if(i<0 or i>0x0F):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"invalid variable")
-                    
-                #return variable's content
-                return Vars[0x0A]+Vars[0x0C] if (i==0x0F) else Vars[i]
-            
-            #should now be 'M', handle if not
-            if(s[0]!="M"):
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"argument must be number, variable, or memory content")
-            
-            pos=Settings["DATASTRINGPOS"]
-            
-            #get next char
-            s=GetNextCharacters(commands,Settings,1)
-            
-            #if next char is 'W' then need to get 2 bytes
-            if(s[0]=="W"):
-                #make note we need word not byte
-                getByte=False
-            
-                #get next char
-                s=GetNextCharacters(commands,Settings,1)
-            
-                pos=Settings["DATASTRINGPOS"]
-            
-            #now get into i address of where to extract data from
-            
-            #if next char is 'V' then variable pointing to memory address
-            if(s[0]=="V"):
-                #get variable number
-                i=int(GetNextCharacters(commands,Settings,2),16)
-                #deal with invalid variable number
-                if(i<0 or i>0x0F):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"invalid variable number for memory address")
-                    
-                #get number variable's content
-                i=Vars[0x0A]+Vars[0x0C] if (i==0x0F) else Vars[i]
-
-            #otherwise should be 4 hex digit address
-            else:
-                #in checking to see if next char was V will move pointer, so reset to where it should be
-                Settings["DATASTRINGPOS"]=pos
-              
-                #extract number
-                i=int(GetNextCharacters(commands,Settings,4),16)
-                #deal with error
-                if(i<0):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"should be 4 digit hexadecimal number for memory address")
-            
-            #now have address we need to extract in i, and if we want byte or not in getByte
-            #deal with byte
-            if(getByte):
-                return data[i-Settings["ORIGIN"]]
-                #throw NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"attempt to access memory address outside block to disassemble");
-            
-            #deal with word taking into account endedness of number we want
-            return data[i-Settings["ORIGIN"]+Settings["NUMBERWORDORDER"]]+256*data[i-Settings["ORIGIN"]+1-Settings["NUMBERWORDORDER"]]
-              #throw NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"attempt to access memory address outside block to disassemble");
-
-        def CombineResults(mode,a,b):
-            if(mode==0):
-                return a and b
-            if(mode==1):
-                return a or b
-            if(mode==2):
-                return a^b
-
-        #end of ProcessCommandBlock's nested functions
-
-        boolState=False
-        boolMode=1      #0=and, 1=or, 2=xor
-        soutput=""
-
-        #for each line go through commands instructions character by chracter
-        while(Settings["DATASTRINGPOS"]<len(commands)):
-            #make note of where command starts in case we have error
-            commandstart=Settings["DATASTRINGPOS"]
-          
-            #get next char
-            s=GetNextCharacters(commands,Settings,1)
-          
-            #deal with non-control characters first
-            if(s[0]!='%'):
-                soutput+=get_spectrum_char(s[0])
-                continue
-
-            #get next char (command
-            s=GetNextCharacters(commands,Settings,1)
-          
-            #what command is it?
-            if(s[0]=='F'): #//format settings
-                #get sub command & which format
-                i=int(GetNextCharacters(commands,Settings,4),16)
-                if((i>>8)==0): #format hex/decimal/octal/binary
-                    if((i&0xFF)>6):
-                        raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"Number format argument must be 0 to 6")
-                        
-                    if((i&0xFF)==4):
-                        Settings["NUMBERFORMAT"]=Settings["ADDRESSOUTPUT"]
-                        
-                    elif((i&0xFF)==5):
-                        Settings["NUMBERFORMAT"]=Settings["NUMBEROUTPUT"]
-                        
-                    elif((i&0xFF)==6):
-                        Settings["NUMBERFORMAT"]=Settings["COMMANDOUTPUT"]
-                        
-                    else:
-                        Settings["NUMBERFORMAT"]=i&0xFF
-
-                elif((i>>8)==1): #number unsigned/signed
-                    if((i&0xFF)>1):
-                        raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"Number sign argument must be 0 or 1")
-                    
-                    Settings["NUMBERSIGNED"]=i&0xFF
-
-                elif((i>>8)==2): #word mode little/big endian
-                    if((i&0xFF)>1):
-                        raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"Word endedness argument must be 0 or 1")
-                    
-                    Settings["NUMBERWORDORDER"]=i&0xFF
-
-                elif((i>>8)==3): #display line address every X line
-                    k=int(GetNextCharacters(commands,Settings,2),16)
-                    if(k<0 or k>255):
-                        raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"Display line address every X line argument must be 2 digit hexadecimal number")
-                        
-                    Settings["DISPLAYEVERYXLINES"]=k+((i&0xFF)<<8)
-
-                elif((i>>8)==4): #separator to default/space/tab
-                    if((i&0xFF)>2):
-                        raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"Seperator setting argument must be 0 to 2")
-                        
-                    Settings["SEPERATOR"]=i&0xFF
-                    if(Settings["SEPERATOR"]==2):
-                        Settings["SEPERATOR"]=Settings["ORIGIONALSEPERATOR"]
-                        
-                else:
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"unrecognised format setting")
-          
-            elif(s[0]=='B'): #ouput byte
-                #get info
-                i=int(GetNextCharacters(commands,Settings,2),16)
-                if((i&0x3F)==0x3F): #dealing with addresses
-                    #get address
-                    k=int(GetNextCharacters(commands,Settings,4),16)
-                    #getbyte at address, adjust for offset
-                    k=data[k-Settings["ORIGIN"]]
-                
-                elif((i&0x3F)<0x10):
-                    #get variable content
-                    k=Vars[0x0A]+Vars[0x0C] if ((i&0x3F)==0x0F) else Vars[i&0x3F]
-                    #get content of memory address if this is a reference
-                    if((i&0x80)==0):
-                        k=data[k-Settings["ORIGIN"]]
-                    #increment if apropriate
-                    inc_var_if_needed(i,Vars,1)
-
-                else:
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"invalid byte output argument")
-          
-                #handle negative number if signed and not an address
-                if(Settings["NUMBERSIGNED"]==1 and (i&0x80)==0x80):
-                    k=0x100-k
-                    soutput+="-"
-
-                #output byte
-                soutput+=NumberToString(k,8,Settings["NUMBERFORMAT"],False)
-          
-            elif(s[0]=='W'): #output word
-                #get info
-                i=int(GetNextCharacters(commands,Settings,2),16)
-                if((i&0x3F)==0x3F):  #dealing with addresses
-                    #get address
-                    k=int(GetNextCharacters(commands,Settings,4),16)
-                    #getbyte, adjust for offset
-                    k=data[k-Settings["ORIGIN"]+Settings["NUMBERWORDORDER"]]+256*data[k-Settings["ORIGIN"]+1-Settings["NUMBERWORDORDER"]]
-
-                elif((i&0x3F)<0x10):
-                    #get variable content
-                    k=Vars[0x0A]+Vars[0x0C] if ((i&0x3F)==0x0F) else Vars[i&0x3F]
-                    #get content of memory address if this is a reference
-                    if((i&0x80)==0):
-                        k=data[k-Settings["ORIGIN"]+Settings["NUMBERWORDORDER"]]+256*data[k-Settings["ORIGIN"]+1-Settings["NUMBERWORDORDER"]]
-                        
-                    #increment if apropriate
-                    inc_var_if_needed(i,Vars,2)
-
-                else:
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"invalid number output argument")
-          
-                #handle negative number if signed and not an addrss
-                if(Settings["NUMBERSIGNED"]==1 and (i&0x80)==0x80):
-                    k=0x100-k
-                    soutput+="-"
-
-                #output word
-                soutput+=NumberToString(k,16,Settings["NUMBERFORMAT"],False)
-                #remember number incase it is line number
-                if(ReferencedLineNumbers!=None):
-                    ReferencedLineNumbers+=[k]
-          
-            elif(s[0]=='A'): #output address
-                #get info
-                i=int(GetNextCharacters(commands,Settings,2),16)
-                if((i&0x3F)==0x3F): #dealing with addresses
-                    #get address
-                    k=int(GetNextCharacters(commands,Settings,4),16)
-                    #getbyte, adjust for offset
-                    k=data[k-Settings["ORIGIN"]+Settings["NUMBERWORDORDER"]]+256*data[k-Settings["ORIGIN"]+1-Settings["NUMBERWORDORDER"]]
-
-                elif((i&0x3F)<0x10):
-                    #get variable content
-                    k=Vars[0x0A]+Vars[0x0C] if ((i&0x3F)==0x0F) else Vars[i&0x3F]
-                    #get content of memory address if this is a reference
-                    if((i&0x80)==0):
-                        k=data[k-Settings["ORIGIN"]+Settings["NUMBERWORDORDER"]]+256*data[k-Settings["ORIGIN"]+1-Settings["NUMBERWORDORDER"]]
-                    #increment if apropriate
-                    inc_var_if_needed(i,Vars,2)
-
-                else:
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"invalid address output argument")
-          
-                #output address
-                i=Settings["NUMBERFORMAT"]+4+(Settings["SEPERATOR"]<<5);
-                soutput+="\0"+chr(i)+chr(Settings["DISPLAYEVERYXLINES"])+NumberToString(k,16,0,False)
-          
-            elif(s[0]=='C'):  #output char, defaults to unsigned byte if not printable
-                #get info
-                i=int(GetNextCharacters(commands,Settings,2),16)
-                if((i&0x3F)==0x3F): #dealing with addresses
-                    #get address
-                    k=int(GetNextCharacters(commands,Settings,4),16)
-                    #getbyte, adjust for offset
-                    k=data[k-Settings["ORIGIN"]]
-
-                elif((i&0x3F)<0x10):
-                    #get variable content
-                    k=Vars[0x0A]+Vars[0x0C] if ((i&0x3F)==0x0F) else Vars[i&0x3F]
-                    #get content of memory address if this is a reference
-                    if((i&0x80)==0):
-                        k=data[k-Settings["ORIGIN"]]
-                    #increment if apropriate
-                    inc_var_if_needed(i,Vars,1)
-
-                else:
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"invalid character output argument")
-          
-                #output character
-                soutput+=get_spectrum_char(k)
-          
-            elif(s[0]=='G'):  #output 5 byte floating point number
-                #get info
-                i=int(GetNextCharacters(commands,Settings,2),16)
-                if((i&0x3F)==0x3F):  #dealing with addresses
-                    #get address
-                    k=int(GetNextCharacters(commands,Settings,4),16)
-                    #get and output floating point number
-                    soutput+=str(SpectrumNumber(data[k-Settings["ORIGIN"]:k-Settings["ORIGIN"]+5]))
-
-                elif((i&0x3F)<0x10):
-                    #get variable content
-                    k=Vars[0x0A]+Vars[0x0C] if ((i&0x3F)==0x0F) else Vars[i&0x3F]
-                    #has to be a memory address that holds 5 byte number
-                    if((i&0x80)!=0):
-                        raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"invalid floating point number output argument")
-                  
-                    #get and output floating point number
-                    soutput+=str(SpectrumNumber(data[k-Settings["ORIGIN"]:k-Settings["ORIGIN"]+5]))
-                    #increment if apropriate
-                    inc_var_if_needed(i,Vars,5)
-
-                else:
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"invalid floating point number output argument")
-          
-            elif(s[0]=='%'):  #output '%'
-                soutput+='%'
-          
-            elif(s[0]=='S'):  #output seperator
-                soutput+="  " if Settings["SEPERATOR"]==0 else "\t"
-          
-            elif(s[0]=='N'):  #output newline
-                soutput+='\n'
-          
-            elif(s[0]==' '):  #output space
-                soutput+=' '
-          
-            elif(s[0]=='T'):  #output tab
-                soutput+='\t'
-          
-            #maths
-            elif(s[0]=='X'):
-                #get sub command
-                i=int(GetNextCharacters(commands,Settings,2),16)
-                #check if valid command
-                if(i<0 or i>9):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"invalid arithmetic operation. Must be 0 to 9")
-          
-                #where to store result
-                result=int(GetNextCharacters(commands,Settings,2),16)
-                #check is valid resultlocation
-                if(result<0 or (result>9 and result!=0x0C and result!=0x0E and result!=0x0F)):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"invalid arithmetic destination")
-          
-                #get first argument
-                arga=GetNumberVarOrMemory(Vars,commands,Settings,data,commandstart)
-                #get 2nd argument if needed & keep compiler happy otherwise
-                argb=GetNumberVarOrMemory(Vars,commands,Settings,data,commandstart) if (i!=1) else 0
-          
-                #now process variables
-                if(i==0):   #let
-                    k=arga
-                elif(i==2): #add
-                    k=arga+argb
-                elif(i==3): #subtract
-                    k=arga-argb
-                elif(i==4): #multiply
-                    k=arga*argb
-                elif(i==5): #divide
-                    k=arga/argb
-                elif(i==6): #modulus
-                    k=arga%argb
-                elif(i==7): #binary and
-                    k=arga&argb
-                elif(i==8): #binary or
-                    k=arga|argb
-                elif(i==9): #binary xor
-                    k=arga^argb
-                else:
-                    k=0
-          
-                #ensure is 16 bit result
-                k&=0xFFFF
-          
-                #save variable
-                if(result==0x0F):
-                    Vars[0x0C]=k-Vars[0x0A]
-                else:
-                    Vars[result]=k
-          
-            #flow
-            elif(s[0]=='('):
-                #process contents of brackets and combine result
-                i,txt=ProcessCommandBlock(Vars,commands,Settings,data,True,InTest,ReferencedLineNumbers)
-                soutput+=txt
-                boolState=CombineResults(boolMode,boolState,(i&1)==1)
-                i=i&6
-                #if break or continue, leave
-                if(i!=0):
-                  #move to end of current block
-                  MoveToEndBlock(Vars,commands,Settings,commandstart)
-                  #leave block
-                  return i+(1 if boolState else 0), soutput
-
-            elif(s[0]==')'):
-                #if not in brackets  then error
-                if(not inBrackets):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"Closing brackets without opening brackets")
-          
-                #otherwise ought to return from command
-                return 1 if boolState else 0, soutput
-          
-            elif(s[0]=='I'):  #if then block
-                #should have brackets afterwards
-                if(GetNextCharacters(commands,Settings,2)!="%("):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"bracket bound test must follow if statement")
-          
-                #test if block
-                result,txt=ProcessCommandBlock(Vars,commands,Settings,data,True,True,ReferencedLineNumbers)
-                bTest=(result&1)==1
-                soutput+=txt
-          
-                #should have brackets afterwards for instruction block
-                if(GetNextCharacters(commands,Settings,2)!="%("):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"bracket bound action must follow if test")
-          
-                #signal no break or continue
-                k=0
-                #if contition met then process block
-                if(bTest):
-                    k,txt=ProcessCommandBlock(Vars,commands,Settings,data,True,InTest,ReferencedLineNumbers)
-                    soutput+=txt
-                    
-                #otherwise move past command block
-                else:
-                    MoveToEndBlock(Vars,commands,Settings,commandstart)
-          
-                #save position before checking to see if is else statement following
-                i=Settings["DATASTRINGPOS"]
-                #see if is an else block
-                if(GetNextCharacters(commands,Settings,2)=="%J"):
-                    #should have brackets afterwards for instruction block
-                    if(GetNextCharacters(commands,Settings,2)!="%("):
-                        raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"bracket bound action must follow else statement")
-                    
-                    #process block
-                    k,txt=ProcessCommandBlock(Vars,commands,Settings,data,True,InTest,ReferencedLineNumbers)
-                    soutput+=txt
-
-                #otherwise reset string position
-                else:
-                    Settings["DATASTRINGPOS"]=i
-          
-                #if break or continue happened inside if or else block then leave
-                if((k&6)!=0):
-                    #move to end of current block
-                    MoveToEndBlock(Vars,commands,Settings,commandstart)
-                    #leave block
-                    return k,soutput
-          
-            elif(s[0]=='L'):  #while do loop
-                #should have brackets afterwards
-                if(GetNextCharacters(commands,Settings,2)!="%("):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"bracket bound test must follow loop statement")
-          
-                #make note of where while do loop starts
-                i=Settings["DATASTRINGPOS"]
-          
-                bTest=True
-          
-                #loop until test condition is false;
-                while(bTest):
-                    #set where while do loop starts
-                    Settings["DATASTRINGPOS"]=i
-                
-                    #test if block
-                    result,txt=ProcessCommandBlock(Vars,commands,Settings,data,True,True,ReferencedLineNumbers)
-                    bTest=(result&1)==1
-                    soutput+=txt
-                
-                    #should have brackets afterwards for instruction block
-                    if(GetNextCharacters(commands,Settings,2)!="%("):
-                        raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"bracket bound action must follow loop test")
-                
-                    #if contition met then process block
-                    if(bTest):
-                        result,txt=ProcessCommandBlock(Vars,commands,Settings,data,True,InTest,ReferencedLineNumbers)
-                        soutput+=txt
-                        if((result&2)==2):
-                            #if break from routine then break out of loop
-                
-                            #move to end of current block
-                            MoveToEndBlock(Vars,commands,Settings,commandstart)
-                
-                            break
-                
-                    #otherwise move past command block
-                    if(not bTest):
-                        MoveToEndBlock(Vars,commands,Settings,commandstart)
-          
-            #end data block
-            elif(s[0]=='Q'):
-                #setting end of data block as current position, then ending line will quit data block
-                Vars[0x0E]=Vars[0x0A]+Vars[0x0C]
-          
-                #by setting position to end of data string and returning, this will end line
-                Settings["DATASTRINGPOS"]=len(commands)
-                return 1 if boolState else 0, soutput
-          
-            #end line
-            elif(s[0]=='E'):
-                #by setting position to end of data string and returning, this will end line
-                Settings["DATASTRINGPOS"]=len(commands)
-                return 1 if boolState else 0, soutput
-          
-            #break;
-            elif(s[0]=='Y'):
-                #return
-                return 3 if boolState else 2,soutput
-          
-            #continue
-            elif(s[0]=='Z'):
-                #return
-                return 5 if boolState else 4,soutput
-          
-            #comparitors
-            elif(s[0]=='?'):
-                #get next chars
-                comp=GetNextCharacters(commands,Settings,2)
-          
-                #check if mode change
-                if(comp[0]=='B'):
-                    if(comp[1]=='A'): #and
-                        boolMode=0
-                    elif(comp[1]=='O'): #or
-                      boolMode=1
-                    elif(comp[1]=='X'): #xor
-                      boolMode=2
-                    else: #unrecognised mode command
-                        raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"unrecognised boolean combination mode")
-          
-                    continue
-                    
-                #have we tested enoug already?
-                #can we end testing based on results so far without further testing?
-                if(InTest==True and (    #are we in a test situation?
-                   (boolMode==0 and boolState==False) or  #are we anding with false: answer will be false
-                   (boolMode==1 and boolState==True))     #are we oring with true: answer will be true
-                   ):
-                    #can leave test as have found answer
-                    #move to end of current block
-                    MoveToEndBlock(Vars,commands,Settings,commandstart)
-                    #return from test block
-                    return 1 if boolState else 0, soutput
-          
-                #should now be tests
-                #get which one
-                i={"LT":0,"MT":1,"EQ":2,"LE":3,"ME":4,"NE":5}[comp]
-                #throw NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"unrecognised comparison")
-          
-                #get 2 arguments
-                arga=GetNumberVarOrMemory(Vars,commands,Settings,data,commandstart)
-                #get 2nd argument if needed
-                argb=GetNumberVarOrMemory(Vars,commands,Settings,data,commandstart)
-          
-                #now do text
-                if(i==0):  #less than
-                    boolState=CombineResults(boolMode,boolState,arga<argb)
-                elif(i==1):  #more than
-                    boolState=CombineResults(boolMode,boolState,arga>argb)
-                elif(i==2):  #equal
-                    boolState=CombineResults(boolMode,boolState,arga==argb)
-                elif(i==3):  #less than or equal
-                    boolState=CombineResults(boolMode,boolState,arga<=argb)
-                elif(i==4):  #more than or equal
-                    boolState=CombineResults(boolMode,boolState,arga>=argb)
-                elif(i==5):  #not equal
-                    boolState=CombineResults(boolMode,boolState,arga!=argb)
-          
-            else: #unrecognised command
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,commands,"unrecognised command")
-    
-        return 1 if boolState else 0, soutput
-
-    def DisassembleDataBlock(start,end,commandline,Settings,data,ReferencedLineNumbers):
-        """
-        var[0-9]  %V00-%V09
-        line address (not changable)  %V0A
-        line number (not changable)   %V0B
-        offset from line start        %V0C
-        start pos (not changable)     %V0D
-        end pos                       %V0E
-        current pos (not changable)   %V0F
-        """
-        Vars=[0,0,0,0,0,0,0,0,0,0,di.start,0,0,di.start,di.end]
-        soutput=""
-
-        #loop through commandline block
-        while(Vars[0x0A]<=Vars[0x0E]):
-            Vars[0x0C]=0  #point  to start of line
-    
-            #for each line go through commandline instructions character by chracter
-            Settings["DATASTRINGPOS"]=0
-            while(Settings["DATASTRINGPOS"]<len(commandline)):
-                #make note of where command starts in case we have error
-                commandstart=Settings["DATASTRINGPOS"]
-              
-                #get next char
-                s=GetNextCharacters(commandline,Settings,1)
-              
-                #deal with non-control characters first
-                if(s[0]!='%'):
-                    soutput+=get_spec_char(s[0])
-                    continue
-              
-                #reset position
-                Settings["DATASTRINGPOS"]=commandstart
-              
-                #deal with any instructions
-                #can ignore result
-                res,txt=ProcessCommandBlock(Vars,commandline,Settings,data,False,False,ReferencedLineNumbers)
-                    
-                soutput+=txt
-          
-            #update line address
-            Vars[0x0A]+=Vars[0x0C]
-            #update line number
-            Vars[0x0B]+=1
-          
-            #new line
-            soutput+="\n"
-    
-        #return end of data block as might have changed
-        return Vars[0x0E],soutput
-
-    #generate exception 
-    def NewSpectrumTranslateException(address,pos,s,details):
-        return SpectrumTranslateException('Data Format error processing "%s" near character number %d on line starting at %04X\n%s' % (s,pos,address,details))
-
-
-    #end of nested functions
-     
     #holds how long address is in each number format
     FormatAddressLength=(4,5,7,17)
     #holds how long byte is in each number format
@@ -2261,7 +1539,19 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
                 
             #is this a patterndatablock instruction?
             if(di.instruction==DisassembleInstruction.DisassembleCodes["Pattern Data Block"]):
-                #process it
+                #get parts of patterndatablock
+                TestBlock,PrepBlock,ActionBlock=GetPartsOfPatternDataBlock(di.data)
+
+                #first check is valid test block
+                if(TestBlock==None):
+                    raise NewSpectrumTranslateException(Vars[0x0A],0,di.data,"patern to search for must be inside brackets")
+                    
+                #now check is valid preperation block
+                if(PrepBlock==None):
+                    raise NewSpectrumTranslateException(Vars[0x0A],0,di.data,"preperation block must be inside brackets")
+                
+                #now should have valid pattern match we can work with
+
                 #setup environment ready to search for matches
                 Settings={"DATASTRINGPOS":0,"NUMBERFORMAT":0,"NUMBERSIGNED":0,"NUMBERWORDORDER":0,"DISPLAYEVERYXLINES":1,
                           "ORIGIONALSEPERATOR":SeperatorMode,"SEPERATOR":SeperatorMode,"ORIGIN":origin,
@@ -2269,34 +1559,6 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
 
                 Vars=[0,0,0,0,0,0,0,0,0,0,di.start,0,0,di.start,di.end]
               
-                #first check is valid test block & record where
-                s=GetNextCharacters(di.data,Settings,2)
-                if(s!="%("):
-                    raise NewSpectrumTranslateException(Vars[0x0A],0,di.data,"patern to search for must be inside brackets")
-                    
-                #record test start
-                k=Settings["DATASTRINGPOS"]
-                #move to end of test block
-                MoveToEndBlock(Vars,di.data,Settings,0)
-                #calculate test string
-                TestBlock=di.data[k:Settings["DATASTRINGPOS"]]
-              
-                #now check is valid preperation block & record where
-                s=GetNextCharacters(di.data,Settings,2)
-                if(s!="%("):
-                    raise NewSpectrumTranslateException(Vars[0x0A],0,di.data,"preperation block must be inside brackets")
-                
-                #record preperation block start
-                k=Settings["DATASTRINGPOS"]
-                #move to end of preperation block
-                MoveToEndBlock(Vars,di.data,Settings,0)
-                #calculate preperation string
-                PrepBlock=di.data[k:Settings["DATASTRINGPOS"]]
-              
-                #calculate action string
-                ActionBlock=di.data[Settings["DATASTRINGPOS"]:]
-                
-                #now should have valid pattern match we can work with
                 #move through area covered by instruction & check for matches
                 k=di.start
                 while(k<=di.end):
@@ -2308,7 +1570,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
                     Vars[0x0D]=k
                     Vars[0x0E]=di.end
                     #test each address
-                    if((ProcessCommandBlock(Vars,TestBlock,Settings,data,None,true,true,None)&1)==1):
+                    if((DisassembleInstruction.ProcessCommandBlock(TestBlock,Vars,Settings,data,None,true,true,None)&1)==1):
                         #have found match
                         Settings["DATASTRINGPOS"]=0
                         Vars[0x00]=k
@@ -2318,7 +1580,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
                         Vars[0x0D]=k
                         Vars[0x0E]=di.end
                         #now adjust variables as needed
-                        ProcessCommandBlock(Vars,PrepBlock,Settings,data,None,true,false,None)
+                        DisassembleInstruction.ProcessCommandBlock(PrepBlock,Vars,Settings,data,None,true,false,None)
                         #add datablock
                         DisassembleInstructions+=[DisassembleInstruction(DisassembleInstruction.DisassembleCodes["Data Block"],Vars[0x00],Vars[0x01],ActionBlock)]
 
@@ -2374,7 +1636,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
             Settings={"DATASTRINGPOS":0,"NUMBERFORMAT":0,"NUMBERSIGNED":0,"NUMBERWORDORDER":0,"DISPLAYEVERYXLINES":1,
                       "ORIGIONALSEPERATOR":SeperatorMode,"SEPERATOR":SeperatorMode,"ORIGIN":origin,
                       "ADDRESSOUTPUT":AddressOutput,"NUMBEROUTPUT":NumberOutput,"COMMANDOUTPUT":CommandOutput}
-            di.end,txt=DisassembleDataBlock(di.start,di.end,di.data,Settings,data,ReferencedLineNumbers if (TreatDataNumbersAsLineReferences==0) else None)
+            di.end,txt=di.DisassembleDataBlock(Settings,data,ReferencedLineNumbers if (TreatDataNumbersAsLineReferences==0) else None)
             soutput+=txt
           
             #adjust length
@@ -3020,7 +2282,7 @@ class DisassembleInstruction:
 %(
   "                %#if so print close quotes
 %)""",
-        "Define Message Length Word":(
+        "Define Message Length Word":
 """%F0004      %#number format to same as general address format
 %ACA           %#output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
 %S%S DMLW %S   %#output seperator then "DM7" then another seperator
@@ -3129,12 +2391,14 @@ class DisassembleInstruction:
         "RST#08 (Error)":
 """%(            %#start test block
   %?EQ%MV0F00CF  %#does the first byte equal 0xCF (code for RST #08)
-%)               %#end test block
+                 %#end test block
+%)
 
 %(               %#block to define first & last address of data block
   %X0200%V0F0001 %#start position (var0) is position of RST #08 command +1
   %X0101%V00     %#end position (var1) is start position (only 1 byte affter error restart)
-%)"              %#end variable setup block
+                 %#end variable setup block
+%)
 
                  %#start of data handling block
 %S%S DEFB %S     %#no address, simply define byte
@@ -3145,7 +2409,8 @@ class DisassembleInstruction:
         "RST#28 (Calculator)":
 """%(              %#start test block
   %?EQ%MV0F00EF    %#does the first byte equal 0xEF (code for RST #28)
-%)                 %#end test block
+                   %#end test block
+%)
 
 %(                 %#block to define first & last address of data block
   %X0200%V0F0001   %#start position (var0) is position of RST #28 command +1
@@ -3156,7 +2421,8 @@ class DisassembleInstruction:
   %(
     %X0201%V010001 %#add 1 to end pos (var1) each time byte is not #38
   %)
-%)                 %#end variable setup block
+                   %#end variable setup block
+%)
 
                    %#start of data handling block
 %S%S DEFB %S       %#no address, simply define byte
@@ -3243,6 +2509,735 @@ class DisassembleInstruction:
 
     def __cmp(self,other):
         return self.start.__cmp__(other.start)
+
+    def DisassembleDataBlock(self,Settings,data,ReferencedLineNumbers):
+        """
+        This method will disassemble the given data according to the current DisassembleInstruction
+        """
+        
+        """
+        var[0-9]  %V00-%V09
+        line address (not changable)  %V0A
+        line number (not changable)   %V0B
+        offset from line start        %V0C
+        start pos (not changable)     %V0D
+        end pos                       %V0E
+        current pos (not changable)   %V0F
+        """
+        Vars=[0,0,0,0,0,0,0,0,0,0,self.start,0,0,self.start,self.end]
+        soutput=""
+
+        #loop through commandline block
+        while(Vars[0x0A]<=Vars[0x0E]):
+            Vars[0x0C]=0  #point  to start of line
+    
+            #for each line go through commandline instructions character by chracter
+            Settings["DATASTRINGPOS"]=0
+            while(Settings["DATASTRINGPOS"]<len(self.data)):
+                #make note of where command starts in case we have error
+                commandstart=Settings["DATASTRINGPOS"]
+              
+                #get next char
+                s=GetNextCharacters(self.data,Settings,1)
+              
+                #deal with non-control characters first
+                if(s[0]!='%'):
+                    soutput+=get_spec_char(s[0])
+                    continue
+              
+                #reset position
+                Settings["DATASTRINGPOS"]=commandstart
+              
+                #deal with any instructions
+                #can ignore result
+                res,txt=ProcessCommandBlock(self.data,Vars,Settings,data,False,False,ReferencedLineNumbers)
+                    
+                soutput+=txt
+          
+            #update line address
+            Vars[0x0A]+=Vars[0x0C]
+            #update line number
+            Vars[0x0B]+=1
+          
+            #new line
+            soutput+="\n"
+    
+        #return end of data block as might have changed
+        return Vars[0x0E],soutput
+
+def NumberToString(n,bits,form,typeindicator=True):
+    """
+    format: 0=hex,1=decimal,2=octal,3=binary
+    typeindictor specifies display type specifer before number: ""for decimal, "#" for hex, "b" for binary, "o" for octal
+    """
+    if(form==0):
+        #hex
+        return ("%s%0"+str(bits>>2)+"X") % ("#" if typeindicator else "",n)
+    
+    elif(form==1):
+        #decimal
+        return "%d" % n
+    
+    elif(form==2):
+        #octal
+        return ("%s%0"+str((bits+2)/3)+"o") % ("o" if typeindicator else "",n)
+
+    elif(form==3):
+        #binary
+        return ("%s%0"+str(bits)+"b") % ("b" if typeindicator else "",n)
+
+    else:
+        return ""
+
+def GetNextCharacters(instructions,Settings,numberToGet):
+    """
+    returns required number of characters skipping space, new line, tabs, and comments.
+    """
+    
+    s=""
+
+    #loop until have requested number of non whitespace characters or hit end of commands
+    while(len(s)<numberToGet and Settings["DATASTRINGPOS"]<len(instructions)):
+        c=instructions[Settings["DATASTRINGPOS"]]
+
+        #if found comment, move to end of line
+        if(c=='%' and len(instructions)>Settings["DATASTRINGPOS"]+1 and instructions[Settings["DATASTRINGPOS"]+1]=="#"):
+            #check just incase have %%# which is display %#
+            escapes=1
+            #see how far back escapes go back
+            while(escapes>Settings["DATASTRINGPOS"] and instructions[Settings["DATASTRINGPOS"]-escapes]=="%"):
+                escapes+=1
+            
+            #should have an odd number of escapes if this a comment
+            if(escapes&1==1):
+                #move position to new line character
+                Settings["DATASTRINGPOS"]=instructions.find("\n",Settings["DATASTRINGPOS"])
+                #if newline not found,
+                if(Settings["DATASTRINGPOS"]==-1):
+                    #set to end of line
+                    Settings["DATASTRINGPOS"]=len(instructions)
+                
+                #loop back to deal with next character    
+                continue
+            
+            #otherwise is a hash to display
+
+        if(c!=' ' and c!='\t' and c!='\n'):
+            s+=c
+        Settings["DATASTRINGPOS"]+=1
+    
+    return s
+
+def MoveToEndBlock(instructions,Vars,Settings,commandstart):
+    """
+    move to end of specified command block
+    """
+    
+    #for each line go through commands instructions character by chracter
+    while(Settings["DATASTRINGPOS"]<len(instructions)):
+        #get next char
+        s=GetNextCharacters(instructions,Settings,1)
+      
+        #skip non-control characters first
+        if(s!="%"):
+            continue
+      
+        #get next char
+        s=GetNextCharacters(instructions,Settings,1)
+      
+        #what command is it?
+        if(s[0]=="("):
+            #move to end of nested block
+            MoveToEndBlock(instructions,Vars,Settings,commandstart)
+
+        #return if found end of block
+        elif(s[0]==')'):
+            return
+        
+        #otherwise skip command
+
+    #should always find end of block with close brackets, error if block not closed
+    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"no closing brackets to  block")
+
+def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,ReferencedLineNumbers):
+    """processes an instruction block.
+       return bit 0 1=true, 0=false
+       bit 1 2=break, 0=not break
+       bit 2 4=continue, 0=not continue
+       ,output text
+    """
+
+    #nested functions needed by ProcessCommandBlock
+    def inc_var_if_needed(var_num,Vars,inc_amount):
+        """increment variable if apropriate"""
+        if((var_num&0x40)==0 and ((var_num&0x3F)<0x0A or (var_num&0x3F)==0x0C or (var_num&0x3F)==0x0F)):
+            Vars[0x0C if ((var_num&0x3F)==0x0F) else var_num&0x3F]+=inc_amount
+
+    def GetNumberVarOrMemory(instructions,Vars,Settings,data,commandstart):
+        #how many bytes are we getting
+        getByte=True;
+        #remember where we started
+        pos=Settings["DATASTRINGPOS"]
+        
+        #get next char
+        s=GetNextCharacters(instructions,Settings,1)
+        
+        #first check if is a number
+        if(s[0]!="%"):
+            #restore pointer to where it was
+            Settings["DATASTRINGPOS"]=pos
+          
+            #extract number
+            i=int(GetNextCharacters(instructions,Settings,4),16)
+            #deal with error
+            if(i<0):
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"number must be 4 digit hexadecimal number")
+
+            return i
+        
+        #get next char
+        s=GetNextCharacters(instructions,Settings,1)
+        
+        if(s[0]=="V"):
+            #get variable number
+            i=int(GetNextCharacters(instructions,Settings,2),16)
+            #deal with invalid variable number
+            if(i<0 or i>0x0F):
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid variable")
+                
+            #return variable's content
+            return Vars[0x0A]+Vars[0x0C] if (i==0x0F) else Vars[i]
+        
+        #should now be 'M', handle if not
+        if(s[0]!="M"):
+            raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"argument must be number, variable, or memory content")
+        
+        pos=Settings["DATASTRINGPOS"]
+        
+        #get next char
+        s=GetNextCharacters(instructions,Settings,1)
+        
+        #if next char is 'W' then need to get 2 bytes
+        if(s[0]=="W"):
+            #make note we need word not byte
+            getByte=False
+        
+            #get next char
+            s=GetNextCharacters(instructions,Settings,1)
+        
+            pos=Settings["DATASTRINGPOS"]
+        
+        #now get into i address of where to extract data from
+        
+        #if next char is 'V' then variable pointing to memory address
+        if(s[0]=="V"):
+            #get variable number
+            i=int(GetNextCharacters(instructions,Settings,2),16)
+            #deal with invalid variable number
+            if(i<0 or i>0x0F):
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid variable number for memory address")
+                
+            #get number variable's content
+            i=Vars[0x0A]+Vars[0x0C] if (i==0x0F) else Vars[i]
+
+        #otherwise should be 4 hex digit address
+        else:
+            #in checking to see if next char was V will move pointer, so reset to where it should be
+            Settings["DATASTRINGPOS"]=pos
+          
+            #extract number
+            i=int(GetNextCharacters(instructions,Settings,4),16)
+            #deal with error
+            if(i<0):
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"should be 4 digit hexadecimal number for memory address")
+        
+        #now have address we need to extract in i, and if we want byte or not in getByte
+        #deal with byte
+        if(getByte):
+            return data[i-Settings["ORIGIN"]]
+            #throw NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"attempt to access memory address outside block to disassemble");
+        
+        #deal with word taking into account endedness of number we want
+        return data[i-Settings["ORIGIN"]+Settings["NUMBERWORDORDER"]]+256*data[i-Settings["ORIGIN"]+1-Settings["NUMBERWORDORDER"]]
+          #throw NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"attempt to access memory address outside block to disassemble");
+
+    def CombineResults(mode,a,b):
+        if(mode==0):
+            return a and b
+        if(mode==1):
+            return a or b
+        if(mode==2):
+            return a^b
+
+    #end of ProcessCommandBlock's nested functions
+
+    boolState=False
+    boolMode=1      #0=and, 1=or, 2=xor
+    soutput=""
+
+    #for each line go through commands instructions character by chracter
+    while(Settings["DATASTRINGPOS"]<len(instructions)):
+        #make note of where command starts in case we have error
+        commandstart=Settings["DATASTRINGPOS"]
+      
+        #get next char
+        s=GetNextCharacters(instructions,Settings,1)
+      
+        #deal with non-control characters first
+        if(s[0]!='%'):
+            soutput+=get_spectrum_char(s[0])
+            continue
+
+        #get next char (command
+        s=GetNextCharacters(instructions,Settings,1)
+      
+        #what command is it?
+        if(s[0]=='F'): #//format settings
+            #get sub command & which format
+            i=int(GetNextCharacters(instructions,Settings,4),16)
+            if((i>>8)==0): #format hex/decimal/octal/binary
+                if((i&0xFF)>6):
+                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Number format argument must be 0 to 6")
+                    
+                if((i&0xFF)==4):
+                    Settings["NUMBERFORMAT"]=Settings["ADDRESSOUTPUT"]
+                    
+                elif((i&0xFF)==5):
+                    Settings["NUMBERFORMAT"]=Settings["NUMBEROUTPUT"]
+                    
+                elif((i&0xFF)==6):
+                    Settings["NUMBERFORMAT"]=Settings["COMMANDOUTPUT"]
+                    
+                else:
+                    Settings["NUMBERFORMAT"]=i&0xFF
+
+            elif((i>>8)==1): #number unsigned/signed
+                if((i&0xFF)>1):
+                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Number sign argument must be 0 or 1")
+                
+                Settings["NUMBERSIGNED"]=i&0xFF
+
+            elif((i>>8)==2): #word mode little/big endian
+                if((i&0xFF)>1):
+                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Word endedness argument must be 0 or 1")
+                
+                Settings["NUMBERWORDORDER"]=i&0xFF
+
+            elif((i>>8)==3): #display line address every X line
+                k=int(GetNextCharacters(instructions,Settings,2),16)
+                if(k<0 or k>255):
+                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Display line address every X line argument must be 2 digit hexadecimal number")
+                    
+                Settings["DISPLAYEVERYXLINES"]=k+((i&0xFF)<<8)
+
+            elif((i>>8)==4): #separator to default/space/tab
+                if((i&0xFF)>2):
+                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Seperator setting argument must be 0 to 2")
+                    
+                Settings["SEPERATOR"]=i&0xFF
+                if(Settings["SEPERATOR"]==2):
+                    Settings["SEPERATOR"]=Settings["ORIGIONALSEPERATOR"]
+                    
+            else:
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"unrecognised format setting")
+      
+        elif(s[0]=='B'): #ouput byte
+            #get info
+            i=int(GetNextCharacters(instructions,Settings,2),16)
+            if((i&0x3F)==0x3F): #dealing with addresses
+                #get address
+                k=int(GetNextCharacters(instructions,Settings,4),16)
+                #getbyte at address, adjust for offset
+                k=data[k-Settings["ORIGIN"]]
+            
+            elif((i&0x3F)<0x10):
+                #get variable content
+                k=Vars[0x0A]+Vars[0x0C] if ((i&0x3F)==0x0F) else Vars[i&0x3F]
+                #get content of memory address if this is a reference
+                if((i&0x80)==0):
+                    k=data[k-Settings["ORIGIN"]]
+                #increment if apropriate
+                inc_var_if_needed(i,Vars,1)
+
+            else:
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid byte output argument")
+      
+            #handle negative number if signed and not an address
+            if(Settings["NUMBERSIGNED"]==1 and (i&0x80)==0x80):
+                k=0x100-k
+                soutput+="-"
+
+            #output byte
+            soutput+=NumberToString(k,8,Settings["NUMBERFORMAT"],False)
+      
+        elif(s[0]=='W'): #output word
+            #get info
+            i=int(GetNextCharacters(instructions,Settings,2),16)
+            if((i&0x3F)==0x3F):  #dealing with addresses
+                #get address
+                k=int(GetNextCharacters(instructions,Settings,4),16)
+                #getbyte, adjust for offset
+                k=data[k-Settings["ORIGIN"]+Settings["NUMBERWORDORDER"]]+256*data[k-Settings["ORIGIN"]+1-Settings["NUMBERWORDORDER"]]
+
+            elif((i&0x3F)<0x10):
+                #get variable content
+                k=Vars[0x0A]+Vars[0x0C] if ((i&0x3F)==0x0F) else Vars[i&0x3F]
+                #get content of memory address if this is a reference
+                if((i&0x80)==0):
+                    k=data[k-Settings["ORIGIN"]+Settings["NUMBERWORDORDER"]]+256*data[k-Settings["ORIGIN"]+1-Settings["NUMBERWORDORDER"]]
+                    
+                #increment if apropriate
+                inc_var_if_needed(i,Vars,2)
+
+            else:
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid number output argument")
+      
+            #handle negative number if signed and not an addrss
+            if(Settings["NUMBERSIGNED"]==1 and (i&0x80)==0x80):
+                k=0x100-k
+                soutput+="-"
+
+            #output word
+            soutput+=NumberToString(k,16,Settings["NUMBERFORMAT"],False)
+            #remember number incase it is line number
+            if(ReferencedLineNumbers!=None):
+                ReferencedLineNumbers+=[k]
+      
+        elif(s[0]=='A'): #output address
+            #get info
+            i=int(GetNextCharacters(instructions,Settings,2),16)
+            if((i&0x3F)==0x3F): #dealing with addresses
+                #get address
+                k=int(GetNextCharacters(instructions,Settings,4),16)
+                #getbyte, adjust for offset
+                k=data[k-Settings["ORIGIN"]+Settings["NUMBERWORDORDER"]]+256*data[k-Settings["ORIGIN"]+1-Settings["NUMBERWORDORDER"]]
+
+            elif((i&0x3F)<0x10):
+                #get variable content
+                k=Vars[0x0A]+Vars[0x0C] if ((i&0x3F)==0x0F) else Vars[i&0x3F]
+                #get content of memory address if this is a reference
+                if((i&0x80)==0):
+                    k=data[k-Settings["ORIGIN"]+Settings["NUMBERWORDORDER"]]+256*data[k-Settings["ORIGIN"]+1-Settings["NUMBERWORDORDER"]]
+                #increment if apropriate
+                inc_var_if_needed(i,Vars,2)
+
+            else:
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid address output argument")
+      
+            #output address
+            i=Settings["NUMBERFORMAT"]+4+(Settings["SEPERATOR"]<<5);
+            soutput+="\0"+chr(i)+chr(Settings["DISPLAYEVERYXLINES"])+NumberToString(k,16,0,False)
+      
+        elif(s[0]=='C'):  #output char, defaults to unsigned byte if not printable
+            #get info
+            i=int(GetNextCharacters(instructions,Settings,2),16)
+            if((i&0x3F)==0x3F): #dealing with addresses
+                #get address
+                k=int(GetNextCharacters(instructions,Settings,4),16)
+                #getbyte, adjust for offset
+                k=data[k-Settings["ORIGIN"]]
+
+            elif((i&0x3F)<0x10):
+                #get variable content
+                k=Vars[0x0A]+Vars[0x0C] if ((i&0x3F)==0x0F) else Vars[i&0x3F]
+                #get content of memory address if this is a reference
+                if((i&0x80)==0):
+                    k=data[k-Settings["ORIGIN"]]
+                #increment if apropriate
+                inc_var_if_needed(i,Vars,1)
+
+            else:
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid character output argument")
+      
+            #output character
+            soutput+=get_spectrum_char(k)
+      
+        elif(s[0]=='G'):  #output 5 byte floating point number
+            #get info
+            i=int(GetNextCharacters(instructions,Settings,2),16)
+            if((i&0x3F)==0x3F):  #dealing with addresses
+                #get address
+                k=int(GetNextCharacters(instructions,Settings,4),16)
+                #get and output floating point number
+                soutput+=str(SpectrumNumber(data[k-Settings["ORIGIN"]:k-Settings["ORIGIN"]+5]))
+
+            elif((i&0x3F)<0x10):
+                #get variable content
+                k=Vars[0x0A]+Vars[0x0C] if ((i&0x3F)==0x0F) else Vars[i&0x3F]
+                #has to be a memory address that holds 5 byte number
+                if((i&0x80)!=0):
+                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid floating point number output argument")
+              
+                #get and output floating point number
+                soutput+=str(SpectrumNumber(data[k-Settings["ORIGIN"]:k-Settings["ORIGIN"]+5]))
+                #increment if apropriate
+                inc_var_if_needed(i,Vars,5)
+
+            else:
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid floating point number output argument")
+      
+        elif(s[0]=='%'):  #output '%'
+            soutput+='%'
+      
+        elif(s[0]=='S'):  #output seperator
+            soutput+="  " if Settings["SEPERATOR"]==0 else "\t"
+      
+        elif(s[0]=='N'):  #output newline
+            soutput+='\n'
+      
+        elif(s[0]==' '):  #output space
+            soutput+=' '
+      
+        elif(s[0]=='T'):  #output tab
+            soutput+='\t'
+      
+        #maths
+        elif(s[0]=='X'):
+            #get sub command
+            i=int(GetNextCharacters(instructions,Settings,2),16)
+            #check if valid command
+            if(i<0 or i>9):
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid arithmetic operation. Must be 0 to 9")
+      
+            #where to store result
+            result=int(GetNextCharacters(instructions,Settings,2),16)
+            #check is valid resultlocation
+            if(result<0 or (result>9 and result!=0x0C and result!=0x0E and result!=0x0F)):
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid arithmetic destination")
+      
+            #get first argument
+            arga=GetNumberVarOrMemory(instructions,Vars,Settings,data,commandstart)
+            #get 2nd argument if needed & keep compiler happy otherwise
+            argb=GetNumberVarOrMemory(instructions,Vars,Settings,data,commandstart) if (i!=1) else 0
+      
+            #now process variables
+            if(i==0):   #let
+                k=arga
+            elif(i==2): #add
+                k=arga+argb
+            elif(i==3): #subtract
+                k=arga-argb
+            elif(i==4): #multiply
+                k=arga*argb
+            elif(i==5): #divide
+                k=arga/argb
+            elif(i==6): #modulus
+                k=arga%argb
+            elif(i==7): #binary and
+                k=arga&argb
+            elif(i==8): #binary or
+                k=arga|argb
+            elif(i==9): #binary xor
+                k=arga^argb
+            else:
+                k=0
+      
+            #ensure is 16 bit result
+            k&=0xFFFF
+      
+            #save variable
+            if(result==0x0F):
+                Vars[0x0C]=k-Vars[0x0A]
+            else:
+                Vars[result]=k
+      
+        #flow
+        elif(s[0]=='('):
+            #process contents of brackets and combine result
+            i,txt=ProcessCommandBlock(instructions,Vars,Settings,data,True,InTest,ReferencedLineNumbers)
+            soutput+=txt
+            boolState=CombineResults(boolMode,boolState,(i&1)==1)
+            i=i&6
+            #if break or continue, leave
+            if(i!=0):
+              #move to end of current block
+              MoveToEndBlock(instructions,Vars,Settings,commandstart)
+              #leave block
+              return i+(1 if boolState else 0), soutput
+
+        elif(s[0]==')'):
+            #if not in brackets  then error
+            if(not inBrackets):
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Closing brackets without opening brackets")
+      
+            #otherwise ought to return from command
+            return 1 if boolState else 0, soutput
+      
+        elif(s[0]=='I'):  #if then block
+            #should have brackets afterwards
+            if(GetNextCharacters(instructions,Settings,2)!="%("):
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"bracket bound test must follow if statement")
+      
+            #test if block
+            result,txt=ProcessCommandBlock(instructions,Vars,Settings,data,True,True,ReferencedLineNumbers)
+            bTest=(result&1)==1
+            soutput+=txt
+      
+            #should have brackets afterwards for instruction block
+            if(GetNextCharacters(instructions,Settings,2)!="%("):
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"bracket bound action must follow if test")
+      
+            #signal no break or continue
+            k=0
+            #if contition met then process block
+            if(bTest):
+                k,txt=ProcessCommandBlock(instructions,Vars,Settings,data,True,InTest,ReferencedLineNumbers)
+                soutput+=txt
+                
+            #otherwise move past command block
+            else:
+                MoveToEndBlock(instructions,Vars,Settings,commandstart)
+      
+            #save position before checking to see if is else statement following
+            i=Settings["DATASTRINGPOS"]
+            #see if is an else block
+            if(GetNextCharacters(instructions,Settings,2)=="%J"):
+                #should have brackets afterwards for instruction block
+                if(GetNextCharacters(instructions,Settings,2)!="%("):
+                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"bracket bound action must follow else statement")
+                
+                #process block
+                k,txt=ProcessCommandBlock(instructions,Vars,Settings,data,True,InTest,ReferencedLineNumbers)
+                soutput+=txt
+
+            #otherwise reset string position
+            else:
+                Settings["DATASTRINGPOS"]=i
+      
+            #if break or continue happened inside if or else block then leave
+            if((k&6)!=0):
+                #move to end of current block
+                MoveToEndBlock(instructions,Vars,Settings,commandstart)
+                #leave block
+                return k,soutput
+      
+        elif(s[0]=='L'):  #while do loop
+            #should have brackets afterwards
+            if(GetNextCharacters(instructions,Settings,2)!="%("):
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"bracket bound test must follow loop statement")
+      
+            #make note of where while do loop starts
+            i=Settings["DATASTRINGPOS"]
+      
+            bTest=True
+      
+            #loop until test condition is false;
+            while(bTest):
+                #set where while do loop starts
+                Settings["DATASTRINGPOS"]=i
+            
+                #test if block
+                result,txt=ProcessCommandBlock(instructions,Vars,Settings,data,True,True,ReferencedLineNumbers)
+                bTest=(result&1)==1
+                soutput+=txt
+            
+                #should have brackets afterwards for instruction block
+                if(GetNextCharacters(instructions,Settings,2)!="%("):
+                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"bracket bound action must follow loop test")
+            
+                #if contition met then process block
+                if(bTest):
+                    result,txt=ProcessCommandBlock(instructions,Vars,Settings,data,True,InTest,ReferencedLineNumbers)
+                    soutput+=txt
+                    if((result&2)==2):
+                        #if break from routine then break out of loop
+            
+                        #move to end of current block
+                        MoveToEndBlock(instructions,Vars,Settings,commandstart)
+            
+                        break
+            
+                #otherwise move past command block
+                if(not bTest):
+                    MoveToEndBlock(instructions,Vars,Settings,commandstart)
+      
+        #end data block
+        elif(s[0]=='Q'):
+            #setting end of data block as current position, then ending line will quit data block
+            Vars[0x0E]=Vars[0x0A]+Vars[0x0C]
+      
+            #by setting position to end of data string and returning, this will end line
+            Settings["DATASTRINGPOS"]=len(instructions)
+            return 1 if boolState else 0, soutput
+      
+        #end line
+        elif(s[0]=='E'):
+            #by setting position to end of data string and returning, this will end line
+            Settings["DATASTRINGPOS"]=len(instructions)
+            return 1 if boolState else 0, soutput
+      
+        #break;
+        elif(s[0]=='Y'):
+            #return
+            return 3 if boolState else 2,soutput
+      
+        #continue
+        elif(s[0]=='Z'):
+            #return
+            return 5 if boolState else 4,soutput
+      
+        #comparitors
+        elif(s[0]=='?'):
+            #get next chars
+            comp=GetNextCharacters(instructions,Settings,2)
+      
+            #check if mode change
+            if(comp[0]=='B'):
+                if(comp[1]=='A'): #and
+                    boolMode=0
+                elif(comp[1]=='O'): #or
+                  boolMode=1
+                elif(comp[1]=='X'): #xor
+                  boolMode=2
+                else: #unrecognised mode command
+                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"unrecognised boolean combination mode")
+      
+                continue
+                
+            #have we tested enoug already?
+            #can we end testing based on results so far without further testing?
+            if(InTest==True and (    #are we in a test situation?
+               (boolMode==0 and boolState==False) or  #are we anding with false: answer will be false
+               (boolMode==1 and boolState==True))     #are we oring with true: answer will be true
+               ):
+                #can leave test as have found answer
+                #move to end of current block
+                MoveToEndBlock(instructions,Vars,Settings,commandstart)
+                #return from test block
+                return 1 if boolState else 0, soutput
+      
+            #should now be tests
+            #get which one
+            i={"LT":0,"MT":1,"EQ":2,"LE":3,"ME":4,"NE":5}[comp]
+            #throw NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"unrecognised comparison")
+      
+            #get 2 arguments
+            arga=GetNumberVarOrMemory(instructions,Vars,Settings,data,commandstart)
+            #get 2nd argument if needed
+            argb=GetNumberVarOrMemory(instructions,Vars,Settings,data,commandstart)
+      
+            #now do text
+            if(i==0):  #less than
+                boolState=CombineResults(boolMode,boolState,arga<argb)
+            elif(i==1):  #more than
+                boolState=CombineResults(boolMode,boolState,arga>argb)
+            elif(i==2):  #equal
+                boolState=CombineResults(boolMode,boolState,arga==argb)
+            elif(i==3):  #less than or equal
+                boolState=CombineResults(boolMode,boolState,arga<=argb)
+            elif(i==4):  #more than or equal
+                boolState=CombineResults(boolMode,boolState,arga>=argb)
+            elif(i==5):  #not equal
+                boolState=CombineResults(boolMode,boolState,arga!=argb)
+      
+        else: #unrecognised command
+            raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"unrecognised command")
+
+    return 1 if boolState else 0, soutput
+
+#generate exception 
+def NewSpectrumTranslateException(address,pos,instructions,details):
+    return SpectrumTranslateException('Data Format error processing "%s" near character number %d on line starting at %04X\n%s' % (instructions,pos,address,details))
 
 #custom format bits 0&1=address, 2&3=number, 4&5=command, 6&7=tstates, 8&9+=line after jump
 #A&B=linenumbers, C-13=lineeveryX, 14=emptylineafterdata, 15=referencedatanumbers
@@ -3350,76 +3345,42 @@ def get_custom_format_values(data,bWantInstructionCode=False):
 
 
 def GetPartsOfPatternDataBlock(pdb):
-    #nested functions to avoid namespace pollution.
-    #are copies of the ones in disassemble
-
-    #returns required number of characters skipping space, new line, and tabs
-    def GetNextCharacters(commands,Settings,numberToGet):
-        s=""
-
-        #loop until have requested number of non whitespace characters or hit end of commands
-        while(len(s)<numberToGet and Settings["DATASTRINGPOS"]<len(commands)):
-            c=commands[Settings["DATASTRINGPOS"]]
-            if(c!=' ' and c!='\t' and c!='\n'):
-                s+=c
-            Settings["DATASTRINGPOS"]+=1
-        
-        return s
-
-    #move to end of specified command block
-    def MoveToEndBlock(commands,Settings):
-        #for each line go through commands instructions character by chracter
-        while(Settings["DATASTRINGPOS"]<len(commands)):
-            #get next char
-            s=GetNextCharacters(commands,Settings,1)
-          
-            #skip non-control characters first
-            if(s!="%"):
-                continue
-          
-            #get next char
-            s=GetNextCharacters(commands,Settings,1)
-          
-            #what command is it?
-            if(s[0]=="("):
-                #move to end of nested block
-                MoveToEndBlock(commands,Settings)
-
-            elif(s[0]==')'):
-                return
-            
-            #otherwise skip command
-
-        #should always find end of block with close brackets, error if block not closed
-        raise Exception("no closing brackets to  block")
-
+    """
+    Returns list of the 3 parts of of a patternDataBlock.
+    """
 
     #break Pattern Data Block into sections
-
-    Settings={"DATASTRINGPOS":0}
+    test=None
+    prep=None
+    action=None
 
     try:
-        #first check is valid test block
-        if(GetNextCharacters(pdb,Settings,2)!="%("):
-            return None
+        Settings={"DATASTRINGPOS":0}
+        Vars=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0xFFFF]
+        
+        #first check is valid test block & record where
+        s=GetNextCharacters(pdb,Settings,2)
+        if(s!="%("):
+            return (test,prep,action)
             
         #record test start
-        i=Settings["DATASTRINGPOS"]
+        k=Settings["DATASTRINGPOS"]
         #move to end of test block
-        MoveToEndBlock(pdb,Settings)
+        MoveToEndBlock(pdb,Vars,Settings,0)
         #calculate test string
-        test="%("+pdb[i:Settings["DATASTRINGPOS"]]
+        test="%("+pdb[k:Settings["DATASTRINGPOS"]]
         
         #now check is valid preperation block & record where
-        if(GetNextCharacters(pdb,Settings,2)!="%("):
-            return None
-            
+        s=GetNextCharacters(pdb,Settings,2)
+        if(s!="%("):
+            return (test,prep,action)
+        
         #record preperation block start
-        i=Settings["DATASTRINGPOS"]
+        k=Settings["DATASTRINGPOS"]
         #move to end of preperation block
-        MoveToEndBlock(pdb,Settings)
+        MoveToEndBlock(pdb,Vars,Settings,0)
         #calculate preperation string
-        prep="%("+pdb[i:Settings["DATASTRINGPOS"]]
+        prep="%("+pdb[k:Settings["DATASTRINGPOS"]]
         
         #calculate action string
         action=pdb[Settings["DATASTRINGPOS"]:]
@@ -3427,7 +3388,7 @@ def GetPartsOfPatternDataBlock(pdb):
         return (test,prep,action)
         
     except:
-        return None
+        return (test,prep,action)
 
 #todo
 #remove once finished debugging.
@@ -3500,13 +3461,12 @@ if __name__=="__main__":
 
     #print str(tbs[x+1].getbytes())
 
-    """    
     #testsplit
-    print DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"]
+    #print DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"]
     x=GetPartsOfPatternDataBlock(DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"])
-    print x
-    """
+    print x[2]
     
+    """
     #test translate macine code
     diInstructions=[DisassembleInstruction(DisassembleInstruction.DisassembleCodes["Custom Format"],
         0,
@@ -3525,8 +3485,9 @@ if __name__=="__main__":
             DisassembleInstruction.DisassembleCodes["Seperators Space"],
             DisassembleInstruction.DisassembleCodes["Display Flags Off"],
             DisassembleInstruction.DisassembleCodes["Mark Undocumented Command Off"])),
+    """
 
     #DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,35,38,3B,42,96,9F,F3,F8,FD,103,116,11B,122,125,12A,139,13C,13F,143#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
-    DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,4A,4D,50,57,AB,B4,108,10D,11A,120,133,138,13F,142,147,156,159,15C,160#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E            %#testing%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(  %#test    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
-    data='\xdd!\x00\x80\x11\x0e\x00\xcdBu\xdd!\x0e\x80\xed[\x0b\x80\xaf=\xcd\xc2\x04\x06\x19v\x10\xfd\xc9LPICTITLGAM1GAM2MSFXBAN4L0MAL0DEL0REL0ALL0B0L0B1L1MAL1DEL1REL1ALL1B0L1B1L2MAL2DEL2REL2ALL2B0L2B1L3MAL3DEL3REL3ALL3B0L3B1L4MAL4DEL4REL4ALL4B1'
-    print disassemble(data,0,0x7530,len(data),diInstructions)
+    #DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,4A,4D,50,57,AB,B4,108,10D,11A,120,133,138,13F,142,147,156,159,15C,160#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E            %#testing%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(  %#test    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
+    #data='\xdd!\x00\x80\x11\x0e\x00\xcdBu\xdd!\x0e\x80\xed[\x0b\x80\xaf=\xcd\xc2\x04\x06\x19v\x10\xfd\xc9LPICTITLGAM1GAM2MSFXBAN4L0MAL0DEL0REL0ALL0B0L0B1L1MAL1DEL1REL1ALL1B0L1B1L2MAL2DEL2REL2ALL2B0L2B1L3MAL3DEL3REL3ALL3B0L3B1L4MAL4DEL4REL4ALL4B1'
+    #print disassemble(data,0,0x7530,len(data),diInstructions)

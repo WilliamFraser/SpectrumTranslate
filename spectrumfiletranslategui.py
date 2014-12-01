@@ -988,7 +988,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
     def ChangeEditPatternDataBlock(self,txt):
         blocks=spectrumtranslate.GetPartsOfPatternDataBlock(spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodes[str(txt)])
         
-        if(blocks!=None):
+        if(blocks[0]!=None and blocks[1]!=None and blocks[2]!=None):
             self.tePatternDataBlockSearch.textChanged.disconnect(self.ChangePatternDataBlock)
             self.tePatternDataBlockSetup.textChanged.disconnect(self.ChangePatternDataBlock)
             self.tePatternDataBlockAction.textChanged.disconnect(self.ChangePatternDataBlock)
@@ -1002,12 +1002,12 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
     def ChangePatternDataBlock(self):
         blocks=spectrumtranslate.GetPartsOfPatternDataBlock(str(self.tePatternDataBlockSearch.toPlainText()+self.tePatternDataBlockSetup.toPlainText()+self.tePatternDataBlockAction.toPlainText()))
-        if(blocks!=None):
+        if(blocks[0]!=None and blocks[1]!=None and blocks[2]!=None):
             blocks=[block.strip() for block in blocks]
 
         for key in spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodeOrderedKeys:
             testblocks=spectrumtranslate.GetPartsOfPatternDataBlock(spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodes[key])
-            if(testblocks==None):
+            if(testblocks[0]==None or testblocks[1]==None or testblocks[2]==None):
                 continue
                 
             testblocks=[block.strip() for block in testblocks]
