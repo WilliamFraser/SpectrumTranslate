@@ -1691,6 +1691,10 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             #run dialog
             dContainer.exec_()
             
+            #save data if required
+            if(self.cbSaveOutput.isChecked()):
+                self.PutFileData(data)
+
             return
 
         #otherwise translate into text
