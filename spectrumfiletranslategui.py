@@ -579,7 +579,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
         stack.addWidget(gbImage)
 
-        #panel to hold image variables
+        #panel to indicate raw data
         gbRaw=QtGui.QGroupBox("Raw Data",self)
         stack.addWidget(gbRaw)
 
@@ -1651,7 +1651,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             
             return
             
-        #handle images
+        #handle raw data
         if(self.cbDataType.currentText()=="Raw Data"):
             #get data and exit of error
             data=self.GetSelectedData()
@@ -1660,7 +1660,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
             #create dialog
             dContainer=QtGui.QDialog(self)
-            dContainer.setWindowTitle("View Raw code")
+            dContainer.setWindowTitle("View Raw Data")
             dContainer.setModal(True)
             
             lay=QtGui.QVBoxLayout()
