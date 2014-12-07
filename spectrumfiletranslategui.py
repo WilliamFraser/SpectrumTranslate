@@ -237,6 +237,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         
         self.diInstructions=[None]
         
+        self.ExportSettings={"Filename":"Export    ","AppendOrOver":1,"SaveWithHeadder":1,"Flag":0xFF}
+        
         self.initUI(defaultFile)
         
     def initUI(self,defaultFile=None):
@@ -319,6 +321,17 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         cbSaveOutput.toggle()
         cbSaveOutput.setToolTip("Select if you want to save translated text after translation.")
         self.cbSaveOutput=cbSaveOutput
+        cbExportToContainer=QtGui.QCheckBox("Export file to Container",self)
+        cbExportToContainer.toggle()
+        cbExportToContainer.setCheckState(False)
+        cbExportToContainer.setToolTip("Select if you want to export the selected file to a tap file.")
+        self.cbExportToContainer=cbExportToContainer
+        cbExportToContainer.stateChanged.connect(self.ExportToContainerChanged)
+        bExportSettings=QtGui.QPushButton("Export Settings",self)
+        bExportSettings.setToolTip("Edit the Export options.")
+        bExportSettings.clicked.connect(self.EditExportSettings)
+        bExportSettings.setEnabled(False)
+        self.bExportSettings=bExportSettings
 
         #set out widgets
         grid=QtGui.QGridLayout()
@@ -593,6 +606,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
         grid.addWidget(cbViewOutput,4,0)
         grid.addWidget(cbSaveOutput,5,0)
+
+        grid.addWidget(cbExportToContainer,4,1)
+        grid.addWidget(bExportSettings,4,2)
 
         hbox=QtGui.QHBoxLayout()
         hbox.setSpacing(2)
@@ -1586,14 +1602,159 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         
         lwInstruction.label.setText(s)
 
+    def EditExportSettings(self):
+        #create dialog
+        dContainer=QtGui.QDialog(self)
+        dContainer.setWindowTitle("Edit Export Settings")
+        dContainer.setModal(True)
+
+        vbox=QtGui.QVBoxLayout()
+
+        cbOverOrAppend=QtGui.QComboBox(self)
+        cbOverOrAppend.addItem("Overwrite existing file",0)
+        cbOverOrAppend.addItem("Append to Existing file",1)
+        cbOverOrAppend.setToolTip("Do you want to append or overwrite an existing file?")
+        cbOverOrAppend.setCurrentIndex(self.ExportSettings["AppendOrOver"])
+        vbox.addWidget(cbOverOrAppend)
+
+        cbSaveWithHeadder=QtGui.QComboBox(self)
+        cbSaveWithHeadder.addItem("Save as headderless block",0)
+        cbSaveWithHeadder.addItem("Save with headder",1)
+        cbSaveWithHeadder.setToolTip("Do you want to save as headderless block or file with headder?")
+        cbSaveWithHeadder.setCurrentIndex(self.ExportSettings["SaveWithHeadder"])
+        vbox.addWidget(cbSaveWithHeadder)
+
+        hbox=QtGui.QHBoxLayout()
+        hbox.setSpacing(2)
+        hbox.addWidget(QtGui.QLabel("File Name:"))
+        leFileName=QtGui.QLineEdit(self)
+        leFileName.setToolTip("Filename to export as.")
+        leFileName.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
+        leFileName.sizePolicy().setHorizontalStretch(1)
+        leFileName.setText(self.ExportSettings["Filename"])
+        hbox.addWidget(leFileName)
+        vbox.addLayout(hbox)
+
+        hbox=QtGui.QHBoxLayout()
+        hbox.setSpacing(2)
+        hbox.addWidget(QtGui.QLabel("Block Flag:"))
+        leFlag=QtGui.QLineEdit(self)
+        leFlag.setToolTip("Flag value for the data block.\nIgnored if saveing with headder.")
+        leFlag.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
+        leFlag.sizePolicy().setHorizontalStretch(1)
+        leFlag.setText(str(self.ExportSettings["Flag"]))
+        hbox.addWidget(leFlag)
+        vbox.addLayout(hbox)
+
+        hbox=QtGui.QHBoxLayout()
+        hbox.addStretch(1)
+        ok=QtGui.QPushButton("Ok",self)
+        hbox.addWidget(ok)
+        ok.clicked.connect(self.CheckValidFileName)
+        close=QtGui.QPushButton("Cancel",self)
+        hbox.addWidget(close)
+        close.clicked.connect(dContainer.reject)
+        hbox.addStretch(1)
+
+        vbox.addLayout(hbox)
+
+        dContainer.setLayout(vbox)
+
+        dContainer.leFileName=leFileName
+        dContainer.leFlag=leFlag
+        self.Ddialog=dContainer
+
+        if(dContainer.exec_()==QtGui.QDialog.Accepted):
+            self.ExportSettings["Flag"]=int(str(leFlag.text()))
+            self.ExportSettings["Filename"]=str(leFileName.text())
+            self.ExportSettings["AppendOrOver"]=cbOverOrAppend.currentIndex()
+            self.ExportSettings["SaveWithHeadder"]=cbSaveWithHeadder.currentIndex()
+
+        del self.Ddialog
+    
+    def CheckValidFileName(self):
+        if(len(self.Ddialog.leFileName.text())>10):
+            QtGui.QMessageBox.warning(self,"Error!","Specrum file names have to be 10 characters or less.")
+            return
+        
+        try:
+            f=int(self.Ddialog.leFlag.text())
+            if(f<0 or f>0xFF):
+                QtGui.QMessageBox.warning(self,"Error!","Flag must be from 0 to 255 inclusive.")
+                return
+        
+        except:
+            QtGui.QMessageBox.warning(self,"Error!","Flag must be a number from 0 to 255 inclusive.")
+            return
+            
+        self.Ddialog.accept()
+
+    def ExportToContainerChanged(self,state):
+        self.SetTranslateButtonText()
+
+
     def Translate(self):
-        #handle images
-        if(self.cbDataType.currentText()=="Screen"):
-            #get data and exit of error
-            data=self.GetSelectedData()
-            if(data==None):
+        #get data and exit if error
+        data=self.GetSelectedData()
+        if(data==None):
+            return
+
+        outputformat=self.cbDataType.currentText()
+
+        #do exporting
+        if(self.cbExportToContainer.isChecked()):
+
+            output=''
+            if(self.ExportSettings["SaveWithHeadder"]==1):
+                filename=self.ExportSettings["Filename"]
+                if(outputformat=="Basic Program"):
+                    auto=self.getNumber(self.leBasicAutoLine)
+                    variableoffset=self.getNumber(self.leBasicVariableOffset)
+                    output=spectrumtapblock.CreateProgramHeadder(filename,variableoffset,len(data),auto).getPackagedForFile()
+                    
+                elif(outputformat=="Machine Code"):
+                    origin=self.getNumber(self.leCodeOrigin)
+                    if(origin<0 or origin>0xFFFF):
+                        QtGui.QMessageBox.warning(self,"Error!","Code Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
+                        return None
+                        
+                    output=spectrumtapblock.CreateCodeHeadder(filename,origin,len(data)).getPackagedForFile()
+                    
+                elif(outputformat=="Variable Array"):
+                    idescriptor=self.cbArrayVarType.currentIndex()
+                    idescriptor+=2
+                    idescriptor-=(idescriptor>>2)*3
+                    idescriptor*=64
+                    
+                    sVarName=str(self.leArrayVarName.text()).lower()
+                    if(len(sVarName)!=1 or ord(sVarName)<97 or ord(sVarName)>122):
+                        QtGui.QMessageBox.warning(self,"Error!","Variable Name must be single letter.")
+                        return None
+
+                    output=spectrumtapblock.CreateArrayHeadder(filename,idescriptor|(ord(sVarName)&0x3F),len(data)).getPackagedForFile()
+                    
+                elif(outputformat=="Screen"):
+                    output=spectrumtapblock.CreateScreenHeadder(filename).getPackagedForFile()
+
+            output+=spectrumtapblock.CreateDataBlock(data,0xFF if self.ExportSettings["SaveWithHeadder"]==1 else self.ExportSettings["Flag"]).getPackagedForFile()
+            
+            fileout=self.leFileNameOut.text()
+            if(not fileout or fileout==""):
+                QtGui.QMessageBox.warning(self,"Error!",'No output file selected.')
                 return
             
+            try:
+                fo=open(fileout,"ab" if self.ExportSettings["AppendOrOver"]==1 else "wb")
+                fo.write(output)
+                fo.close()
+            except:
+                QtGui.QMessageBox.warning(self,"Error!",'Failed to save data to "%s"' % fileout)
+            
+            return
+
+            
+        #handle images
+        if(outputformat=="Screen"):
             #get image as gif
             delay=self.getNumber(self.leImageDelay)
             if(not self.cbImageFlash.isChecked()):
@@ -1652,12 +1813,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             return
             
         #handle raw data
-        if(self.cbDataType.currentText()=="Raw Data"):
-            #get data and exit of error
-            data=self.GetSelectedData()
-            if(data==None):
-                return
-
+        if(outputformat=="Raw Data"):
             #create dialog
             dContainer=QtGui.QDialog(self)
             dContainer.setWindowTitle("View Raw Data")
@@ -1698,7 +1854,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             return
 
         #otherwise translate into text
-        s=self.DoTextTranslation()
+        s=self.DoTextTranslation(data,outputformat)
         if(s==None):
             return
             
@@ -1708,14 +1864,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         if(self.cbSaveOutput.isChecked()):
             self.PutFileData(s)
 
-    def DoTextTranslation(self):
-        #get data and exit if error
-        data=self.GetSelectedData()
-        if(data==None):
-            return None
-
-        datatype=self.cbDataType.currentText()
-        
+    def DoTextTranslation(self,data,datatype):
         if(datatype=="Basic Program"):
             #get program variables
             auto=self.getNumber(self.leBasicAutoLine)
@@ -1877,6 +2026,15 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         
     def DataTypeChange(self,datatype):
         self.settingsstack.setCurrentIndex(datatype)
+        self.SetTranslateButtonText()
+
+    def SetTranslateButtonText(self):
+        if(self.cbExportToContainer.isChecked()):
+            self.bTranslate.setText("Export")
+            self.bExportSettings.setEnabled(True)
+        else:
+            self.bTranslate.setText(("Translate","Translate","Translate","Translate","Extract")[self.cbDataType.currentIndex()])
+            self.bExportSettings.setEnabled(False)
 
     def FormatChange(self,newformat):
         #we're done if no change
@@ -2226,6 +2384,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         self.leArrayVarName.setText("")
         self.leCodeOrigin.setText(self.FormatNumber(origin))
         setCombo(self.cbDataType,"Machine Code")
+        self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(1)
 
     def SetScreenDetails(self,origin):
@@ -2234,6 +2393,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         self.leArrayVarName.setText("")
         self.leCodeOrigin.setText(self.FormatNumber(origin))
         setCombo(self.cbDataType,"Screen")
+        self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(3)
 
     def SetVariableArrayDetails(self,variableletter,arraydescriptor):
@@ -2247,6 +2407,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         self.cbArrayVarType.setCurrentIndex(i)
         self.leCodeOrigin.setText(self.FormatNumber(0))
         setCombo(self.cbDataType,"Variable Array")
+        self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(2)
 
     def  SetBasicDetails(self,autoline,variableoffset):
@@ -2255,6 +2416,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         self.leArrayVarName.setText("")
         self.leCodeOrigin.setText(self.FormatNumber(0))
         setCombo(self.cbDataType,"Basic Program")
+        self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(0)
         
     def FormatNumber(self,n):
@@ -2268,11 +2430,6 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
     def buttonToggled(self,button):
         print "%s is %s" % (str(button.text()),str(button.isChecked()))
-
-    def comboboxChanged(self,button):
-        pass
-        #self.connect(cbDataType,QtCore.SIGNAL("activated()"),lambda who=cbViewOutput: self.buttonToggled(who))
-        #self.pagesWidget.setCurrentIndex(self.contentsWidget.row(current))
 
     def handle_changed_text(self,txt):
         if(self.leFileNameIn.hasFocus()):

@@ -16,7 +16,7 @@ class SpectrumTapBlock:
         #initialise data
 
         """An array of bytes holding the data for the block."""
-        self.data=data
+        self.data=data[:]
         
         """
         The 8 bit data identifier value for the block.
@@ -231,6 +231,37 @@ class SpectrumTapBlock:
         
         return [ord(x[0]) for x in self.data[start:end]]
 
+    def getPackagedForFile(self):
+        """
+        returns this TapBlock packaged up with length headder, flag and checksum ready for saveing to a file.
+        """
+        
+        #work out length of data+flag+checksum
+        length=len(self.data)+2
+        
+        #get data to put in tapblock
+        data=self.getbytes()
+        
+        #work out checksum
+        checksum=self.flag
+        for i in data:
+            checksum=checksum^i
+
+        #merge it into a list
+        package=[length&0xFF,(length>>8)&0xFF,self.flag]+data+[checksum]
+
+        #return converted to bytes in string
+        return ''.join([chr(x) for x in package])
+    
+    def SaveTofile(self,filename,append=True):
+        """
+        Saves this TapBlock to the specified file. Optionally append specifies whether to overwrite
+        or append the TapBlock to the file.
+        """
+        
+        with open(filename,"ab" if append else "wb") as f:
+            f.write(self.getPackagedForFile())
+
 
 #utility function
 def _get_word(s):
@@ -318,6 +349,113 @@ def TapBlock_from_file(filename,position=0):
             else:
                 break
 
+def CreateProgramHeadder(filename,VariableOffset,ProgLength,AutoStart=0):
+    """
+    Create a headder for a program SpectrumTapBlock.
+    """
+
+    #create basic data block
+    tb=SpectrumTapBlock()    
+    tb.flag=0
+    tb.data=[0,32,32,32,32,32,32,32,32,32,32,0,0,0,0,0,0]
+    #set filename
+    for i in range(min(len(filename),10)):
+        tb.data[i+1]=ord(filename[i])
+        
+    #set program
+    tb.data[11]=ProgLength&0xFF
+    tb.data[12]=(ProgLength>>8)&0xFF
+    #set autostart
+    tb.data[13]=AutoStart&0xFF
+    tb.data[14]=(AutoStart>>8)&0xFF
+    #set variable offset
+    tb.data[15]=VariableOffset&0xFF
+    tb.data[16]=(VariableOffset>>8)&0xFF
+
+    #convert to bytes in string
+    tb.data=''.join([chr(x) for x in tb.data])
+
+    return tb
+
+def CreateCodeHeadder(filename,Origin,Codelength):
+    """
+    Create a headder for a code SpectrumTapBlock.
+    """
+
+    #create basic data block
+    tb=SpectrumTapBlock()    
+    tb.flag=0
+    tb.data=[3,32,32,32,32,32,32,32,32,32,32,0,0,0,0,0,0]
+    #set filename
+    for i in range(min(len(filename),10)):
+        tb.data[i+1]=ord(filename[i])
+
+    #set code origin
+    tb.data[13]=Origin&0xFF
+    tb.data[14]=(Origin>>8)&0xFF
+    #set code length
+    tb.data[11]=Codelength&0xFF
+    tb.data[12]=(Codelength>>8)&0xFF
+
+    #convert to bytes in string
+    tb.data=''.join([chr(x) for x in tb.data])
+
+    return tb
+
+def CreateArrayHeadder(filename,VariableDescriptor,ArrayLength):
+    """
+    Create a headder for an array SpectrumTapBlock.
+    The VariableDescriptor is composed of the lower 6 bits of the variable name (a one letter name),
+    and the upper 2 bits are 64 for a character array, 128 for a number array, and 192 for a string array.
+    """
+
+    tb=SpectrumTapBlock()
+    tb.flag=0
+    tb.data=[0,32,32,32,32,32,32,32,32,32,32,0,0,0,0,0,0]
+    #set filename
+    for i in range(min(len(filename),10)):
+        tb.data[i+1]=ord(filename[i])
+
+    #set array file type
+    tb.data[0]=1 if VariableDescriptor&192==128 else 2
+    
+    #set array length
+    tb.data[11]=ArrayLength&0xFF
+    tb.data[12]=(ArrayLength>>8)&0xFF
+    
+    #set array details
+    tb.data[14]=VariableDescriptor
+
+    #convert to bytes in string
+    tb.data=''.join([chr(x) for x in tb.data])
+
+    return tb
+
+def CreateScreenHeadder(filename):
+    """
+    Create a headder for a screen SpectrumTapBlock.
+    """
+
+    #screen is just specialized code file
+    return CreateCodeHeadder(filename,16384,6912)
+
+def CreateDataBlock(data,flag=0xFF):
+    """
+    Create a data SpectrumTapBlock.
+    """
+
+    tb=SpectrumTapBlock()    
+    tb.flag=flag
+    #make copy of data, ensureing is bytes in string
+    if(isinstance(data,str)):
+        tb.data=data
+    
+    else:
+        tb.data=''.join([chr(x) for x in data])
+    
+    return tb
+    
+
 if __name__=="__main__":
     
     #for tb in TapBlock_from_file('/home/william/java/RebelStar/source/Data/Rebelstar 1 Player.tap'):
@@ -329,3 +467,14 @@ if __name__=="__main__":
     tbs=get_TapBlocks('/home/william/RR.tap/REBRAID1.TAP')
     print tbs[1]
     pass
+
+    f=open("x.bin","rb")
+    data=f.read()
+    f.close()
+    
+    tb=CreateDataBlock(data,0xFF)
+    data=tb.getPackagedForFile()
+    
+    data=[ord(x) for x in data]
+    
+    print data
