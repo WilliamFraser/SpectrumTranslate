@@ -625,11 +625,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         hbox.addStretch(1)
         grid.addLayout(hbox,6,0,1,4)
 
-
         self.setLayout(grid) 
-
-        #todo set focus to this widget        
-        #leFileNameIn.addFocusListener(this)
 
         self.setGeometry(0,0,600,300)
         self.adjustSize()
@@ -2175,16 +2171,19 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             
         elif(t==7):
             #Execute
-            SetCodeDetails(df.GetCodeStart(headder))
+            self.SetCodeDetails(df.GetCodeStart(headder))
 
-        #todo
-        """            
-      case 5: //48K snapshot
-      case 9: //128K Snapshop
-      case 6: //microdrive
-      case 8: //Special
-      case 10: //Opentype
-        """
+        else:
+            #todo
+            """            
+            t==5: //48K snapshot
+            t==9: //128K Snapshop
+            t==6: //microdrive
+            t==8: //Special
+            t==10: //Opentype
+            """
+            #treat as raw data extract for now
+            self.SetRawData()
         
     #browse files in TAP file
     def BrowseTapFile(self):
@@ -2418,6 +2417,15 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         setCombo(self.cbDataType,"Basic Program")
         self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(0)
+
+    def SetRawData(self):
+        self.leBasicAutoLine.setText("")
+        self.leBasicVariableOffset.setText("")
+        self.leArrayVarName.setText("")
+        self.leCodeOrigin.setText(self.FormatNumber(0))
+        setCombo(self.cbDataType,"Raw Data")
+        self.SetTranslateButtonText()
+        self.settingsstack.setCurrentIndex(4)
         
     def FormatNumber(self,n):
         if(n==-1):
@@ -2470,12 +2478,13 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         self.bBrowseContainer.setText("Browse contents")
         self.bBrowseContainer.setEnabled(False)
         
-def main():
+def main(fileToOpen=None):
     
     app=QtGui.QApplication(sys.argv)
     
+    sftGUI=SpectrumFileTranslateGUI(fileToOpen)
+
     #todo remove once debugging complete
-    sftGUI=SpectrumFileTranslateGUI(sys.argv[1] if len(sys.argv)>1 else None)
     #sftGUI=SpectrumFileTranslateGUI('/home/william/RR.tap/REBRAID1.TAP')
     #sftGUI=SpectrumFileTranslateGUI("/home/william/java/tap reader/01.img")
     
@@ -2489,4 +2498,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1] if len(sys.argv)>1 else None)
