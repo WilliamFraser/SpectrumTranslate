@@ -1699,6 +1699,10 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
         #do exporting
         if(self.cbExportToContainer.isChecked()):
+            #check if file is greater than 0xFFFF: won't fit in tap file if is.
+            if(len(data)>0xFFFF):
+                QtGui.QMessageBox.warning(self,"Error!","Data is bigger than 65535 bytes and can't be saved in a .TAP file.")
+                return None
 
             output=''
             if(self.ExportSettings["SaveWithHeadder"]==1):
@@ -2148,6 +2152,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         
         self.SetSourceLimits(-1,-1,df.filenumber)
 
+        #save off filename incase want to export it
+        self.ExportSettings["Filename"]=df.GetRawFileName()
+
         t=df.GetFileType(headder)
         if(t==1):
             #basic program
@@ -2351,6 +2358,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         
         #if not then should contain 2 TapBlocks: headder & data block.
         self.SetSourceLimits(tapdata[1].get_data_start_offset(),len(tapdata[1].data),-1)
+        
+        #save off filename incase want to export it
+        self.ExportSettings["Filename"]=tapdata[0].get_raw_file_name()
         
         if(ord(tapdata[0].data[0])==0):
             #basic program

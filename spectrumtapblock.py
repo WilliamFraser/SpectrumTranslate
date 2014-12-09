@@ -52,6 +52,11 @@ class SpectrumTapBlock:
        
         return spectrumtranslate.get_spectrum_string(self.data[1:11])
 
+    def get_raw_file_name(self):
+        """This returns the 10 character file name as a byte string."""
+        
+        return self.data[1:11]
+
     def get_file_type_string(self):
         """
         What type of data does this headder block describe.

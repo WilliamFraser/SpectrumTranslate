@@ -224,6 +224,15 @@ class DiscipleFile:
 
         return spectrumtranslate.get_spectrum_string(headderdata[1:11])
 
+    def GetRawFileName(self,headderdata=None):
+        """This returns the 10 character file name as a byte string."""
+
+        #if no headder supplied, need to load it up
+        if(headderdata==None):
+            headderdata=self.GetHeadder()
+
+        return headderdata[1:11]
+
     def GetFileDetails(self,headderdata=None):
         """
         This gets tupple mapping with data about the file that a headder block describes.
