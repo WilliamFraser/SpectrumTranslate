@@ -27,8 +27,8 @@ Z80_OPCODES={
     "XOR B","XOR C","XOR D","XOR E","XOR H","XOR L","XOR (HL)","XOR A",
     "OR B","OR C","OR D","OR E","OR H","OR L","OR (HL)","OR A",
     "CP B","CP C","CP D","CP E","CP H","CP L","CP (HL)","CP A",
-    "RET NZ","POP BC","JP NZ,aa","JP aa","CALL NZ,aa","PUSH BC","ADD A,n","RST 0H",
-    "RET Z","RET","JP Z,aa",None,"CALL Z,aa","CALL aa","ADC A,n","RST 8H",
+    "RET NZ","POP BC","JP NZ,aa","JP aa","CALL NZ,aa","PUSH BC","ADD A,n","RST 00H",
+    "RET Z","RET","JP Z,aa",None,"CALL Z,aa","CALL aa","ADC A,n","RST 08H",
     "RET NC","POP DE","JP NC,aa","OUT (n),A","CALL NC,aa","PUSH DE","SUB n","RST 10H",
     "RET C","EXX","JP C,aa","IN A,(n)","CALL C,aa",None,"SBC A,n","RST 18H",
     "RET PO","POP HL","JP PO,aa","EX (SP),HL","CALL PO,aa","PUSH HL","AND n","RST 20H",
@@ -1478,15 +1478,69 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
     Returns a String representation of the data.
     """
 
+    #nested functions
+    
+    #get string for used flags
+    def getFlagChanges(instructionData):
+        #do we have flag data?
+        if(((instructionData>>51)&1)==0):
+            #if not return None
+            return None
+        
+        #holds flag indicators
+        FlagStates=("?","-","+","0","1","P","V")
+        
+        s="S"+FlagStates[(instructionData>>48)&7]+" Z"+FlagStates[(instructionData>>45)&7]
+        s+=" H"+FlagStates[(instructionData>>42)&7]+" PV"+FlagStates[(instructionData>>39)&7]
+        s+=" N"+FlagStates[(instructionData>>36)&7]+" C"+FlagStates[(instructionData>>33)&7]
+        
+        return s
+
+    #extract timing information
+    def GetTimingInfo(instructionData):
+        #calculate times
+        #first clear variables where results will be calculated
+        duration=[0,0]
+        states=None
+        
+        #if only overall T length known then extract this now
+        if((instructionData&0x40000000L)!=0):
+            duration=[instructionData&0x7FFFL,(instructionData>>15)&0x7FFFL]
+
+        #otherwise individual component parts of time known
+        else:
+            states=[[],[]]
+            #get number of T states
+            k=instructionData&7
+            #offset
+            i=3
+            while(k>0):
+                t=((instructionData>>i)&3)+3
+                states[0].append(t)
+                duration[0]+=t
+                i+=2
+                k-=1
+
+            #do alternative length if exists
+            k=(instructionData>>15)&7
+            i=18
+            while(k>0):
+                t=((instructionData>>i)&3)+3
+                states[1].append(t)
+                duration[1]+=t
+                i+=2
+                k-=1
+        
+        return duration,states
+
+    #end nested functions
+
     #holds how long address is in each number format
     FormatAddressLength=(4,5,7,17)
     #holds how long byte is in each number format
     FormatByteLength=(2,3,3,8)
     #holds max length of opcode for each number format
     FormatOpCodeMaxLength=(19,20,21,27)
-    #holds flag indicators
-    FlagStates=("?","-","+","0","1","P","V")
-
 
     maxAddressLength=0;
 
@@ -1515,20 +1569,35 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
     SeperatorMode=0        #0=2 spaces, 1=tab
     ShowFlags=0            #0=no, 1=yes
     MarkUndocumenedCommand=0 #0=no, 1=yes
+    XMLOutput=0            #0=no, 1=yes
     
-    #hold formatting instructions
-    s=get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,SeperatorMode,ShowFlags,MarkUndocumenedCommand);
-    Format=[DisassembleInstruction(DisassembleInstruction.DisassembleCodes["Custom Format"],0,65536,s)]
-    CurrentFormatEnd=65536  #end after
-
-    #hold data formatting instructions
-    nextDataFormatStart=65536  #start after
-    nextDataFormatEnd=65536    #end after
-
     #process special instructions
     DisassembleInstructions=[]
     if(SpecialInstructions!=None and len(SpecialInstructions)>0):
         for di in SpecialInstructions:
+            #first see if it's a special format instruction holding formatting info
+            if(di.start==0x0000 and di.end==0xFFFF and
+               di.instruction==DisassembleInstruction.DisassembleCodes["Custom Format"]):
+                #get default dissassembly format settings
+                settingstemp=get_custom_format_values(di.data,False)
+                AddressOutput=settingstemp["AddressOutput"]
+                NumberOutput=settingstemp["NumberOutput"]
+                CommandOutput=settingstemp["CommandOutput"]
+                OutputTStates=settingstemp["OutputTStates"]
+                BreakAfterJumps=settingstemp["BreakAfterJumps"]
+                LineNumberOutput=settingstemp["LineNumberOutput"]
+                ListEveryXLines=settingstemp["ListEveryXLines"]
+                BreakAfterData=settingstemp["BreakAfterData"]
+                TreatDataNumbersAsLineReferences=settingstemp["TreatDataNumbersAsLineReferences"]
+                DisplayCommandBytes=settingstemp["DisplayCommandBytes"]
+                DisplayComments=settingstemp["DisplayComments"]
+                SeperatorMode=settingstemp["SeperatorMode"]
+                ShowFlags=settingstemp["ShowFlags"]
+                MarkUndocumenedCommand=settingstemp["MarkUndocumenedCommand"]
+                XMLOutput=settingstemp["XMLOutput"]
+                
+                continue
+
             #check if end after end of code, in which case truncate it
             if(di.end>=origin+len(data)):
                 di.end=origin+len(data)-1
@@ -1555,7 +1624,8 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
                 #setup environment ready to search for matches
                 Settings={"DATASTRINGPOS":0,"NUMBERFORMAT":0,"NUMBERSIGNED":0,"NUMBERWORDORDER":0,"DISPLAYEVERYXLINES":1,
                           "ORIGIONALSEPERATOR":SeperatorMode,"SEPERATOR":SeperatorMode,"ORIGIN":origin,
-                          "ADDRESSOUTPUT":AddressOutput,"NUMBEROUTPUT":NumberOutput,"COMMANDOUTPUT":CommandOutput}
+                          "ADDRESSOUTPUT":AddressOutput,"NUMBEROUTPUT":NumberOutput,"COMMANDOUTPUT":CommandOutput,
+                          "XMLOutput":XMLOutput}
 
                 Vars=[0,0,0,0,0,0,0,0,0,0,di.start,0,0,di.start,di.end]
               
@@ -1596,16 +1666,33 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
             #add instruction to list of stuff to do during disassembly
             DisassembleInstructions+=[di]
 
+        #sort instructions by their start address
         DisassembleInstructions=sorted(DisassembleInstructions)
 
     #should now be sorted along by start
 
-    #start disassembling
-    soutput="ORG "+NumberToString(currentAddress,16,AddressOutput)+"\n\n"
+    #set up format stack to hold current format
+    #hold formatting instructions
+    s=get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,SeperatorMode,ShowFlags,MarkUndocumenedCommand,XMLOutput);
+    Format=[DisassembleInstruction(DisassembleInstruction.DisassembleCodes["Custom Format"],0,65536,s)]
+    CurrentFormatEnd=65536  #end after
+
+    #hold data formatting instructions
+    nextDataFormatStart=65536  #start after
+    nextDataFormatEnd=65536    #end after
+
+    #output start text
+    if(XMLOutput==1):
+        soutput='<?xml version="1.0" encoding="UTF-8" ?>\n<z80code>\n  <org>'
+        soutput+=NumberToString(currentAddress,16,AddressOutput)+"</org>\n"
+
+    else:
+        soutput="ORG "+NumberToString(currentAddress,16,AddressOutput)+"\n\n"
 
     #di is next disassemble instruction
     di=DisassembleInstructions.pop(0) if DisassembleInstructions else None
 
+    #start disassembling
     while(length>0):
         #are we exiting format section?
         if(currentAddress>CurrentFormatEnd):
@@ -1626,6 +1713,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
             SeperatorMode=settingstemp["SeperatorMode"]
             ShowFlags=settingstemp["ShowFlags"]
             MarkUndocumenedCommand=settingstemp["MarkUndocumenedCommand"]
+            XMLOutput=settingstemp["XMLOutput"]
           
             CurrentFormatEnd=diTemp.end
             continue
@@ -1635,7 +1723,8 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
         if(di!=None and di.instruction==DisassembleInstruction.DisassembleCodes["Data Block"] and currentAddress>=di.start):
             Settings={"DATASTRINGPOS":0,"NUMBERFORMAT":0,"NUMBERSIGNED":0,"NUMBERWORDORDER":0,"DISPLAYEVERYXLINES":1,
                       "ORIGIONALSEPERATOR":SeperatorMode,"SEPERATOR":SeperatorMode,"ORIGIN":origin,
-                      "ADDRESSOUTPUT":AddressOutput,"NUMBEROUTPUT":NumberOutput,"COMMANDOUTPUT":CommandOutput}
+                      "ADDRESSOUTPUT":AddressOutput,"NUMBEROUTPUT":NumberOutput,"COMMANDOUTPUT":CommandOutput,
+                      "XMLOutput":XMLOutput}
             di.end,txt=di.DisassembleDataBlock(Settings,data,ReferencedLineNumbers if (TreatDataNumbersAsLineReferences==0) else None)
             soutput+=txt
           
@@ -1660,7 +1749,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
         #check formatting command
         if(di!=None and di.is_format_instruction() and currentAddress>=di.start):
             #record current format state in custom, place on stack
-            s=get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,SeperatorMode,ShowFlags,MarkUndocumenedCommand)
+            s=get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,SeperatorMode,ShowFlags,MarkUndocumenedCommand,XMLOutput)
             Format+=[DisassembleInstruction(DisassembleInstruction.DisassembleCodes["Custom Format"],currentAddress,CurrentFormatEnd,s)]
           
             #deal with format commands
@@ -1694,6 +1783,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
                 SeperatorMode=0
                 ShowFlags=0
                 MarkUndocumenedCommand=0
+                XMLOutput=0
                 
             elif(di.instruction&0xFF00==0x0700): #CustomFormat
                 settingstemp=get_custom_format_values(di.data,False)
@@ -1711,6 +1801,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
                 SeperatorMode=settingstemp["SeperatorMode"]
                 ShowFlags=settingstemp["ShowFlags"]
                 MarkUndocumenedCommand=settingstemp["MarkUndocumenedCommand"]
+                XMLOutput=settingstemp["XMLOutput"]
                 
             elif(di.instruction&0xFF00==0x0800): #LineNumberOutput
                 LineNumberOutput=di.instruction&0x03
@@ -1738,6 +1829,9 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
                 
             elif(di.instruction&0xFF00==0x1000): #note undocumened commands
                 MarkUndocumenedCommand=di.instruction&0x01
+            
+            elif(di.instruction&0xFF00==0x1200): #XML mode
+                XMLOutput=di.instruction&0x01
 
             CurrentFormatEnd=di.end
           
@@ -1859,54 +1953,105 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
         #s holds assembly command
         #now do output
 
-        #remember line start position in case needed later
-        linestartposition=len(soutput)
+        #Handle XML output
+        if(XMLOutput==1):
+            soutput+="  <line><address>"+NumberToString(currentAddress,16,AddressOutput,AddressOutput>1)+"</address>"
+        
+        #handle non-XML
+        else:
+          #remember line start position in case needed later
+          linestartposition=len(soutput)
       
-        #work out max length of address
-        maxAddressLength=max(FormatAddressLength[AddressOutput],maxAddressLength)
+          #work out max length of address
+          maxAddressLength=max(FormatAddressLength[AddressOutput],maxAddressLength)
       
-        #output address ready for processing later
-        i=AddressOutput+(LineNumberOutput<<3)+(SeperatorMode<<5)
-        soutput+="\0"+chr(i)+chr(ListEveryXLines)+NumberToString(currentAddress,16,0,False)
+          #output address ready for processing later
+          i=AddressOutput+(LineNumberOutput<<3)+(SeperatorMode<<5)
+          soutput+="\0"+chr(i)+chr(ListEveryXLines)+NumberToString(currentAddress,16,0,False)
       
-        #add seperator after address
-        soutput+="  " if (SeperatorMode==0) else "\t"
+          #add seperator after address
+          soutput+="  " if (SeperatorMode==0) else "\t"
       
-        #remember where commands start
-        k=len(soutput)-linestartposition
+          #remember where commands start
+          k=len(soutput)-linestartposition
       
         #output bytes of commands
-        #only do if want them output
-        if(DisplayCommandBytes==0):
-            soutput+=",".join([NumberToString(b,8,CommandOutput,False) for b in data[offset:offset+commandlength]])
-      
-            #now ensure opcodes line up
-            #don't need to bother if using tabs
-            if(SeperatorMode==0):
-                i=5*FormatByteLength[CommandOutput]
-                #adjust for commas
-                if(CommandOutput>0):
-                    i+=4
-                i+=k
-                i-=len(soutput)-linestartposition
-                while(i>=0):
-                    soutput+=" "
-                    i-=1
-      
-        #add seperator after command bytes
-        #needed even if no command bytes as can go from disply command bytes to not and have to
-        #ensure output stays in same column in case tab seperated output is used in spreadsheet
-        soutput+="  " if (SeperatorMode==0) else "\t"
+        #Handle XML output
+        if(XMLOutput==1):
+            soutput+="<bytes>"+",".join([NumberToString(b,8,CommandOutput,False) for b in data[offset:offset+commandlength]])+"</bytes>"
+
+        #handle non-XML
+        else:
+            #only do if want them output
+            if(DisplayCommandBytes==0):
+                soutput+=",".join([NumberToString(b,8,CommandOutput,False) for b in data[offset:offset+commandlength]])
+            
+                #now ensure opcodes line up
+                #don't need to bother if using tabs
+                if(SeperatorMode==0):
+                    i=5*FormatByteLength[CommandOutput]
+                    #adjust for commas
+                    if(CommandOutput>0):
+                        i+=4
+                    i+=k
+                    i-=len(soutput)-linestartposition
+                    while(i>=0):
+                        soutput+=" "
+                        i-=1
+            
+            #add seperator after command bytes
+            #needed even if no command bytes as can go from disply command bytes to not and have to
+            #ensure output stays in same column in case tab seperated output is used in spreadsheet
+            soutput+="  " if (SeperatorMode==0) else "\t"
       
         #output opcode
-        soutput+=s
+        #Handle XML output
+        if(XMLOutput==1):
+            soutput+="<instruction>"+s+"</instruction>"
+            
+        #handle non-XML
+        else:
+            soutput+=s
       
-        #align any comments
-        #don't need to bother if using tabs
-        if(SeperatorMode==0):
-            soutput+=" "*(FormatOpCodeMaxLength[AddressOutput] if FormatOpCodeMaxLength[AddressOutput]>FormatOpCodeMaxLength[NumberOutput] else FormatOpCodeMaxLength[NumberOutput]-len(s))
+            #align any comments
+            #don't need to bother if using tabs
+            if(SeperatorMode==0):
+                soutput+=" "*(FormatOpCodeMaxLength[AddressOutput] if FormatOpCodeMaxLength[AddressOutput]>FormatOpCodeMaxLength[NumberOutput] else FormatOpCodeMaxLength[NumberOutput]-len(s))
       
-        if(DisplayComments==0):
+        #Handle XML output of stuff in comments (timing, flags, undocumented commands)
+        if(XMLOutput==1):
+            #do flags
+            sflags=getFlagChanges(instructionData)
+            #output flag states if we have them
+            if(sflags!=None):
+                soutput+="<flags>"+sflags+"</flags>"
+
+            #do times
+            #get times
+            duration,states=GetTimingInfo(instructionData)
+            
+            #now output timings
+            soutput+="<timeing><cycles>"+str(duration[0])+"</cycles>"
+            
+            if(states!=None):
+                soutput+="<tstates>"+",".join(str(x) for x in states[0])+"</tstates>"
+
+            soutput+="</timeing>"
+            
+            if(duration[1]!=0):
+                soutput+='<timeing alternate="true"><cycles>'+str(duration[1])+"</cycles>"
+                
+                if(states!=None):
+                    soutput+="<tstates>"+",".join(str(x) for x in states[1])+"</tstates>"
+
+                soutput+="</timeing>"
+            
+            #do undocumented comments if needed
+            if(((instructionData>>52)&1)==1):
+                soutput+="<undocumented/>"
+
+        #if we're not doing XML and want comments, do so
+        elif(DisplayComments==0):
             #space between opcode and comments
             soutput+="  " if (SeperatorMode==0) else "\t"
           
@@ -1916,82 +2061,40 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
             #will we need a space before this comment (and any comment following)
             bNeedSpace=False
           
-            #are we listing flags? and have flag data
-            if(ShowFlags>0 and ((instructionData>>51)&1)==1):
-                #output flag states
-                soutput+="S:"+FlagStates[(instructionData>>48)&7]+"Z:"+FlagStates[(instructionData>>45)&7]
-                soutput+="H:"+FlagStates[(instructionData>>42)&7]+"PV:"+FlagStates[(instructionData>>39)&7]
-                soutput+="N:"+FlagStates[(instructionData>>36)&7]+"C:"+FlagStates[(instructionData>>33)&7]
+            #are we listing flags?
+            if(ShowFlags>0):
+                #get flag states for this instruction
+                sflags=getFlagChanges(instructionData)
+                #output flag states if we have them
+                if(sflags!=None):
+                    soutput+=sflags
               
-                #mark will need space if any comment following
-                bNeedSpace=True
+                    #mark will need space if any comment following
+                    bNeedSpace=True
           
             if(OutputTStates>0):
                 #insert space if needed
                 if(bNeedSpace):
                     soutput+="  "
               
-                #calculate times
-                #first clear variables where results will be calculated
-                duration=[0,0]
-                states=[[0,0,0,0,0,0],[0,0,0,0,0,0]]
-              
-                #if only overall T length known then extract this now
-                if((instructionData&0x40000000L)!=0):
-                    duration=[instructionData&0x7FFFL,(instructionData>>15)&0x7FFFL]
+                #get times
+                duration,states=GetTimingInfo(instructionData)
 
-                #otherwise individual component parts of time known
-                else:
-                    k=instructionData&7
-                    i=3
-                    while(k>0):
-                        states[0][(i-3)>>1]=((instructionData>>i)&3)+3
-                        duration[0]+=states[0][(i-3)>>1]
-                        i+=2
-                        k-=1
-
-                    #do alternative length if exists
-                    k=(instructionData>>15)&7
-                    i=18
-                    while(k>0):
-                        states[1][(i-18)>>1]=((instructionData>>i)&3)+3
-                        duration[1]+=states[1][(i-18)>>1]
-                        i+=2
-                        k-=1
-              
                 #now output timings
                 soutput+="T="
                 if((OutputTStates&1)==1):
                     soutput+=str(duration[0])
               
-                if((OutputTStates&2)==2 and states[0][0]!=0):
-                    soutput+="("
-                    i=0
-                    while(i<6 and states[0][i]>0):
-                        if(i!=0):
-                            soutput+=","
-                        
-                        soutput+=str(states[0][i])
-                        i+=1
-
-                    soutput+=")"
+                if((OutputTStates&2)==2 and states!=None):
+                    soutput+="("+",".join(str(x) for x in states[0])+")"
 
                 if(duration[1]!=0):
                     soutput+="/"
                     if((OutputTStates&1)==1):
                         soutput+=str(duration[1])
                   
-                    if((OutputTStates&2)==2 and states[1][0]!=0):
-                        soutput+="("
-                        i=0
-                        while(i<6 and states[1][i]>0):
-                            if(i!=0):
-                                soutput+=","
-                                
-                            soutput+=str(states[1][i])
-                            i+=1
-
-                        soutput+=")"
+                    if((OutputTStates&2)==2 and states!=None):
+                        soutput+="("+",".join(str(x) for x in states[1])+")"
 
                 bNeedSpace=True
           
@@ -2005,11 +2108,15 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
                 soutput+="Undocumented Command"
       
         #end of line
+        #Handle XML output
+        if(XMLOutput==1):
+            soutput+="</line>"
+
         soutput+="\n"
       
-        #do we need to have newline after command to make more readable
+        #do we need to have newline after command to make more readable. Only needed if not doing XML
         i=(instructionData>>31)&3
-        if(BreakAfterJumps!=0 and i!=0):
+        if(XMLOutput==0 and BreakAfterJumps!=0 and i!=0):
             if(BreakAfterJumps!=1 or i!=1):
                 soutput+="\n"
       
@@ -2019,6 +2126,9 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
         currentAddress+=commandlength
 
     #end 1st pass
+    
+    if(XMLOutput==1):
+        soutput+="</z80code>"
 
     #now search for line numbers and remove them if not needed
     lastLineInData=-1  #-1 start, 0=last in code, 1=last in data
@@ -2028,8 +2138,8 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
     #keep track of where we are in string
     k=0
     
-    #search for address markers
-    while(True):
+    #search for address markers, only needed if not doing XML
+    while(XMLOutput==0):
         #find next or we've finnished
         i=soutput.find("\0",k)
         if(i==-1):
@@ -2125,102 +2235,606 @@ class DisassembleInstruction:
         "Mark Undocumented Command Off":0x1000,
         "Mark Undocumented Command On":0x1001,
         "Reference Line":0x1100,
+        "XML Output Off":0x1200,
+        "XML Output On":0x1201,
         "Data Block":0x010000,
         "Pattern Data Block":0x020000}
     
     DisassembleDataBlockCodes={
-        "Define Byte Hex":"%F0004%ACA%S%SDB%S%F0000%F0100#%B0F",
-        "Define Byte Decimal":"%F0004%ACA%S%SDB%S%F0001%F0100%B0F",
-        "Define Byte Octal":"%F0004%ACA%S%SDB%S%F0002%F0100o%B0F",
-        "Define Byte Binary":"%F0004%ACA%S%SDB%S%F0003%F0100b%B0F",
-        "Define Byte":"%F0004%ACA%S%SDB%S%F0000%F0100#%B0F",
-        "Signed Byte Hex":"%F0004%ACA%S%SSB%S%F0000%F0101#%B0F",
-        "Signed Byte Decimal":"%F0004%ACA%S%SSB%S%F0001%F0101%B0F",
-        "Signed Byte Octal":"%F0004%ACA%S%SSB%S%F0002%F0101o%B0F",
-        "Signed Byte Binary":"%F0004%ACA%S%SSB%S%F0003%F0101b%B0F",
-        "Signed Byte":"%F0004%ACA%S%SSB%S%F0000%F0101#%B0F",
-        "Define Word Hex":"%F0004%ACA%S%SDW%S%F0000%F0100%F0200#%W0F",
-        "Define Word Decimal":"%F0004%ACA%S%SDW%S%F0001%F0100%F0200%W0F",
-        "Define Word Octal":"%F0004%ACA%S%SDW%S%F0002%F0100%F0200o%W0F",
-        "Define Word Binary":"%F0004%ACA%S%SDW%S%F0003%F0100%F0200b%W0F",
-        "Define Word":"%F0004%ACA%S%SDW%S%F0000%F0100%F0200#%W0F",
-        "Signed Word Hex":"%F0004%ACA%S%SSW%S%F0000%F0101%F0200#%W0F",
-        "Signed Word Decimal":"%F0004%ACA%S%SSW%S%F0001%F0101%F0200%W0F",
-        "Signed Word Octal":"%F0004%ACA%S%SSW%S%F0002%F0101%F0200o%W0F",
-        "Signed Word Binary":"%F0004%ACA%S%SSW%S%F0003%F0101%F0200b%W0F",
-        "Signed Word":"%F0004%ACA%S%SSW%S%F0000%F0101%F0200#%W0F",
-        "Define Word BigEndian Hex":"%F0004%ACA%S%SDWBE%S%F0000%F0100%F0201#%W0F",
-        "Define Word BigEndian Decimal":"%F0004%ACA%S%SDWBE%S%F0001%F0100%F0201%W0F",
-        "Define Word BigEndian Octal":"%F0004%ACA%S%SDWBE%S%F0002%F0100%F0201o%W0F",
-        "Define Word BigEndian Binary":"%F0004%ACA%S%SDWBE%S%F0003%F0100%F0201b%W0F",
-        "Define Word BigEndian":"%F0004%ACA%S%SDWBE%S%F0000%F0100%F0201#%W0F",
-        "Signed Word BigEndian Hex":"%F0004%ACA%S%SSWBE%S%F0000%F0101%F0201#%W0F",
-        "Signed Word BigEndian Decimal":"%F0004%ACA%S%SSWBE%S%F0001%F0101%F0201%W0F",
-        "Signed Word BigEndian Octal":"%F0004%ACA%S%SSWBE%S%F0002%F0101%F0201o%W0F",
-        "Signed Word BigEndian Binary":"%F0004%ACA%S%SSWBE%S%F0003%F0101%F0201b%W0F",
-        "Signed Word BigEndian":"%F0004%ACA%S%SSWBE%S%F0000%F0101%F0201#%W0F",
-                                                
-        "Define Message":
-"""%F0004
-%ACA
-%S%S DM %S
-%X01000000
-%L%(
-  %?LE%V0F%V0E
-%)
-%(
-  %I%(
-    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)
-    %?BO
-    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)
-  %)
-  %(
-    "
-    %X03000001%V00
-  %)
-  %C0F
-%)
-%I%(
-  %?EQ%V000001
-%)
-%(
-  "
-%)""",
-        "Define Message zero terminated":
-"""%F0004
-%ACA
-%S%S DM0 %S
-%X01000000
-%L%(
-  %?NE%MV0F0000
-%)
-%(
-  %I%(
-    %(%?EQ%V000001 %?BA% (%?LT%MV0F0020%?BO%(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)
-    %?BO
-    %(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)
-  %)
-  %(
-    "
-    %X03000001%V00
-  %)
-  %C0F
-%)
-%I%(
-  %?EQ%V000001
-%)
-%(
-  "
-%)
-,
-%X020C%V0C0001
-#00""",
-        "Define Message bit 7 terminated":
-"""%F0004          %#number format to same as general address format
-%ACA               %#output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
-%S%S DM7 %S        %#output seperator then "DM7" then another seperator
-%X01000000         %#set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
+        "Define Byte Hex":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DB        %#output instruction (DB or define byte in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0000    %#set format to hexadecimal
+%F0100    %#set format to unsigned
+#         %#output '#' to indicate hex number following
+%B0F      %#output contents at current position as byte, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Byte Decimal":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DB        %#output instruction (DB or define byte in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0001    %#set format to decimal
+%F0100    %#set format to unsigned
+%B0F      %#output contents at current position as byte, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Byte Octal":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DB        %#output instruction (DB or define byte in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0002    %#set format to octal
+%F0100    %#set format to unsigned
+o         %#output 'o' to indicate octal number following
+%B0F      %#output contents at current position as byte, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Byte Binary":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DB        %#output instruction (DB or define byte in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0003    %#set format to binary
+%F0100    %#set format to unsigned
+b         %#output 'b' to indicate binary number following
+%B0F      %#output contents at current position as byte, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Byte":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DB        %#output instruction (DB or define byte in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0000    %#set format to hexadecimal
+%F0100    %#set format to unsigned
+#         %#output '#' to indicate hex number following
+%B0F      %#output contents at current position as byte, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Byte Hex":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SB        %#output instruction (SB or signed byte in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0000    %#set format to hexadecimal
+%F0101    %#set format to signed
+#         %#output '#' to indicate hex number following
+%B0F      %#output contents at current position as byte, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Byte Decimal":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SB        %#output instruction (SB or signed byte in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0001    %#set format to decimal
+%F0101    %#set format to signed
+%B0F      %#output contents at current position as byte, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Byte Octal":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SB        %#output instruction (SB or signed byte in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0002    %#set format to octal
+%F0101    %#set format to signed
+o         %#output 'o' to indicate octal number following
+%B0F      %#output contents at current position as byte, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Byte Binary":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SB        %#output instruction (SB or signed byte in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0003    %#set format to binary
+%F0101    %#set format to signed
+b         %#output 'b' to indicate binary number following
+%B0F      %#output contents at current position as byte, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Byte":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SB        %#output instruction (SB or signed byte in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0000    %#set format to hexadecimal
+%F0101    %#set format to signed
+#         %#output '#' to indicate hex number following
+%B0F      %#output contents at current position as byte, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Word Hex":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DW        %#output instruction (DW or define word in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0000    %#set format to hexadecimal
+%F0100    %#set format to unsigned
+%F0200    %#set words little endian (least significant byte first)
+#         %#output '#' to indicate hex number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Word Decimal":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DW        %#output instruction (DW or define word in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0001    %#set format to decimal
+%F0100    %#set format to unsigned
+%F0200    %#set words little endian (least significant byte first)
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Word Octal":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DW        %#output instruction (DW or define word in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0002    %#set format to octal
+%F0100    %#set format to unsigned
+%F0200    %#set words little endian (least significant byte first)
+o         %#output 'o' to indicate octal number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Word Binary":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DW        %#output instruction (DW or define word in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0003    %#set format to binary
+%F0100    %#set format to unsigned
+%F0200    %#set words little endian (least significant byte first)
+b         %#output 'b' to indicate binary number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Word":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DW        %#output instruction (DW or define word in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0000    %#set format to hexadecimal
+%F0100    %#set format to unsigned
+%F0200    %#set words little endian (least significant byte first)
+#         %#output '#' to indicate hex number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Word Hex":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SW        %#output instruction (SW or signed word in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0000    %#set format to hexadecimal
+%F0101    %#set format to signed
+%F0200    %#set words little endian (least significant byte first)
+#         %#output '#' to indicate hex number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Word Decimal":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SW        %#output instruction (SW or signed word in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0001    %#set format to decimal
+%F0101    %#set format to signed
+%F0200    %#set words little endian (least significant byte first)
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Word Octal":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SW        %#output instruction (SW or signed word in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0002    %#set format to octal
+%F0101    %#set format to signed
+%F0200    %#set words little endian (least significant byte first)
+o         %#output 'o' to indicate octal number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Word Binary":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SW        %#output instruction (SW or signed word in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0003    %#set format to binary
+%F0101    %#set format to signed
+%F0200    %#set words little endian (least significant byte first)
+b         %#output 'b' to indicate binary number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Word":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SW        %#output instruction (SW or signed word in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0000    %#set format to hexadecimal
+%F0101    %#set format to signed
+%F0200    %#set words little endian (least significant byte first)
+#         %#output '#' to indicate hex number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Word BigEndian Hex":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DWBE      %#output instruction (DWBE or define word big endian in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0000    %#set format to hexadecimal
+%F0100    %#set format to unsigned
+%F0201    %#set words big endian (most significant byte first)
+#         %#output '#' to indicate hex number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Word BigEndian Decimal":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DWBE      %#output instruction (DWBE or define word big endian in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0001    %#set format to decimal
+%F0100    %#set format to unsigned
+%F0201    %#set words big endian (most significant byte first)
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Word BigEndian Octal":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DWBE      %#output instruction (DWBE or define word big endian in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0002    %#set format to octal
+%F0100    %#set format to unsigned
+%F0201    %#set words big endian (most significant byte first)
+o         %#output 'o' to indicate octal number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Word BigEndian Binary":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DWBE      %#output instruction (DWBE or define word big endian in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0003    %#set format to binary
+%F0100    %#set format to unsigned
+%F0201    %#set words big endian (most significant byte first)
+b         %#output 'b' to indicate binary number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Define Word BigEndian":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+DWBE      %#output instruction (DWBE or define word big endian in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0000    %#set format to hexadecimal
+%F0100    %#set format to unsigned
+%F0201    %#set words big endian (most significant byte first)
+#         %#output '#' to indicate hex number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Word BigEndian Hex":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SWBE      %#output instruction (SWBE or signed word big endian in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0000    %#set format to hexadecimal
+%F0101    %#set format to signed
+%F0201    %#set words big endian (most significant byte first)
+#         %#output '#' to indicate hex number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Word BigEndian Decimal":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SWBE      %#output instruction (SWBE or signed word big endian in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0001    %#set format to decimal
+%F0101    %#set format to signed
+%F0201    %#set words big endian (most significant byte first)
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Word BigEndian Octal":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SWBE      %#output instruction (SWBE or signed word big endian in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0002    %#set format to octal
+%F0101    %#set format to signed
+%F0201    %#set words big endian (most significant byte first)
+o         %#output 'o' to indicate octal number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Word BigEndian Binary":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SWBE      %#output instruction (SWBE or signed word big endian in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0003    %#set format to hexadecimal
+%F0101    %#set format to signed
+%F0201    %#set words big endian (most significant byte first)
+b         %#output 'b' to indicate binary number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
+        "Signed Word BigEndian":
+"""%$A       %#start address xml tag
+%F0004    %#set output format to general output format
+%ACA      %#output line address as address
+%$-A      %#close address xml tag
+%S%S      %#seperator
+%$I       %#start instruction xml tag
+SWBE      %#output instruction (SWBE or signed word big endian in this case)
+%$-I      %#close instruction tag
+%S        %#seperator
+%$D       %#start data tag
+%F0000    %#set format to hexadecimal
+%F0101    %#set format to signed
+%F0201    %#set words big endian (most significant byte first)
+#         %#output '#' to indicate hex number following
+%W0F      %#output contents at current position as word, and increment current position
+%$-D      %#close data xml tag""",
 
+        "Define Message":
+"""%$A             %#start address xml tag
+%F0004          %#set output format to general output format
+%ACA            %#output line address as address
+%$-A            %#close address xml tag
+%S%S            %#seperator
+%$I             %#start instruction xml tag
+DM              %#output instuction (DM or Define Message)
+%$-I            %#close instruction xml tag
+%S
+%$D             %#start data tag
+%X01000000      %#set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
+%L%(            %#define loop,staring with the while condition
+  %?LE%V0F%V0E  %#while current position is less than end position
+%)              %#end while test
+%(              %#start of loop section
+  %I%(          %#start of if
+    %(%?EQ%V000001                              %#if we're inside quotes
+      %?BA                                      %#and
+      %(%?LT%MV0F0020                           %#the contents of the current position are less than 0x20 (ie is not ascii character)
+        %?BO                                    %#or
+        %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)  %#the contents of the current position are greater than 0x7F, and less than 0xA3 (not printable character: NB codes A3 and above are valid printable spectrum characters - the commands)
+    %?BO                                        %#or
+    %(%?EQ%V000000                              %#we're not inside quotes
+      %?BA                                      %#and
+      %(%?MT%MV0F00A2                           %#the contents of the current position is a command: valid spectrum character
+        %?BO                                    %#or
+        %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %#the contents of the current position are >0x1F and <0x80 (ie valid character)
+  %)                %#end if test
+  %(                %#are we in a quote & have an unprintable character or outside a quote, and have a printable character
+    "               %#print a quote
+    %X03000001%V00  %#take var0 from 1 and store in var0: toggles var0 swapping from inside to outside quotes and vice versa
+  %)                %#end if action
+  %C0F              %#output contents at current position as character, and increment current position
+%)                  %#end while loop
+%I%(                %#if to see if still inside quotes
+  %?EQ%V000001      %#is var0 equal to 1
+%)
+%(
+  "                 %#print closeing quote if we are
+%)
+%$-D      %#close data xml tag""",
+        "Define Message zero terminated":
+"""%$A             %#start address xml tag
+%F0004          %#set output format to general output format
+%ACA            %#output line address as address
+%$-A            %#close address xml tag
+%S%S            %#seperator
+%$I             %#start instruction xml tag
+DM0             %#output instuction (DM0 or Define Message 0 ternminated)
+%$-I            %#close instruction xml tag
+%S
+%$D             %#start data tag
+%X01000000      %#set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
+%L%(            %#define while condition for loop
+  %?NE%MV0F0000 %#while the contents of the current position are not equal to 0
+%)
+%(              %#start of loop section
+  %I%(          %#start of if
+    %(%?EQ%V000001                              %#if we're inside quotes
+      %?BA                                      %#and
+      %(%?LT%MV0F0020                           %#the contents of the current position are less than 0x20 (ie is not ascii character)
+        %?BO                                    %#or
+        %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)  %#the contents of the current position are greater than 0x7F, and less than 0xA3 (not printable character: NB codes A3 and above are valid printable spectrum characters - the commands)
+    %?BO                                        %#or
+    %(%?EQ%V000000                              %#we're not inside quotes
+      %?BA                                      %#and
+      %(%?MT%MV0F00A2                           %#the contents of the current position is a command: valid spectrum character
+        %?BO                                    %#or
+        %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %#the contents of the current position are >0x1F and <0x80 (ie valid character)
+  %)                %#end if test
+  %(                %#are we in a quote & have an unprintable character or outside a quote, and have a printable character
+    "               %#print a quote
+    %X03000001%V00  %#take var0 from 1 and store in var0: toggles var0 swapping from inside to outside quotes and vice versa
+  %)                %#end if action
+  %C0F              %#output contents at current position as character, and increment current position
+%)                  %#end while loop
+%I%(                %#if to see if still inside quotes
+  %?EQ%V000001      %#is var0 equal to 1
+%)
+%(
+  "                 %#print closeing quote if we are
+%)
+,                   %#print comma
+%X020C%V0C0001      %#add offset from linestart and 1 and save as offset from line start. moves past 0 terminating byte
+#00                 %#print #00 as for terminating 0x00
+%$-D                %#close data xml tag""",
+        "Define Message bit 7 terminated":
+"""%$A             %#start address xml tag
+%F0004          %#number format to same as general address format
+%ACA            %#output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
+%$-A            %#close address xml tag
+%S%S            %#seperator
+%$I             %#start instruction xml tag
+DM7             %#output instuction (DM7 or Define Message bit7 ternminated)
+%$-I            %#close instruction xml tag
+%S
+%$D             %#start data tag
+%X01000000         %#set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
 %L%(               %#enter while() do{} loop
   %?EQ00000000     %# 0==0: ie true. this will loop until loop is broken out of
 %)                 %#end of while test
@@ -2251,11 +2865,19 @@ class DisassembleInstruction:
 %)                 %#end of if test
 %(                 %#start of what to do if test true
   "                %#print closing quote
-%)                 %#end of what to do if test true""",
+%)                 %#end of what to do if test true
+%$-D                %#close data xml tag""",
         "Define Message Length Byte":
-"""%F0004      %#number format to same as general address format
+"""%$A            %#start address xml tag
+%F0004         %#number format to same as general address format
 %ACA           %#output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
-%S%S DMLB %S   %#output seperator then "DM7" then another seperator
+%$-A           %#close address xml tag
+%S%S           %#seperator
+%$I            %#start instruction xml tag
+DMLB           %#output instuction (DMLB or Define Message Length Byte)
+%$-I           %#close instruction xml tag
+%S
+%$D            %#start data tag
 %X01000000     %#set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
 %X0101%MV0F    %#var1 to contents of current address (number of bytes in string)
 %X020C%V0C0001 %#increment current position to point to 1st byte of string
@@ -2281,11 +2903,19 @@ class DisassembleInstruction:
 %)
 %(
   "                %#if so print close quotes
-%)""",
+%)
+%$-D                %#close data xml tag""",
         "Define Message Length Word":
-"""%F0004      %#number format to same as general address format
+"""%$A            %#start address xml tag
+%F0004         %#number format to same as general address format
 %ACA           %#output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
-%S%S DMLW %S   %#output seperator then "DM7" then another seperator
+%$-A           %#close address xml tag
+%S%S           %#seperator
+%$I            %#start instruction xml tag
+DMLW           %#output instuction (DMLW or Define Message Length Word)
+%$-I           %#close instruction xml tag
+%S
+%$D            %#start data tag
 %X01000000     %#set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
 %F0200         %#set little endian
 %X0101%MWV0F   %#set var1 to contents of current address (number of bytes in string)
@@ -2312,11 +2942,19 @@ class DisassembleInstruction:
 %)
 %(
   "                %#if so print close quotes
-%)""",
+%)
+%$-D                %#close data xml tag""",
         "Define Message Length Word Bigendian":
-"""%F0004      %#number format to same as general address format
+"""%$A            %#start address xml tag
+%F0004         %#number format to same as general address format
 %ACA           %#output line address (variable 0x0A) as an address, don't increment line address(set bit 6), is variable and not what points to we want (bit 7)
-%S%S DMLWBE %S %#output seperator then "DM7" then another seperator
+%$-A           %#close address xml tag
+%S%S           %#seperator
+%$I            %#start instruction xml tag
+DMLWBE         %#output instuction (DMLWBE or Define Message Length Word Big Endian)
+%$-I           %#close instruction xml tag
+%S
+%$D            %#start data tag
 %X01000000     %#set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)
 %F0201         %#set big endian
 %X0101%MWV0F   %#set var1 to contents of current address (number of bytes in string)
@@ -2343,7 +2981,8 @@ class DisassembleInstruction:
 %)
 %(
   "                %#if so print close quotes
-%)""",
+%)
+%$-D                %#close data xml tag""",
         "Custom":""
         }
 
@@ -2399,13 +3038,17 @@ class DisassembleInstruction:
   %X0101%V00     %#end position (var1) is start position (only 1 byte affter error restart)
                  %#end variable setup block
 %)
-
                  %#start of data handling block
-%S%S DEFB %S     %#no address, simply define byte
+%S%S
+%$I              %#start instruction xml tag
+DEFB             %#output instuction (DEFB or Define Byte)
+%$-I             %#close instruction xml tag
+%S
+%$D              %#start data tag
 %F0000           %#set hex mode
 %F0100           %#set unsigned
-#%B0F            %#output contents of current address as byte and increment current address""",
-
+#%B0F            %#output contents of current address as byte and increment current address
+%$-D             %#close data tag""",
         "RST#28 (Calculator)":
 """%(              %#start test block
   %?EQ%MV0F00EF    %#does the first byte equal 0xEF (code for RST #28)
@@ -2425,10 +3068,16 @@ class DisassembleInstruction:
 %)
 
                    %#start of data handling block
-%S%S DEFB %S       %#no address, simply define byte
+%S%S
+%$I              %#start instruction xml tag
+DEFB             %#output instuction (DEFB or Define Byte)
+%$-I             %#close instruction xml tag
+%S
+%$D              %#start data tag
 %F0000             %#set hex mode
 %F0100             %#set unsigned
-#%B0F              %#output contents of current address as byte and increment current address""",
+#%B0F              %#output contents of current address as byte and increment current address
+%$-D             %#close data tag""",
         "Custom":""
     }
 
@@ -2533,12 +3182,20 @@ class DisassembleInstruction:
     
             #for each line go through commandline instructions character by chracter
             Settings["DATASTRINGPOS"]=0
+
+            #output start line if needed
+            if(Settings["XMLOutput"]==1):
+                soutput+='  <line>'
+
             while(Settings["DATASTRINGPOS"]<len(self.data)):
                 #make note of where command starts in case we have error
                 commandstart=Settings["DATASTRINGPOS"]
               
                 #get next char
                 s=GetNextCharacters(self.data,Settings,1)
+                
+                if(s==""):
+                    break
               
                 #deal with non-control characters first
                 if(s[0]!='%'):
@@ -2559,6 +3216,10 @@ class DisassembleInstruction:
             #update line number
             Vars[0x0B]+=1
           
+            #output end start line if needed
+            if(Settings["XMLOutput"]==1):
+                soutput+='</line>'
+
             #new line
             soutput+="\n"
     
@@ -2637,6 +3298,9 @@ def MoveToEndBlock(instructions,Vars,Settings,commandstart):
     while(Settings["DATASTRINGPOS"]<len(instructions)):
         #get next char
         s=GetNextCharacters(instructions,Settings,1)
+        
+        if(s==""):
+            break
       
         #skip non-control characters first
         if(s!="%"):
@@ -2644,6 +3308,9 @@ def MoveToEndBlock(instructions,Vars,Settings,commandstart):
       
         #get next char
         s=GetNextCharacters(instructions,Settings,1)
+        
+        if(s==""):
+            break
       
         #what command is it?
         if(s[0]=="("):
@@ -2681,6 +3348,9 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
         
         #get next char
         s=GetNextCharacters(instructions,Settings,1)
+
+        if(s==""):
+            raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Invalid variable or number definition")
         
         #first check if is a number
         if(s[0]!="%"):
@@ -2782,6 +3452,9 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
       
         #get next char
         s=GetNextCharacters(instructions,Settings,1)
+        
+        if(s==""):
+            break
       
         #deal with non-control characters first
         if(s[0]!='%'):
@@ -2925,8 +3598,12 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid address output argument")
       
             #output address
-            i=Settings["NUMBERFORMAT"]+4+(Settings["SEPERATOR"]<<5);
-            soutput+="\0"+chr(i)+chr(Settings["DISPLAYEVERYXLINES"])+NumberToString(k,16,0,False)
+            if(Settings["XMLOutput"]==1):
+                soutput+=NumberToString(k,16,Settings["NUMBERFORMAT"],False)
+
+            else:
+                i=Settings["NUMBERFORMAT"]+4+(Settings["SEPERATOR"]<<5)
+                soutput+="\0"+chr(i)+chr(Settings["DISPLAYEVERYXLINES"])+NumberToString(k,16,0,False)
       
         elif(s[0]=='C'):  #output char, defaults to unsigned byte if not printable
             #get info
@@ -2980,7 +3657,9 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
             soutput+='%'
       
         elif(s[0]=='S'):  #output seperator
-            soutput+="  " if Settings["SEPERATOR"]==0 else "\t"
+            #only output if not in xml mode
+            if(Settings["XMLOutput"]==0):
+                soutput+="  " if Settings["SEPERATOR"]==0 else "\t"
       
         elif(s[0]=='N'):  #output newline
             soutput+='\n'
@@ -3186,15 +3865,15 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 if(comp[1]=='A'): #and
                     boolMode=0
                 elif(comp[1]=='O'): #or
-                  boolMode=1
+                    boolMode=1
                 elif(comp[1]=='X'): #xor
-                  boolMode=2
+                    boolMode=2
                 else: #unrecognised mode command
                     raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"unrecognised boolean combination mode")
       
                 continue
                 
-            #have we tested enoug already?
+            #have we tested enough already?
             #can we end testing based on results so far without further testing?
             if(InTest==True and (    #are we in a test situation?
                (boolMode==0 and boolState==False) or  #are we anding with false: answer will be false
@@ -3230,6 +3909,83 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
             elif(i==5):  #not equal
                 boolState=CombineResults(boolMode,boolState,arga!=argb)
       
+        #XML tags
+        elif(s[0]=='$'):
+            #default to normal tag
+            emptytag=False
+            closetag=False
+            
+            #get next char
+            nextchar=GetNextCharacters(instructions,Settings,1)
+
+            #check & handle empty tag
+            if(nextchar=='$'):
+                emptytag=True
+                nextchar=GetNextCharacters(instructions,Settings,1)
+            
+            #check and handle closeing tag
+            elif(nextchar=='-'):
+                closetag=True
+                nextchar=GetNextCharacters(instructions,Settings,1)
+                
+            #now figure out command
+            if(nextchar=='A'):
+                tag='address'
+            
+            elif(nextchar=='B'):
+                tag='bytes'
+            
+            elif(nextchar=='C'):
+                tag='comment'
+                
+            elif(nextchar=='D'):
+                tag='data'
+                
+            elif(nextchar=='F'):
+                tag='flags'
+                
+            elif(nextchar=='I'):
+                tag='instruction'
+            
+            elif(nextchar=='L'):
+                tag='line'
+            
+            elif(nextchar=='T'):
+                tag='timeing'
+            
+            elif(nextchar=='<'):
+                #get position of closeing bracket
+                closepos=instructions.find(">",Settings["DATASTRINGPOS"])
+                
+                #handle no closeing bracket
+                if(closepos==-1):
+                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"no closeing bracket on XML tag")
+
+                #get tag name from between brackets
+                tag=instructions[Settings["DATASTRINGPOS"]:closepos]
+                #update instructions position
+                Settings["DATASTRINGPOS"]=closepos+1
+            
+            else:
+                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"unrecognised predefined XML tag")
+
+            #if in xml mode then output tag
+            if(Settings["XMLOutput"]==1):
+                if(closetag==False and tag=='line'):
+                    sputput+="  "
+                    
+                soutput+='<'
+                
+                if(closetag==True):
+                    soutput+='/'
+
+                soutput+=tag
+
+                if(emptytag==True):
+                    soutput+='/'
+
+                soutput+='>'
+
         else: #unrecognised command
             raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"unrecognised command")
 
@@ -3241,19 +3997,20 @@ def NewSpectrumTranslateException(address,pos,instructions,details):
 
 #custom format bits 0&1=address, 2&3=number, 4&5=command, 6&7=tstates, 8&9+=line after jump
 #A&B=linenumbers, C-13=lineeveryX, 14=emptylineafterdata, 15=referencedatanumbers
-#16=listcommandbytes, 17=comments, 18=seperators, 19=ShowFlags, 1A=MarkUndocumenedCommand
-def get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,SeperatorMode,ShowFlags,MarkUndocumenedCommand):
+#16=listcommandbytes, 17=comments, 18=seperators, 19=ShowFlags, 1A=MarkUndocumenedCommand,
+#1B=XMLOutput
+def get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,SeperatorMode,ShowFlags,MarkUndocumenedCommand,XMLOutput):
     """
     This method converts the various format settings into a String that can be used as an argument for
     the CustomFormat instruction in a DisassembleInstruction. You can pass the apropriate format
-    instructions as arguments to this method: you can use the AddressFormatOutput_* instructions as the
+    instructions as arguments to this method: you can use the Address Output Format * instructions as the
     AddressOutput value to set the address format in the custom format. The same is true of the
-    NumberOutputFormat_* instructions for NumberOutput, CommandOutputFormat_* for CommandOutput,
-    OutputTStatesFormat_* for OutputTStates, LineAfterJumpOutputFormat_* for BreakAfterJumps,
-    LineNumbers_* for LineNumberOutput, LineNumberEvery_X for ListEveryXLines, EmptyLineAfterData_* for
-    BreakAfterData, ReferenceDataNumbers_* for TreatDataNumbersAsLineReferences, CommandOutputFormat_* for
-    DisplayCommandBytes, Comments_* for DisplayComments, Seperators_* for SeperatorMode, DisplayFlags_* for
-    ShowFlags, and MarkUndocumentedCommand_* for MarkUndocumenedCommand.
+    Number Output Format * instructions for NumberOutput, Command Output Format * for CommandOutput,
+    Output T States Format * for OutputTStates, Line After Jump * for BreakAfterJumps,
+    Line Numbers * for LineNumberOutput, Line Number Every X for ListEveryXLines, Empty Line After Data * for
+    BreakAfterData, Reference Data Numbers * for TreatDataNumbersAsLineReferences, List Command Bytes * for
+    DisplayCommandBytes, Comments * for DisplayComments, Seperators * for SeperatorMode, Display Flags * for
+    ShowFlags, Mark Undocumented Command * for MarkUndocumenedCommand, and XML Output * for XMLOutput.
    
     AddressOutput is the format of the address at the begining of the line.
     NumberOutput is the format of numbers being displayed.
@@ -3270,6 +4027,7 @@ def get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTSta
     SeperatorMode is the seperator.
     ShowFlags is whether flags are displayed or not.
     MarkUndocumenedCommand is if undocumented commands are noted.
+    XMLOutput is if outputting as XML or not.
     
     Returns a string version of the settings as a hexadecimal number usable with a CustomFormat instruction.
     """
@@ -3278,7 +4036,7 @@ def get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTSta
     i+=((BreakAfterJumps&3)<<8)+((LineNumberOutput&3)<<0x0A)+((ListEveryXLines&255)<<0x0C)
     i+=((BreakAfterData&1)<<0x14)+((TreatDataNumbersAsLineReferences&1)<<0x15)
     i+=((DisplayCommandBytes&1)<<0x16)+((DisplayComments&1)<<0x17)+((SeperatorMode&1)<<0x18)
-    i+=((ShowFlags&1)<<0x19)+((MarkUndocumenedCommand&1)<<0x1A)
+    i+=((ShowFlags&1)<<0x19)+((MarkUndocumenedCommand&1)<<0x1A)+((XMLOutput&1)<<0x1B)
     
     return "%X" % i
 
@@ -3322,7 +4080,8 @@ def get_custom_format_values(data,bWantInstructionCode=False):
         "DisplayComments":(i>>0x17)&0x01,
         "SeperatorMode":(i>>0x18)&0x01,
         "ShowFlags":(i>>0x19)&0x01,
-        "MarkUndocumenedCommand":(i>>0x1A)&0x01
+        "MarkUndocumenedCommand":(i>>0x1A)&0x01,
+        "XMLOutput":(i>>0x1B)&0x01
         }
 
     #convert results to instruction codes if requested
@@ -3340,6 +4099,7 @@ def get_custom_format_values(data,bWantInstructionCode=False):
         ret["SeperatorMode"]|=DisassembleInstruction.DisassembleCodes["Seperators Space"]
         ret["ShowFlags"]|=DisassembleInstruction.DisassembleCodes["Display Flags Off"]
         ret["MarkUndocumenedCommand"]|=DisassembleInstruction.DisassembleCodes["Mark Undocumented Command Off"]
+        ret["XMLOutput"]|=DisassembleInstruction.DisassembleCodes["XML Output Off"]
 
     return ret
 
@@ -3463,10 +4223,9 @@ if __name__=="__main__":
 
     #testsplit
     #print DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"]
-    x=GetPartsOfPatternDataBlock(DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"])
-    print x[2]
+    #x=GetPartsOfPatternDataBlock(DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"])
+    #print x[2]
     
-    """
     #test translate macine code
     diInstructions=[DisassembleInstruction(DisassembleInstruction.DisassembleCodes["Custom Format"],
         0,
@@ -3484,10 +4243,10 @@ if __name__=="__main__":
             DisassembleInstruction.DisassembleCodes["Comments Off"],
             DisassembleInstruction.DisassembleCodes["Seperators Space"],
             DisassembleInstruction.DisassembleCodes["Display Flags Off"],
-            DisassembleInstruction.DisassembleCodes["Mark Undocumented Command Off"])),
-    """
+            DisassembleInstruction.DisassembleCodes["Mark Undocumented Command Off"],
+            DisassembleInstruction.DisassembleCodes["XML Output On"]))]
 
     #DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,35,38,3B,42,96,9F,F3,F8,FD,103,116,11B,122,125,12A,139,13C,13F,143#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
     #DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,4A,4D,50,57,AB,B4,108,10D,11A,120,133,138,13F,142,147,156,159,15C,160#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E            %#testing%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(  %#test    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
-    #data='\xdd!\x00\x80\x11\x0e\x00\xcdBu\xdd!\x0e\x80\xed[\x0b\x80\xaf=\xcd\xc2\x04\x06\x19v\x10\xfd\xc9LPICTITLGAM1GAM2MSFXBAN4L0MAL0DEL0REL0ALL0B0L0B1L1MAL1DEL1REL1ALL1B0L1B1L2MAL2DEL2REL2ALL2B0L2B1L3MAL3DEL3REL3ALL3B0L3B1L4MAL4DEL4REL4ALL4B1'
-    #print disassemble(data,0,0x7530,len(data),diInstructions)
+    data='\xdd!\x00\x80\x11\x0e\x00\xcdBu\xdd!\x0e\x80\xed[\x0b\x80\xaf=\xcd\xc2\x04\x06\x19v\x10\xfd\xc9LPICTITLGAM1GAM2MSFXBAN4L0MAL0DEL0REL0ALL0B0L0B1L1MAL1DEL1REL1ALL1B0L1B1L2MAL2DEL2REL2ALL2B0L2B1L3MAL3DEL3REL3ALL3B0L3B1L4MAL4DEL4REL4ALL4B1'
+    print disassemble(data,0,0x7530,len(data),diInstructions)

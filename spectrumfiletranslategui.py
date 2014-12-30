@@ -480,6 +480,11 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         cbCodeUndocumented.toggle()
         cbCodeUndocumented.setCheckState(False)
         self.cbCodeUndocumented=cbCodeUndocumented
+        cbXMLOutput=QtGui.QCheckBox("XML output")
+        cbXMLOutput.setToolTip("Do you want output as text formatted by spacers, or as XML.")
+        cbXMLOutput.toggle()
+        cbXMLOutput.setCheckState(False)
+        self.cbXMLOutput=cbXMLOutput
         bCustomInstructions=QtGui.QPushButton("Custom Instructions",self)
         bCustomInstructions.setToolTip("Edit Custom Disassemble Instructions.")
         self.connect(bCustomInstructions,QtCore.SIGNAL("clicked()"),lambda who=bCustomInstructions: self.buttonPressed(who))
@@ -498,11 +503,12 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         grid2.addWidget(lCodeTimes,2,0)
         grid2.addWidget(cbCodeTimes,2,1)
         lCodeTimes.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
-        grid2.addWidget(bCustomInstructions,2,3)
+        grid2.addWidget(cbXMLOutput,2,3)
 
         grid2.addWidget(lCodeJump,3,0)
         grid2.addWidget(cbCodeJump,3,1)
         lCodeJump.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+        grid2.addWidget(bCustomInstructions,3,3)
 
         hbox=QtGui.QHBoxLayout()
         hbox.addStretch(1)
@@ -946,6 +952,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         lay.addWidget(QtGui.QLabel("Pattern Data Block search commands:"))
         
         tePatternDataBlockSearch=QtGui.QTextEdit()
+        tePatternDataBlockSearch.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         if(testblock):
             tePatternDataBlockSearch.setPlainText(testblock)
         tePatternDataBlockSearch.myfont=QtGui.QFont('monospace',tePatternDataBlockSearch.fontPointSize())
@@ -958,6 +965,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         lay.addWidget(QtGui.QLabel("Pattern Data Block address setup commands:"))
         
         tePatternDataBlockSetup=QtGui.QTextEdit()
+        tePatternDataBlockSetup.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         if(prepblock):
             tePatternDataBlockSetup.setPlainText(prepblock)
         tePatternDataBlockSetup.myfont=QtGui.QFont('monospace',tePatternDataBlockSetup.fontPointSize())
@@ -970,6 +978,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         lay.addWidget(QtGui.QLabel("Pattern Data Block Action commands:"))
         
         tePatternDataBlockAction=QtGui.QTextEdit()
+        tePatternDataBlockAction.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         if(actionblock):
             tePatternDataBlockAction.setPlainText(actionblock)
         tePatternDataBlockAction.myfont=QtGui.QFont('monospace',tePatternDataBlockAction.fontPointSize())
@@ -1073,6 +1082,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         lay.addWidget(QtGui.QLabel("Data Block commands:"))
         
         teDataBlock=QtGui.QTextEdit()
+        teDataBlock.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         if(di.data):
             teDataBlock.setPlainText(di.data)
         teDataBlock.myfont=QtGui.QFont('monospace',teDataBlock.fontPointSize())
@@ -1100,7 +1110,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         dContainer.setGeometry(self.geometry())
 
         if(dContainer.exec_()==QtGui.QDialog.Accepted):
-            di.data=teDataBlock.toPlainText()
+            di.data=str(teDataBlock.toPlainText())
         
         del self.cbEditDataBlock
         del self.teDataBlock
@@ -1294,12 +1304,19 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             cbCustomFormatCodeFlags.setCheckState(False)
         grid.addWidget(cbCustomFormatCodeFlags,12,0,1,2)
 
-        jcbCustomFormatCodeUndocumented=QtGui.QCheckBox("Mark undocumented commands")
-        jcbCustomFormatCodeUndocumented.setToolTip("Note undocumented machine instructions.")
-        jcbCustomFormatCodeUndocumented.toggle()
+        cbCustomFormatCodeUndocumented=QtGui.QCheckBox("Mark undocumented commands")
+        cbCustomFormatCodeUndocumented.setToolTip("Note undocumented machine instructions.")
+        cbCustomFormatCodeUndocumented.toggle()
         if(settings["MarkUndocumenedCommand"]==0):
-            jcbCustomFormatCodeUndocumented.setCheckState(False)
-        grid.addWidget(jcbCustomFormatCodeUndocumented,13,0,1,2)
+            cbCustomFormatCodeUndocumented.setCheckState(False)
+        grid.addWidget(cbCustomFormatCodeUndocumented,13,0,1,2)
+
+        cbXML=QtGui.QComboBox(self)
+        cbXML.addItem("Non XML Output",0)
+        cbXML.addItem("XML Output",1)
+        cbXML.setToolTip("Does the disassembler output XML or not.")
+        cbXML.setCurrentIndex(settings["XMLOutput"])
+        grid.addWidget(cbXML,14,0,1,2)
 
         lay=QtGui.QHBoxLayout()
         lay.addStretch(1)
@@ -1311,7 +1328,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         close.clicked.connect(dContainer.reject)
         lay.addStretch(1)
 
-        grid.addLayout(lay,14,0,1,2)
+        grid.addLayout(lay,15,0,1,2)
 
         dContainer.setLayout(grid)
 
@@ -1335,7 +1352,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                                      0 if cbCustomFormatDisplayComments.isChecked() else 1,
                                      cbCustomFormatSeperatorFormat.currentIndex(),
                                      1 if cbCustomFormatCodeFlags.isChecked() else 0,
-                                     1 if jcbCustomFormatCodeUndocumented.isChecked() else 0)
+                                     1 if cbCustomFormatCodeUndocumented.isChecked() else 0,
+                                     cbXML.currentIndex())
         
         del self.Frequency
             
@@ -1891,6 +1909,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             iOutputJumpGap=self.cbCodeJump.currentIndex()
             bListFlags=self.cbCodeFlags.isChecked()
             bListUndocumented=self.cbCodeUndocumented.isChecked()
+            bXMLOutput=self.cbXMLOutput.isChecked()
             
             self.diInstructions[0]=spectrumtranslate.DisassembleInstruction(spectrumtranslate.DisassembleInstruction.DisassembleCodes["Custom Format"],
                 0,
@@ -1908,7 +1927,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                     spectrumtranslate.DisassembleInstruction.DisassembleCodes["Comments Off"],
                     spectrumtranslate.DisassembleInstruction.DisassembleCodes["Seperators Space"],
                     spectrumtranslate.DisassembleInstruction.DisassembleCodes["Display Flags On" if bListFlags else "Display Flags Off"],
-                    spectrumtranslate.DisassembleInstruction.DisassembleCodes["Mark Undocumented Command On" if bListUndocumented else "Mark Undocumented Command Off"]))
+                    spectrumtranslate.DisassembleInstruction.DisassembleCodes["Mark Undocumented Command On" if bListUndocumented else "Mark Undocumented Command Off"],
+                    spectrumtranslate.DisassembleInstruction.DisassembleCodes["XML Output On" if bXMLOutput else "XML Output Off"]))
 
             try:
                 return spectrumtranslate.disassemble(data,0,origin,len(data),self.diInstructions)

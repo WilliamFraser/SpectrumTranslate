@@ -17,16 +17,16 @@ Each Disassembly Instruction contains several atributes that tell the disasseblb
 They are:
 <ul>
     <li><strong>The instruction</strong> - this tells the disassebbler what to do. It needs to be one of the predefined values.</li>
-    <li><strong>The start address</strong>strong> - this is the first address (inclusive) to start applying the DisassembleInstruction from, or 0 if to apply to all the data.</li>
-    <li><strong>The End address</strong>strong> - the last address (inclusive) to apply the Disassemble Instruction to. The address after this will be the fist one not afected by this Disassemble Instruction. As the Spectrum is a 16 bit computer, 0xFFFF or 65535 is the last address. Use a number biger than this to ensure it aplies to the end of data.</li>
-    <li><strong>Extra data</strong>strong> - his holds data used for data blocks, and specialised commands.</li>
+    <li><strong>The start address</strong> - this is the first address (inclusive) to start applying the DisassembleInstruction from, or 0 if to apply to all the data.</li>
+    <li><strong>The End address</strong> - the last address (inclusive) to apply the Disassemble Instruction to. The address after this will be the fist one not afected by this Disassemble Instruction. As the Spectrum is a 16 bit computer, 0xFFFF or 65535 is the last address. Use a number biger than this to ensure it aplies to the end of data.</li>
+    <li><strong>Extra data</strong> - his holds data used for data blocks, and specialised commands.</li>
 </ul>
 </p>
 
 <p>
 The predefined instructions that can be used are as follows:
-<li><strong>Address Output Format Hex</strong>strong> - Sets the disassembler to output addresses in Hexadecimal format.</li>
-<li><strong>Address Output Format Decimal</strong>strong> - Sets the disassembler to output address in decimal format.</li>
+<li><strong>Address Output Format Hex</strong> - Sets the disassembler to output addresses in Hexadecimal format.</li>
+<li><strong>Address Output Format Decimal</strong> - Sets the disassembler to output address in decimal format.</li>
 <li><strong>Address Output Format Octal</strong> - Sets the disassembler to output address in octal format.</li>
 <li><strong>Address Output Format Binary</strong> - Sets the disassembler to output address in binary format.</li>
 <li><strong>Number Output Format Hex</strong> - Sets the disassembler to output numbers in Hexadecimal format.</li>
@@ -68,6 +68,8 @@ The predefined instructions that can be used are as follows:
 <li><strong>Mark Undocumented Command Off</strong> - This tells the disassembler to note if a command is undocumented or not in the comment section. These are only displayed if comments are enabled.</li>
 <li><strong>Mark Undocumented Command On</strong> - This tells the disassembler not to note if a command is undocumented or not in the comment section. These are only displayed if comments are enabled.</li>
 <li><strong>Reference Line</strong> - This tells the disassembler to record the address in start as a referenced address. This will then be listed in the output.</li>
+<li><strong>XML Output Off</strong> - This DisassembleInstruction instructs the disassembler to output the disassembled code as plain text.</li>
+<li><strong>XML Output On</strong> - This DisassembleInstruction instructs the disassembler to output the disassembled code as XML.</li>
 <li><strong>Data Block</strong> - This DisassembleInstruction instructs the disassembler to display the data from start, up to and including end acording to the instructions in the data. These instructions are given in a simple scripting language (<a href="#scipting">see below</a>). Also see the <a href="#DataBlocks">Predefined Data Blocks</a> to use with this instruction.</li>
 <li><strong>Pattern Data Block</strong> - This Disassemble Instruction is used to tell the disassembler to search for certain patterns in the data or
 code, and apply a script to all of them. This is useful especially when a call to a routine has inline data
@@ -154,7 +156,7 @@ byte of the 5 byte value to display. Otherwise XX is treated as a 2 digit hexade
 bits being the variable to use. If bit 6 is 0 then the variable is incremented by 5 after the number is
 displayed (or 1 if it's not to be incremeted), and bit 7 should hold 0.</li>
 <li><code><strong>%%</strong></code> - This outputs a single '%'.</li>
-<li><code><strong>%S</strong></code> - This outputs the current seperator.</li>
+<li><code><strong>%S</strong></code> - This outputs the current seperator in text output mode, but outputs nothing in XML mode.</li>
 <li><code><strong>%N</strong></code> - This outputs a new line character.</li>
 <li><code><strong>'% '</strong></code> - If a '%' is followed by a space then a space is outputted.</li>
 <li><code><strong>%T</strong></code> - This outputs a tab.</li>
@@ -230,8 +232,7 @@ the if test is not true, otherwise execution of the script moves to the end of t
 <li><code><strong>%L</strong></code> - This is the loop command. It must have 2 code blocks following it, the first being the test,
 and the second what to do during each loop. It is essentially a simple while() loop.</li>
 <li><code><strong>%Y</strong></code> - This is the break command. If encountered it will leave the current loop.</li>
-<li><code><strong>%Z</strong></code> - This is the continue command. If encountered, it will move the scipt interpretation back to
-the test block, and potentially carry on looping.</li>
+<li><code><strong>%Z</strong></code> - This is the continue command. If encountered, it will move the scipt interpretation back to the test block, and potentially carry on looping.</li>
 <li><code><strong>%E</strong></code> - This command tels the script interpreter to finish interpreting the current line. It will
 start again interpreting at the start of the script instructions on a new line.</li>
 <li><code><strong>%Q</strong></code> - This command ends the block of data being interpreted by this DisassembleInstruction. It sets
@@ -241,11 +242,27 @@ the end value to the current position, and leaves the DisassembleInstruction.</l
 <h3>Miscelanious commands:</h3>
 <p><ul>
 <li><code><strong>%#</strong></code> - This denotes that everything after this until the end of a line is a comment.</li>
+<li><code><strong>%$?X</strong></code> - This the XML tag command. ? denotes extra options and is optional. If option is not specified then it is assumed to be opening tag. X deontes which XML tag is to be used.<BR>
+options are:<ul>
+  <li><code><strong>-</strong></code> - if closeing xml tag.</li>
+  <li><code><strong>$</strong></code> - if empty xml tag.</li>
+  </ul>
+tags are:<ul>
+  <li><code><strong>A</strong></code> - address xml tag.</li>
+  <li><code><strong>B</strong></code> - bytes xml tag.</li>
+  <li><code><strong>C</strong></code> - comment xml tag.</li>
+  <li><code><strong>D</strong></code> - data xml tag.</li>
+  <li><code><strong>F</strong></code> - flags xml tag.</li>
+  <li><code><strong>I</strong></code> - instruction xml tag.</li>
+  <li><code><strong>L</strong></code> - line xml tag.</li>
+  <li><code><strong>T</strong></code> - timeings xml tag.</li>
+  <li><code><strong>&lt;</strong></code> - custom xml tag. There follows the text of the tag followed by a &gt; character.</li>
+</ul></li>
 </ul></p>
 
-<p>For examples of the scripting language I advise you to look at the source code for the DisassembleInstruction
-class. There are several pre-defined scripts that cover many simple data formatting types.</p>
-
+<p>For examples of the scripting language I advise you to try editing a data block command as all predefined scripts
+are commented. Also you can look at the source code for the DisassembleInstruction class. There are several
+pre-defined scripts that cover many simple data formatting types.</p>
 
 <a id="DataBlocks"><center><h2>Predefined Data Blocks.</h2></center></a>
 <p>There are several predefined Data blocks for use with a <strong><code>Data Block</code></strong> instruction.
@@ -322,34 +339,50 @@ code instruction to CALL #C123 and decrypt the text afterwards stopping at a zer
 &nbsp;&nbsp;&nbsp;&nbsp;%X0201%V010001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#add 1 to var1 and store in var1 <br/>
 &nbsp;&nbsp;%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end of loop do block <br/>
 %)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end of preperation block. Everything from here on will be executed for each match <br/>
-%F0004&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#set number format to address format <br/>
+%$A&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start address xml tag<br>
+%F0004&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#set number format to address format<br/>
 %ACA&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#output as address, the line address itself, not incrementing the value <br/>
-%S%S DM0 %S&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#output 2 seperators (address-command bytes, and commandbytes-command), "DM0" and another seperator <br/>
-%X01000000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#var0=0. Used as a marker to see if in quotes or not <br/>
-%L%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start loop <br/>
-&nbsp;&nbsp;%?NE%MV0F0000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#while current address does not contain 0 <br/>
-%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end loop test <br/>
-%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start loop do <br/>
-&nbsp;&nbsp;%I%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#if in string and not printable character (below space, or above 127 &below commands) <br/>
-&nbsp;&nbsp;&nbsp;&nbsp;%(%?EQ%V000001 %?BA% (%?LT%MV0F0020%?BO%(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;%?BO&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#or not in string and printable (command, or between space and 128) <br/>
-&nbsp;&nbsp;&nbsp;&nbsp;%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%) <br/>
-&nbsp;&nbsp;%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end test for moving from printable character to unprintable or vice versa <br/>
-&nbsp;&nbsp;%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#if is true so do change <br/>
-&nbsp;&nbsp;&nbsp;&nbsp;\"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#print a '"' <br/>
-&nbsp;&nbsp;&nbsp;&nbsp;%X03000001%V00&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#take var0 from 1 and store in var0 (toggles var0)<br/>
-&nbsp;&nbsp;%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end if action <br/>
-&nbsp;&nbsp;%C0F&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#print the contents of what current position points to as a character and increment the current poisition <br/>
-%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end loop displaying characters <br/>
-%I%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#if <br/>
-&nbsp;&nbsp;%?EQ%V000001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#var0==1 ie still in a string <br/>
-%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end if test <br/>
-%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start if action <br/>
-&nbsp;&nbsp;\"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#output '"' <br/>
-%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end if action <br/>
-,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#output a comma<br/>
-%X020C%V0C0001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#increment the position in the line by one: move past the zero termiator<br/>
-#00&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#print "#00"
+%$-A&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#close address xml tag<br/>
+%S%S&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#seperators from address to bytes, to instruction<br/>
+%$I&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start instruction xml tag<br/>
+DM0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#output instuction (DM0 or Define Message 0 ternminated)<br/>
+%$-I&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#close instruction xml tag<br/>
+%S&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#seperator from instruction to data<br/>
+%$D&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start data tag<br/>
+%X01000000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#set var0 to 0 (used as flag: 0=outside quotes, 1=inside quotes)<br/>
+%L%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#define while condition for loop<br/>
+&nbsp;&nbsp;%?NE%MV0F0000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#while the contents of the current position are not equal to 0<br/>
+%)<br/>
+%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start of loop section<br/>
+&nbsp;&nbsp;%I%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start of if<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;%(%?EQ%V000001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#if we're inside quotes<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%?BA&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#and<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%(%?LT%MV0F0020&nbsp;&nbsp;%#the contents of the current position are less than 0x20 (ie is not ascii character)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%?BO&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#or<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%(%?MT%MV0F007F %?BA %?LT%MV0F00A3%)%)%)  %#the contents of the current position are greater than 0x7F, and less than 0xA3 (not printable character: NB codes A3 and above are valid printable spectrum characters - the commands)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;%?BO&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#or<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;%(%?EQ%V000000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#we're not inside quotes<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%?BA&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#and<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%(%?MT%MV0F00A2&nbsp;&nbsp;%#the contents of the current position is a command: valid spectrum character<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%?BO&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#or<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%(%?MT%MV0F001F %?BA %?LT%MV0F0080%)%)%)  %#the contents of the current position are &gt;0x1F and &lt;0x80 (ie valid character)<br/>
+&nbsp;&nbsp;%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end if test<br/>
+&nbsp;&nbsp;%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#are we in a quote & have an unprintable character or outside a quote, and have a printable character<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#print a quote<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;%X03000001%V00&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#take var0 from 1 and store in var0: toggles var0 swapping from inside to outside quotes and vice versa<br/>
+&nbsp;&nbsp;%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end if action<br/>
+&nbsp;&nbsp;%C0F&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#output contents at current position as character, and increment current position<br/>
+%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end while loop<br/>
+%I%(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#if to see if still inside quotes<br/>
+&nbsp;&nbsp;%?EQ%V000001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#is var0 equal to 1<br/>
+%)<br/>
+%(<br/>
+&nbsp;&nbsp;"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#print closeing quote if we are<br/>
+%)<br/>
+,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#print comma<br/>
+%X020C%V0C0001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#add offset from linestart and 1 and save as offset from line start. moves past 0 terminating byte<br/>
+#00&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#print #00 as for terminating 0x00<br/>
+%$-D&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#close data xml tag<br/>
 </code></p>
 </body>
 </html>
