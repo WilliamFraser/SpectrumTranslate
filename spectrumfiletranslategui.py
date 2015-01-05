@@ -39,7 +39,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             scroll.valueChanged.connect(self.scrollChanged)
 
         def scrollChanged(self,pos):
-            self.topleftaddress=pos*self.columns
+            if(self.topleftaddress!=-1):
+                self.topleftaddress=pos*self.columns
 
             #repaint display
             self.update()
@@ -166,12 +167,15 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             bChanged=bChanged or (self.rows!=i)
             self.rows=i
 
+            #if topleft not set do so now
+            if(self.topleftaddress==-1):
+                self.topleftaddress=(self.selectStart/self.columns)*self.columns
+
             #if has changed then update ascociated scrollbar
             if(bChanged or event==None or not event):
+                self.scroll.setValue(max(self.topleftaddress,0)/self.columns)
                 self.scroll.setPageStep(self.rows)
-                self.scroll.setValue(self.topleftaddress/self.columns)
-                self.scroll.setMinimum(0)
-                self.scroll.setMaximum(((len(self.data)+self.columns-1)/self.columns)-self.rows)
+                self.scroll.setRange(0,((len(self.data)+self.columns-1)/self.columns)-self.rows)
         
         def mouseReleaseEvent(self,event):
             #Are we selecting or just displaying. If just Displaying can ignore mouse events
@@ -706,8 +710,6 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         if(button==self.bCustomInstructions):
             self.EditCustomDisassembleCommands()
             return
-
-        print str(button.text())
 
     def EditCustomDisassembleCommands(self):
         #create dialog
@@ -1848,7 +1850,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             
             lay3=QtGui.QHBoxLayout()
             scroll=QtGui.QScrollBar(QtCore.Qt.Vertical)
-            hexview=self.StartStopDisplayPanel(data,0,len(data),None,scroll)
+            hexview=SpectrumFileTranslateGUI.StartStopDisplayPanel(data,0,len(data),None,scroll)
             lay3.addWidget(hexview)
             hexview.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
             hexview.sizePolicy().setHorizontalStretch(1)
@@ -2330,7 +2332,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
         lay3=QtGui.QHBoxLayout()
         scroll=QtGui.QScrollBar(QtCore.Qt.Vertical)
-        hexview=self.StartStopDisplayPanel(data,self.getNumber(self.leDataOffset),self.getNumber(self.leDataEnd),rb0,scroll)
+        hexview=SpectrumFileTranslateGUI.StartStopDisplayPanel(data,self.getNumber(self.leDataOffset),self.getNumber(self.leDataEnd),rb0,scroll)
         lay3.addWidget(hexview)
         hexview.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
         hexview.sizePolicy().setHorizontalStretch(1)
@@ -2465,9 +2467,6 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         form=('{0:X}','{0:d}','{0:o}','{0:b}')[self.cbNumberFormat.currentIndex()]
         
         return form.format(n)
-
-    def buttonToggled(self,button):
-        print "%s is %s" % (str(button.text()),str(button.isChecked()))
 
     def handle_changed_text(self,txt):
         if(self.leFileNameIn.hasFocus()):
