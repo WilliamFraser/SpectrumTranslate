@@ -3028,16 +3028,14 @@ DMLWBE         %#output instuction (DMLWBE or Define Message Length Word Big End
         
     DisassemblePatternBlockCodes={
         "RST#08 (Error)":
-"""%(            %#start test block
+"""%(               %#start test block
   %?EQ%MV0F00CF  %#does the first byte equal 0xCF (code for RST #08)
-                 %#end test block
-%)
+%)               %#end test block
 
 %(               %#block to define first & last address of data block
   %X0200%V0F0001 %#start position (var0) is position of RST #08 command +1
   %X0101%V00     %#end position (var1) is start position (only 1 byte affter error restart)
-                 %#end variable setup block
-%)
+%)               %#end variable setup block
                  %#start of data handling block
 %S%S
 %$I              %#start instruction xml tag
@@ -3050,10 +3048,9 @@ DEFB             %#output instuction (DEFB or Define Byte)
 #%B0F            %#output contents of current address as byte and increment current address
 %$-D             %#close data tag""",
         "RST#28 (Calculator)":
-"""%(              %#start test block
+"""%(                 %#start test block
   %?EQ%MV0F00EF    %#does the first byte equal 0xEF (code for RST #28)
-                   %#end test block
-%)
+%)                 %#end test block
 
 %(                 %#block to define first & last address of data block
   %X0200%V0F0001   %#start position (var0) is position of RST #28 command +1
@@ -3064,20 +3061,19 @@ DEFB             %#output instuction (DEFB or Define Byte)
   %(
     %X0201%V010001 %#add 1 to end pos (var1) each time byte is not #38
   %)
-                   %#end variable setup block
-%)
+%)                 %#end variable setup block
 
                    %#start of data handling block
 %S%S
-%$I              %#start instruction xml tag
-DEFB             %#output instuction (DEFB or Define Byte)
-%$-I             %#close instruction xml tag
+%$I                %#start instruction xml tag
+DEFB               %#output instuction (DEFB or Define Byte)
+%$-I               %#close instruction xml tag
 %S
-%$D              %#start data tag
+%$D                %#start data tag
 %F0000             %#set hex mode
 %F0100             %#set unsigned
 #%B0F              %#output contents of current address as byte and increment current address
-%$-D             %#close data tag""",
+%$-D               %#close data tag""",
         "Custom":""
     }
 
@@ -4109,6 +4105,38 @@ def GetPartsOfPatternDataBlock(pdb):
     Returns list of the 3 parts of of a patternDataBlock.
     """
 
+    #nested function to move past any comments
+    def PassCommentIfNeeded(instructions,Settings):
+        #remember where we are
+        pos=Settings["DATASTRINGPOS"]
+        
+        s=""
+
+        #loop until have next 2 characters of non whitespace characters or hit end of commands, or end of line
+        while(len(s)<2 and Settings["DATASTRINGPOS"]<len(instructions)):
+            c=instructions[Settings["DATASTRINGPOS"]]
+        
+            #ignore whitespace but not newline
+            if(c!=' ' and c!='\t'):
+                s+=c
+                
+            Settings["DATASTRINGPOS"]+=1
+            
+        #is next thing a comment?
+        if(s=="%#"):
+            #if so move past it
+            Settings["DATASTRINGPOS"]=instructions.find("\n",Settings["DATASTRINGPOS"])
+            #if newline not found,
+            if(Settings["DATASTRINGPOS"]==-1):
+                #set to end of line
+                Settings["DATASTRINGPOS"]=len(instructions)
+        
+        else:
+            #otherwise reset position
+            Settings["DATASTRINGPOS"]=pos
+
+
+
     #break Pattern Data Block into sections
     test=None
     prep=None
@@ -4127,6 +4155,8 @@ def GetPartsOfPatternDataBlock(pdb):
         k=Settings["DATASTRINGPOS"]
         #move to end of test block
         MoveToEndBlock(pdb,Vars,Settings,0)
+        #move past comment if one exists on same line as close block
+        PassCommentIfNeeded(pdb,Settings)
         #calculate test string
         test="%("+pdb[k:Settings["DATASTRINGPOS"]]
         
@@ -4139,6 +4169,8 @@ def GetPartsOfPatternDataBlock(pdb):
         k=Settings["DATASTRINGPOS"]
         #move to end of preperation block
         MoveToEndBlock(pdb,Vars,Settings,0)
+        #move past comment if one exists on same line as close block
+        PassCommentIfNeeded(pdb,Settings)
         #calculate preperation string
         prep="%("+pdb[k:Settings["DATASTRINGPOS"]]
         
@@ -4222,10 +4254,18 @@ if __name__=="__main__":
     #print str(tbs[x+1].getbytes())
 
     #testsplit
-    #print DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"]
-    #x=GetPartsOfPatternDataBlock(DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"])
-    #print x[2]
+    print DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"]
+    x=GetPartsOfPatternDataBlock(DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"])
+    print x
+    print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    print x[0]
+    print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    print x[1]
+    print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    print x[2]
+    print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     
+    """
     #test translate macine code
     diInstructions=[DisassembleInstruction(DisassembleInstruction.DisassembleCodes["Custom Format"],
         0,
@@ -4246,7 +4286,9 @@ if __name__=="__main__":
             DisassembleInstruction.DisassembleCodes["Mark Undocumented Command Off"],
             DisassembleInstruction.DisassembleCodes["XML Output On"]))]
 
+    """
     #DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,35,38,3B,42,96,9F,F3,F8,FD,103,116,11B,122,125,12A,139,13C,13F,143#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
     #DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,4A,4D,50,57,AB,B4,108,10D,11A,120,133,138,13F,142,147,156,159,15C,160#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E            %#testing%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(  %#test    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
-    data='\xdd!\x00\x80\x11\x0e\x00\xcdBu\xdd!\x0e\x80\xed[\x0b\x80\xaf=\xcd\xc2\x04\x06\x19v\x10\xfd\xc9LPICTITLGAM1GAM2MSFXBAN4L0MAL0DEL0REL0ALL0B0L0B1L1MAL1DEL1REL1ALL1B0L1B1L2MAL2DEL2REL2ALL2B0L2B1L3MAL3DEL3REL3ALL3B0L3B1L4MAL4DEL4REL4ALL4B1'
-    print disassemble(data,0,0x7530,len(data),diInstructions)
+    #data='\xdd!\x00\x80\x11\x0e\x00\xcdBu\xdd!\x0e\x80\xed[\x0b\x80\xaf=\xcd\xc2\x04\x06\x19v\x10\xfd\xc9LPICTITLGAM1GAM2MSFXBAN4L0MAL0DEL0REL0ALL0B0L0B1L1MAL1DEL1REL1ALL1B0L1B1L2MAL2DEL2REL2ALL2B0L2B1L3MAL3DEL3REL3ALL3B0L3B1L4MAL4DEL4REL4ALL4B1'
+    #print disassemble(data,0,0x7530,len(data),diInstructions)
+     

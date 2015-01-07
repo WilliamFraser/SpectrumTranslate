@@ -1010,7 +1010,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         if(dContainer.exec_()==QtGui.QDialog.Accepted):
             pattern=str(cbEditPatternDataBlock.currentText())
             if(pattern=="Custom"):
-                di.data=str(self.tePatternDataBlockSearch.toPlainText()+self.tePatternDataBlockSetup.toPlainText()+self.tePatternDataBlockAction.toPlainText())
+                di.data=str(self.tePatternDataBlockSearch.toPlainText()+"\n"+self.tePatternDataBlockSetup.toPlainText()+"\n"+self.tePatternDataBlockAction.toPlainText())
             
             else:
                 di.data=spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodes[pattern]
