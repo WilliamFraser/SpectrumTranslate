@@ -783,11 +783,11 @@ def convert_program_to_text(data,iAutostart=0,ivariableOffset=-1):
 
 def get_array_depth(data,descriptor):
     """
-    This method works out how many dimensions there are in a spectrum file array.
+    This function works out how many dimensions there are in a spectrum file array.
     data is the spectrum file array data as a byte array string or list.
     descriptor is the file descriptor for the file array.
         The lower 6 bits specify the array name (a single character). The top 2 specify the array type.
-        You don't have to single out these bits as this method will only consider bits 6 and 7. The
+        You don't have to single out these bits as this function will only consider bits 6 and 7. The
         top 2 bits are 128 for a number array, 192 for a character array, and 64 for a string array.
     Returns the number of dimensions in the array, or -1 if not a recognised format.
     
@@ -812,13 +812,13 @@ def get_array_depth(data,descriptor):
 
 def convert_array_to_text(data,descriptor):
     """
-    This method converts a spectrum array (number, character, or string) to text.
+    This function converts a spectrum array (number, character, or string) to text.
     the elements returned are seperated by commas, and the individual dimensions are seperated by curly brackets.
    
     data is the spectrum file array data supplied as a byte string or list.
     descriptor is the file descriptor for the file array.
         The lower 6 bits specify the array name (a single character). The top 2 specify the array type.
-        You don't have to single out these bits as this method will only consider bits 6 and 7. The
+        You don't have to single out these bits as this function will only consider bits 6 and 7. The
         top 2 bits are 128 for a number array, 192 for a character array, and 64 for a string array.
     """
     
@@ -956,7 +956,7 @@ def _sn_to_string(data,message=-1):
 #also doesn't use standard ASCII
 def get_spectrum_char(c):
     """
-    This method converts the 8 bit integer value of a spectrum character to a string representation of the spectrum character.
+    This function converts the 8 bit integer value of a spectrum character to a string representation of the spectrum character.
     The lower part is mostly in line with ASCII standard with a couple of exceptions: character decimal 96 is the
     pound sign, character decimal 94 is an up arrow (there is no ^ in the spectrum character set), and character
     decimal 127 is a copyright symbol. characters decimal 164 up to 255 (162 to 255 in the 128K versions) are not
@@ -986,7 +986,7 @@ def get_spectrum_char(c):
 #also doesn't use standard ASCII
 def get_spectrum_string(s):
     """
-    This method converts a byte sting of 8 bit integer values to a string representation of the spectrum character.
+    This function converts a byte sting of 8 bit integer values to a string representation of the spectrum character.
     The lower part is mostly in line with ASCII standard with a couple of exceptions: character decimal 96 is the
     pound sign, character decimal 94 is an up arrow (there is no ^ in the spectrum character set), and character
     decimal 127 is a copyright symbol. characters decimal 164 up to 255 (162 to 255 in the 128K versions) are not
@@ -1012,9 +1012,9 @@ _zx_to_RGB=(
 
 def get_GIF_from_screen(data,delay=320):
     """
-    This method extracts an Image from spectrum screen format data. It outputs it as an array of byte in
+    This function extracts an Image from spectrum screen format data. It outputs it as an array of byte in
     the format of a GIF file. This can either be saved to a file as a GIF image or used as the argument
-    for a PIL (Python Image Library) object wia stringIO for example. This method returns an animated GIF if
+    for a PIL (Python Image Library) object wia stringIO for example. This function returns an animated GIF if
     the flash attribute is used. The delay value specifies the length of time for each version of the screen
     to be displayed with the flash blocks in either state. On the origional spectrum this was 16 frames which
     at 50Hz for screen refresh equates to 320 milliseconds. If there is no flash being used then it returns a
@@ -1023,13 +1023,13 @@ def get_GIF_from_screen(data,delay=320):
     Data is the data for the spectrum screen. It can be a list, or byte string array.
     
     Delay is the delay between flashing images in milliseconds if the image has flashing colours. If you don't
-    want a flashing image then pass -1 for delay and the method will return a static GIF image of the screen
+    want a flashing image then pass -1 for delay and the function will return a static GIF image of the screen
     effectively with all flash attributes turned off.
     
     This returns a byte string which holds the screen image in GIF format. It will be static or 2 frame
     animated depending on whether there are flashing colours and if you want them. You can simply save the byte
     array to a file for it to be used as a GIF image, or pass it on to other functions. It returns None if the
-    method encounters any problems.
+    function encounters any problems.
     """
     
     #if not enough data for image supplied
@@ -1466,7 +1466,7 @@ def snap_to_SNA(data,AF,BC,DE,HL,AF_,BC_,DE_,HL_,I,R,IX,IY,SP,IFF2,IM,border,por
 
 def disassemble(data,offset,origin,length,SpecialInstructions=None):
     """
-    This method will disassemble a byte string or list holding Z80 code.
+    This function will disassemble a byte string or list holding Z80 code.
     You can specify instructions to alter the disassembled output.
    
     data is a byte string or list holding the data to disassemble.
@@ -3997,9 +3997,9 @@ def NewSpectrumTranslateException(address,pos,instructions,details):
 #1B=XMLOutput
 def get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,SeperatorMode,ShowFlags,MarkUndocumenedCommand,XMLOutput):
     """
-    This method converts the various format settings into a String that can be used as an argument for
+    This function converts the various format settings into a String that can be used as an argument for
     the CustomFormat instruction in a DisassembleInstruction. You can pass the apropriate format
-    instructions as arguments to this method: you can use the Address Output Format * instructions as the
+    instructions as arguments to this function: you can use the Address Output Format * instructions as the
     AddressOutput value to set the address format in the custom format. The same is true of the
     Number Output Format * instructions for NumberOutput, Command Output Format * for CommandOutput,
     Output T States Format * for OutputTStates, Line After Jump * for BreakAfterJumps,
@@ -4038,7 +4038,7 @@ def get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTSta
 
 def get_custom_format_values(data,bWantInstructionCode=False):
     """
-    This method extracts the various format settings from a String that is the argument for the
+    This function extracts the various format settings from a String that is the argument for the
     CustomFormat instruction in a DisassembleInstruction. The values for the various
     settings are absolute values. The values are intended for use by SpectrumFileTranslate
     and SpectrumFileTranslateGUI. Set the bWantInstructionCode option to True if you want
@@ -4048,7 +4048,7 @@ def get_custom_format_values(data,bWantInstructionCode=False):
     bWantInstructionCode is True if you want the returned values to be valid
     instructions (other than number 6: how often to display unreferenced lines) which should be
     converted to a String and used as the argument for a LineNumberEvery_X instruction.Otherwise
-    it simply returns absolute values of more use to internal methods.
+    it simply returns absolute values of more use to internal functions.
     
     returns a tupple14 int array. The values in order (so result[0] would be the first setting,
     result[1] would be the second etc.) are: The number format of address at the beginning of a
@@ -4254,6 +4254,7 @@ if __name__=="__main__":
     #print str(tbs[x+1].getbytes())
 
     #testsplit
+    """
     print DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"]
     x=GetPartsOfPatternDataBlock(DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"])
     print x
@@ -4264,6 +4265,7 @@ if __name__=="__main__":
     print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     print x[2]
     print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    """
     
     """
     #test translate macine code
