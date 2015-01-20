@@ -844,6 +844,8 @@ def get_array_depth(data,descriptor):
 def extract_array(data,descriptor):
     """
     This function extracts a spectrum array (number, character, or string) from data as in a file.
+    Note that data if it's string is in raw bytes in a string, and that it may need to be output
+    through a function to code escape characters and commands (function such as get_spectrum_string).
    
     data is the spectrum file array data supplied as a byte string or list.
     descriptor is the file descriptor for the file array.
@@ -862,11 +864,17 @@ def extract_array(data,descriptor):
                 return [spectrumnumber.SpectrumNumber(data[i:i+5]).getValue() for i in range(offset,offset+5*dims[0],5)]
             #or a string
             else:
-                return get_spectrum_string(data[offset:offset+dims[0]])
+                return ''.join([chr(c) for c in data[offset:offset+dims[0]]])
         
         #otherwise we need to return a sub-array
-        #the reduce part works out the amount of space taken up by sub arrays
-        return [getSubArray(dims[1:],data,isnumber,offset+i*reduce(lambda x,y:x*y,dims[1:])) for i in range(dims[0])]
+        #first work out offset to where data is held: work out the number of elements in sub arrays
+        o=reduce(lambda x,y:x*y,dims[1:])
+        #if is number then each element takes up 5 bytes of memory
+        if(isnumber):
+            o*=5
+            
+        #return the array as made up of sub arrays
+        return [getSubArray(dims[1:],data,isnumber,offset+i*o) for i in range(dims[0])]
     
     #convert data from string to list of numbers if needed
     if(isinstance(data,str)):
@@ -883,7 +891,7 @@ def extract_array(data,descriptor):
 
     #string
     if(descriptor&192==64):
-        return get_spectrum_string(data[2:data[0]+256*data[1]])
+        return data[2:data[0]+256*data[1]]
 
     return None
 
@@ -4277,6 +4285,7 @@ class SpectrumTranslateException(Exception):
 if __name__=="__main__":
     #print get_spectrum_string("\x7F\x60\x5E\xF0\xF2")
 
+    """
     import spectrumtapblock    
     tbs=spectrumtapblock.get_TapBlocks('/home/william/RR.tap/REBRAID1.TAP')
     for (i,tb) in enumerate(tbs):
@@ -4292,15 +4301,16 @@ if __name__=="__main__":
         #print "%X" % tbs[i+1].filePosition
     
     #display contents of aray
-    x=8
+    x=20
     print convert_array_to_text(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
     print extract_array(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
-    #print str(tbs[x+1].getbytes())
+    print str(tbs[x+1].getbytes())
+    """
 
     #display content of program
     #x=4
     #print convert_program_to_text(tbs[x+1].data,tbs[x].get_headder_autostart_line(),tbs[x].get_headder_variable_offset())
-    print str(tbs[x+1].getbytes())
+    #print str(tbs[x+1].getbytes())
 
     """
     #get image
