@@ -841,6 +841,52 @@ def get_array_depth(data,descriptor):
 
     return -1
 
+def extract_array(data,descriptor):
+    """
+    This function extracts a spectrum array (number, character, or string) from data as in a file.
+   
+    data is the spectrum file array data supplied as a byte string or list.
+    descriptor is the file descriptor for the file array.
+        The lower 6 bits specify the array name (a single character). The top 2 specify the array type.
+        You don't have to single out these bits as this function will only consider bits 6 and 7. The
+        top 2 bits are 128 for a number array, 192 for a character array, and 64 for a string array.
+    """
+
+    #return array including subarrays
+    def getSubArray(dims,data,isnumber,offset):
+        #have we reached last dimension?
+        if(len(dims)==1):
+            #if so it's either number
+            if(isnumber):
+                #in which case return list of numbers
+                return [spectrumnumber.SpectrumNumber(data[i:i+5]).getValue() for i in range(offset,offset+5*dims[0],5)]
+            #or a string
+            else:
+                return get_spectrum_string(data[offset:offset+dims[0]])
+        
+        #otherwise we need to return a sub-array
+        #the reduce part works out the amount of space taken up by sub arrays
+        return [getSubArray(dims[1:],data,isnumber,offset+i*reduce(lambda x,y:x*y,dims[1:])) for i in range(dims[0])]
+    
+    #convert data from string to list of numbers if needed
+    if(isinstance(data,str)):
+        data=[ord(x) for x in data]
+
+    #number array or character array
+    if(descriptor&128==128):
+        #get dimension lengths
+        dim_lengths=[data[x]+256*data[x+1] for x in range(1,data[0]*2,2)]
+        #o is current offset. Set to past dimensions details pointing at first element
+        o=len(dim_lengths)*2+1
+        #get arrays and return them
+        return getSubArray(dim_lengths,data,descriptor&192==128,o)
+
+    #string
+    if(descriptor&192==64):
+        return get_spectrum_string(data[2:data[0]+256*data[1]])
+
+    return None
+
 
 def convert_array_to_text(data,descriptor):
     """
@@ -853,7 +899,7 @@ def convert_array_to_text(data,descriptor):
         You don't have to single out these bits as this function will only consider bits 6 and 7. The
         top 2 bits are 128 for a number array, 192 for a character array, and 64 for a string array.
     """
-    
+
     #convert data from string to list of numbers if needed
     if(isinstance(data,str)):
         data=[ord(x) for x in data]
@@ -879,15 +925,9 @@ def convert_array_to_text(data,descriptor):
             #if at top level loop through elements
             if(i==len(dim_lengths)-1):
                 while(dim_pos[i]<dim_lengths[i]):
-                    #get number
-                    sn=spectrumnumber.SpectrumNumber(data[o:o+5])
-
-                    #convert to string: can cause exceptions
-                    try:
-                        text+=str(sn)
-                    except:
-                        text+="real value unclear"
-
+                    #get number as text
+                    text+=_sn_to_string(data[o:o+5],"real value unclear")
+                    #append new line or comma depending on if at end of dim or not
                     text+=dim_pos[i]==dim_lengths[i]-1 and "\n" or ","
                     o+=5
                     dim_pos[i]+=1
@@ -4237,7 +4277,6 @@ class SpectrumTranslateException(Exception):
 if __name__=="__main__":
     #print get_spectrum_string("\x7F\x60\x5E\xF0\xF2")
 
-    """
     import spectrumtapblock    
     tbs=spectrumtapblock.get_TapBlocks('/home/william/RR.tap/REBRAID1.TAP')
     for (i,tb) in enumerate(tbs):
@@ -4245,23 +4284,23 @@ if __name__=="__main__":
         #    print tb
         #    continue
             
-        if(not tb.is_headder() or not "Bytes" in tb.get_file_type_string()):
+        if(not tb.is_headder() or not "array" in tb.get_file_type_string()):
             print tb
             continue
 
-        print "%i %s" % (i,tb.get_file_details_string())
+        print "%i %i %s" % (i,tb.get_headder_array_descriptor()&192,tb.get_file_details_string())
         #print "%X" % tbs[i+1].filePosition
-    """
     
     #display contents of aray
-    #x=8
-    #print convert_array_to_text(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
+    x=8
+    print convert_array_to_text(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
+    print extract_array(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
     #print str(tbs[x+1].getbytes())
 
     #display content of program
     #x=4
     #print convert_program_to_text(tbs[x+1].data,tbs[x].get_headder_autostart_line(),tbs[x].get_headder_variable_offset())
-    #print str(tbs[x+1].getbytes())
+    print str(tbs[x+1].getbytes())
 
     """
     #get image
@@ -4325,4 +4364,3 @@ if __name__=="__main__":
     #DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,4A,4D,50,57,AB,B4,108,10D,11A,120,133,138,13F,142,147,156,159,15C,160#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E            %#testing%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(  %#test    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
     #data='\xdd!\x00\x80\x11\x0e\x00\xcdBu\xdd!\x0e\x80\xed[\x0b\x80\xaf=\xcd\xc2\x04\x06\x19v\x10\xfd\xc9LPICTITLGAM1GAM2MSFXBAN4L0MAL0DEL0REL0ALL0B0L0B1L1MAL1DEL1REL1ALL1B0L1B1L2MAL2DEL2REL2ALL2B0L2B1L3MAL3DEL3REL3ALL3B0L3B1L4MAL4DEL4REL4ALL4B1'
     #print disassemble(data,0,0x7530,len(data),diInstructions)
-     

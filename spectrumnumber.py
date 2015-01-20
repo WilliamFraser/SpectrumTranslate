@@ -222,6 +222,16 @@ class SpectrumNumber:
     def __long__(self):
         return long(self.__float__())
 
+    def getValue(self):
+        """Returns thee number represented by this spectrumnumber as either an int or float
+           depending on the way it's stored
+        """
+
+        if(self.data[0]==0): #simple integer number
+            return int(self.GetSmallInt())
+
+        #otherwise is a float, so return this        
+        return float(self.GetSmallInt())
 
 #todo
 #def __iadd__(self, other)
