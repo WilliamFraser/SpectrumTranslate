@@ -846,6 +846,7 @@ def extract_array(data,descriptor):
     This function extracts a spectrum array (number, character, or string) from data as in a file.
     Note that data if it's string is in raw bytes in a string, and that it may need to be output
     through a function to code escape characters and commands (function such as get_spectrum_string).
+    Also numbers are extracted into lists of SpectrumNumber objects.
    
     data is the spectrum file array data supplied as a byte string or list.
     descriptor is the file descriptor for the file array.
@@ -861,7 +862,7 @@ def extract_array(data,descriptor):
             #if so it's either number
             if(isnumber):
                 #in which case return list of numbers
-                return [spectrumnumber.SpectrumNumber(data[i:i+5]).getValue() for i in range(offset,offset+5*dims[0],5)]
+                return [spectrumnumber.SpectrumNumber(data[i:i+5]) for i in range(offset,offset+5*dims[0],5)]
             #or a string
             else:
                 return ''.join([chr(c) for c in data[offset:offset+dims[0]]])
@@ -908,113 +909,75 @@ def convert_array_to_text(data,descriptor):
         top 2 bits are 128 for a number array, 192 for a character array, and 64 for a string array.
     """
 
+    #return array including subarrays with bounding braces, and apropriate indentation
+    def getSubArray(data,isnumber,indent):
+        #have we reached last subarray (will be string or number, but not a list)
+        if(not isinstance(data[0],list)):
+            #if so it's either number
+            if(isnumber):
+                #in which case return list of numbers
+                return indent+','.join([str(i) for i in data])
+            #or a string
+            else:
+                return indent+'"'+('",\n'+indent+'"').join([get_spectrum_string(s) for s in data])+'"'
+        
+        #otherwise we need to return a sub-array
+        return indent+'{'+('\n'+indent+'},\n'+indent+'{').join([getSubArray(sub,isnumber,indent+"  ") for sub in data])+indent+'}'
+
+
     #convert data from string to list of numbers if needed
     if(isinstance(data,str)):
         data=[ord(x) for x in data]
 
-    sIndent="  "
-
-    #number array
-    if(descriptor&192==128):
-        #get dimension lengths
-        dim_lengths=[data[x]+256*data[x+1] for x in range(1,data[0]*2,2)]
-        #o is current offset. Set to past dimensions details pointing at first element
-        o=len(dim_lengths)*2+1
-        #pointer to where we are in each dimension
-        dim_pos=[0 for x in dim_lengths]
-        #which dim are we in
-        i=0
-        
-        text="{\n"
-        
-        #loop until have gone through all dims
-        while(dim_pos[0]<dim_lengths[0]):
-            text+=sIndent
-            #if at top level loop through elements
-            if(i==len(dim_lengths)-1):
-                while(dim_pos[i]<dim_lengths[i]):
-                    #get number as text
-                    text+=_sn_to_string(data[o:o+5],"real value unclear")
-                    #append new line or comma depending on if at end of dim or not
-                    text+=dim_pos[i]==dim_lengths[i]-1 and "\n" or ","
-                    o+=5
-                    dim_pos[i]+=1
-
-                sIndent=sIndent[:-2]
-                text+=sIndent
-
-            #if need to go down dimension
-            if(dim_pos[i]==dim_lengths[i]):
-                i-=1
-                if(i>=0):
-                    dim_pos[i]+=1
-                    text+="}"+(dim_pos[i]==dim_lengths[i] and "" or ",")+"\n"
-
-                if(i>=0 and dim_pos[i]==dim_lengths[i]):
-                    sIndent=sIndent[:-2]
-
-            #entering a new dimension
-            else:
-                i+=1
-                dim_pos[i]=0
-                sIndent+="  "
-                text+="{\n"
-
-        text+="}\n"
-        
-        return text
-
-    #character array
-    if(descriptor&192==192):
-        #get dimension lengths
-        dim_lengths=[data[x]+256*data[x+1] for x in range(1,data[0]*2,2)]
-        #o is current offset. Set to past dimensions details pointing at first element
-        o=len(dim_lengths)*2+1
-        #pointer to where we are in each dimension
-        dim_pos=[0 for x in dim_lengths]
-        #which dim are we in
-        i=0
-
-        text="{\n"
-        
-        #loop until have gone through all dims
-        while(dim_pos[0]<dim_lengths[0]):
-            if(i==len(dim_lengths)-2):
-                while(dim_pos[i]<dim_lengths[i]):
-                    text+=sIndent
-                    text+="\""
-                    text+=get_spectrum_string(data[o:o+dim_lengths[i+1]])
-                    text+=dim_pos[i]==dim_lengths[i]-1 and "\"\n" or "\",\n"
-                    o+=dim_lengths[i+1]
-                    dim_pos[i]+=1
-
-                sIndent=sIndent[:-2]
-                text+=sIndent
-
-            if(dim_pos[i]==dim_lengths[i]):
-                i-=1
-                if(i>=0):
-                    dim_pos[i]+=1
-                    text+="}"+(dim_pos[i]==dim_lengths[i] and "" or ",")+"\n"
-
-                if(i>0 and dim_pos[i]==dim_lengths[i]):
-                    sIndent=sIndent[:-2]
-
-            #entering a new dimension
-            else:
-                i+=1
-                dim_pos[i]=0
-                text+=sIndent
-                sIndent+="  "
-                text+="{\n"
-
-        text+="}"
-        
-        return text
+    #number array or character array
+    if(descriptor&128==128):
+        return '{\n'+getSubArray(extract_array(data,descriptor),(descriptor&192==128),"  ")+'\n}'
         
     #string
     if(descriptor&192==64):
         return '"'+get_spectrum_string(data[2:data[0]+256*data[1]])+'"'
+
+    return None
+
+
+def convert_array_to_XML(data,descriptor):
+    """
+    This function converts a spectrum array (number, character, or string) to XML.
+   
+    data is the spectrum file array data supplied as a byte string or list.
+    descriptor is the file descriptor for the file array.
+        The lower 6 bits specify the array name (a single character). The top 2 specify the array type.
+        You don't have to single out these bits as this function will only consider bits 6 and 7. The
+        top 2 bits are 128 for a number array, 192 for a character array, and 64 for a string array.
+    """
+
+    #return array including subarrays with bounding braces, and apropriate indentation
+    def getSubArray(data,isnumber,indent):
+        #have we reached last subarray (will be string or number, but not a list)
+        if(not isinstance(data[0],list)):
+            #if so it's either number
+            if(isnumber):
+                #in which case return list of numbers
+                return indent+'<number>'+('</number>\n'+indent+'<number>').join([str(i) for i in data])+'</number>'
+            #or a string
+            else:
+                return indent+'<string>'+('</string>\n'+indent+'<string>').join([get_spectrum_string(s) for s in data])+'</string>'
+        
+        #otherwise we need to return a sub-array
+        return indent+'<dimension>\n'+('\n'+indent+'</dimension>\n'+indent+'<dimension>\n').join([getSubArray(sub,isnumber,indent+"  ") for sub in data])+'\n'+indent+'</dimension>'
+
+
+    #convert data from string to list of numbers if needed
+    if(isinstance(data,str)):
+        data=[ord(x) for x in data]
+
+    #number array or character array
+    if(descriptor&128==128):
+        return '<dimension>\n'+getSubArray(extract_array(data,descriptor),(descriptor&192==128),"  ")+'\n</dimension>'
+        
+    #string
+    if(descriptor&192==64):
+        return '<string>'+get_spectrum_string(data[2:data[0]+256*data[1]])+'</string>'
 
     return None
 
@@ -4301,12 +4264,13 @@ if __name__=="__main__":
         #print "%X" % tbs[i+1].filePosition
     
     #display contents of aray
-    x=20
-    print convert_array_to_text(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
-    print extract_array(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
-    print str(tbs[x+1].getbytes())
+    x=24
+    #print convert_array_to_text(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
+    print convert_array_to_XML(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
+    #print extract_array(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
+    #print str(tbs[x+1].getbytes())
     """
-
+    
     #display content of program
     #x=4
     #print convert_program_to_text(tbs[x+1].data,tbs[x].get_headder_autostart_line(),tbs[x].get_headder_variable_offset())

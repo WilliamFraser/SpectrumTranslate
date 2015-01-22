@@ -578,6 +578,11 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         cbArrayVarType.setToolTip("The variable type to translate.")
         self.cbArrayVarType=cbArrayVarType
         setCombo(cbArrayVarType,"String")
+        cbXMLVarOutput=QtGui.QCheckBox("XML output")
+        cbXMLVarOutput.setToolTip("Do you want output as text, or as XML.")
+        cbXMLVarOutput.toggle()
+        cbXMLVarOutput.setCheckState(False)
+        self.cbXMLVarOutput=cbXMLVarOutput
 
         hbox=QtGui.QHBoxLayout()
         hbox.setSpacing(2)
@@ -596,7 +601,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         hbox.addStretch(1)
         grid2.addLayout(hbox,0,1)
 
-        grid2.setRowStretch(1,1)
+        grid2.addWidget(cbXMLVarOutput,1,0)
+
+        grid2.setRowStretch(2,1)
 
         gbVars.setLayout(grid2)
 
@@ -1981,6 +1988,17 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 QtGui.QMessageBox.warning(self,"Error!","Variable Name must be single letter.")
                 return None
             
+            #handle XML
+            if(self.cbXMLVarOutput.isChecked()==True):
+                soutput='<?xml version="1.0" encoding="UTF-8" ?>\n'
+                soutput+='<array>\n' if idescriptor&128==128 else '<string>\n'
+                soutput+='  <variablename>'+sVarName+'</variablename>\n'
+                soutput+='\n'.join(['  '+x for x in spectrumtranslate.convert_array_to_XML(data,idescriptor).splitlines()])
+                soutput+='\n</array>\n' if idescriptor&128==128 else '</string>\n'
+                
+                return soutput
+            
+            #default to simple text
             return sVarName+("" if idescriptor==128 else "$")+("" if idescriptor==64 else "[]")+"=\n"+spectrumtranslate.convert_array_to_text(data,idescriptor)
 
         else:
