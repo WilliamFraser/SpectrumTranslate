@@ -564,6 +564,7 @@ def convert_program_to_text(data,iAutostart=0,ivariableOffset=-1):
     ivariableOffset is the offset from the start of the array to where variables are stored.
     """
     
+    #if no variable offset supplied then assume there are no variables
     if(ivariableOffset==-1):
         ivariableOffset=len(data)
     
@@ -809,6 +810,312 @@ def convert_program_to_text(data,iAutostart=0,ivariableOffset=-1):
 
         else:
             raise SpectrumTranslateException("Unrecognised variable type")
+
+    return text
+
+
+def convert_program_to_XML(data,iAutostart=0,ivariableOffset=-1):
+    """
+    This function returns an XML representation as a string of the list or byte string supplied of a basic program.
+    Due to the way program data was stored, it is possible that non-printable characters were in the line.
+    In this case these characters are represented by ^ followed by a 2 digit hexadecimal representation of the character.
+    Also floating point numbers are stored after the visible digits. Sometimes for space reasons or to hide the true
+    numbers, these did not match up. If The true floating point representation of a number differs from the visible
+    one, then the true value is also listed.
+   
+    data is list or byte string of the data of the program. The program is assumed to begin at he start of the array to the end of the array.
+    iAutostart is the line number where the program auto starts (or less than 1 if no autostart).
+    ivariableOffset is the offset from the start of the array to where variables are stored.
+    """
+    
+    #if no variable offset supplied then assume there are no variables
+    if(ivariableOffset==-1):
+        ivariableOffset=len(data)
+    
+    #convert data from string to list of numbers if needed
+    if(isinstance(data,str)):
+        data=[ord(x) for x in data]
+        
+    text='<?xml version="1.0" encoding="UTF-8" ?>\n<basiclisting>\n'
+    
+    if(iAutostart>=0):
+        text+="  <autostart>"+str(iAutostart)+"</autostart>\n"
+        
+    i=0
+
+    #move through program listing lines
+    while(i<ivariableOffset):
+        #get line number
+        iLineNumber=data[i+1]+256*data[i] #line number is high byte first
+        i+=2
+        if(iLineNumber>9999):
+            raise SpectrumTranslateException("Line number cannot exceed 9999")
+            
+        text+="  <line>\n    <linenumber>"+str(iLineNumber)+"</linenumber>\n"
+      
+        #get line length
+        iLineLen=data[i]+256*data[i+1]
+        i+=2
+      
+        sNumber=''
+        bInQuotes=False
+        bPostREM=False
+        bPostDEF=False
+        bInInstruction=False
+        bInstructionHadArgument=False
+        
+        #now move through line
+        l=0
+        while(l<iLineLen):
+            #get next line entry character
+            k=data[i]
+            i+=1
+          
+            #have we hit an argument for an instruction?
+            if(bInInstruction and not bInstructionHadArgument and not bInQuotes and k!=ord(':') and k!=13):
+                text+='      <argument>'
+                bInstructionHadArgument=True
+                
+            #if we're in a REM statement display characters. ignore last character as should be new line character
+            if(bPostREM and l<iLineLen-1):
+                text+=get_spectrum_char(k)
+                l+=1
+                continue
+          
+            #have we reached end of number without hitting number definition?
+            if(len(sNumber)>0 and       #are we in a number?
+               k!=0x0E and              #and not hitting a hidden number definition
+              not(                      #and not an extension of the number
+                (k>=0x30 and k<=0x39 and not ' ' in sNumber) or #have 0-9
+                k=='E' or k=='e' or     #an exponent symbol
+                ((k=='+' or k=='-') and (sNumber[-1]=='E' or sNumber[-1]=='e') ) or #a plus of minus after an exponent symbol
+                k==32                   #hit a space
+               )
+              ):
+                #if so exit number gathering routine without gathering number definition
+                text+=sNumber
+                sNumber=''
+
+            #are we entering/leaving a quote
+            if(k=='"'):
+                bInQuotes=not bInQuotes
+                
+            #are we entering or definately leaving a DEF
+            if(k==')'):
+                bPostDEF=False
+                
+            if(k==206):
+                bPostDEF=True
+          
+            #deal with non-printable characters, and user-defined characters
+            if(k<32 or (k>127 and k<163)):
+                if(k==13): #end of line
+                    #if still characters hidden after end-of line char then print them
+                    if(l!=iLineLen-1):
+                        text+='<hiddendata>'
+                        while(l<iLineLen):
+                            text+='^%02X' % data[i]
+                            i+=1
+                            l+=1
+                            
+                        text+='</hiddendata>'
+                    
+                    if(bInInstruction and bInstructionHadArgument):
+                        text+='</argument>'
+                    
+                    #terminate command if we have to
+                    if(bInInstruction):
+                        text+='\n    </instruction>'
+                        bInInstruction=False
+                        
+                    text+="\n"
+                    
+                elif(k==14): #number definition
+                    #if not enough bytes before end of line or program then we have a problem
+                    if(l+5>=iLineLen or i+5>=len(data)):
+                        raise SpectrumTranslateException("Error with number format")
+                        
+                    sn=spectrumnumber.SpectrumNumber(data[i:i+5])
+                    i+=5
+                    l+=5
+                    #ignore what happens after def
+                    if(bPostDEF):
+                        sNumber=''
+
+                    #output displayed number
+                    else:                  
+                        text+='<number>'+sNumber
+                        #check if displayed number same as hidden one, and if not also display real number
+                        #can cause exceptions so catch them, although is very unlikely
+                        #trying to get value of empty string however will cause exception so test for this case & handle it first
+                        if(len(sNumber)==0):
+                            text+="<actualvalue>"+str(sn)+"</actualvalue>"
+                        else:
+                            try:
+                                if(sn!=sNumber):
+                                    text+="<actualvalue>"+str(sn)+"</actualvalue>"
+                            except:
+                                text+="<actualvalue>real value unclear</actualvalue>"
+
+                        sNumber=''
+                        text+='</number>'
+                    
+                #deal with commands like INK, PAPER etc that have a single byte argument                
+                elif((k>=16 and k<=21) or k==23):
+                    text+='<format>'+("INK","PAPER","FLASH","BRIGHT","INVERSE","OVER","","TAB")[k-16]
+                    text+=' '+str(data[i])+'</format>'
+                    i+=1
+                    l+=1
+
+                #deal with AT with x & y coordinates after
+                elif(k==22):
+                    text+='<format>AT '+str(data[i])+','+str(data[i+1])+'</format>'
+                    i+=2
+                    l+=2
+
+                else:
+                    text+='<nonprintablecharacter>'+str(k)+'</nonprintablecharacter>'
+                    i+=1
+                    l+=1
+
+            #see if is valid number digit. If so store it in numberbuffer
+            if(not bInQuotes and not bPostREM and (
+               (k>=0x30 and k<=0x39) or
+               k=='.' or
+               ((k=='E' or k=='e') and len(sNumber)>0) or
+               ((k=='-' or k=='+') and len(sNumber)>0 and (sNumber[-1]=='E' or sNumber[-1]=='e'))
+               )):
+                sNumber+=chr(k)
+                l+=1
+                continue
+
+            #have we hit an instruction seperator?
+            if(bInInstruction and not bInQuotes and k==ord(':')):
+                #check to see if we need to close argument xml tag
+                if(bInstructionHadArgument):
+                    text+='</argument>\n    </instruction>\n    <instructionseperator>:</instructionseperator>\n'
+                
+                bInInstruction=False
+                #bInstructionHadArgument=True
+
+            #printable characters not handled elsewhere
+            if(k>31 and k<128 and k!=ord(':')):
+                text+=get_spectrum_char(k)
+                
+            #check for commands
+            if(k>162):
+                if(k==234):
+                    bPostREM=True
+                
+                #are we entering an instruction
+                if(not bInInstruction):
+                    #if so make a not of it and output xml
+                    text+='    <instruction>\n      '
+                    bInInstruction=True
+                    bInstructionHadArgument=False
+
+                text+='<keyword>'+SPECTRUM_COMMANDS[k-163]+'</keyword>'
+                
+                if(not bInstructionHadArgument):
+                    text+='\n'
+
+            #exit if hit end of line
+            if(k==13):
+                break
+            
+            l+=1
+
+        #exit line
+        text+="  </line>\n"
+
+        #see if hit end of program marker
+        if(k==128):
+            break;
+            
+    #end program part of code
+
+    #do variables
+    if(i<len(data)):
+        text+="  <variables>\n"
+
+        while(i<len(data)):
+            #get indicator of type of variable
+            k=(data[i]>>5)&0x7
+          
+            VarName=get_spectrum_char((data[i]&0x1F)+0x60)
+            
+            #number who's name is one letter only
+            if(k==3):
+                text+='    <variable>\n      <name>'+VarName+'</name>\n      <type>number</type>\n'
+                text+='      <value>'+_sn_to_string(data[i+1:i+6],"unable to extract number")
+                text+='</value>\n    </variable>\n'
+                i+=6
+    
+            #number who's name is greater than 1 letter
+            elif(k==5):
+                text+='    <variable>\n      <name>'+VarName
+                i+=1
+                
+                while(True):
+                    text+=get_spectrum_char(data[i]&0x7F)
+                    if(data[i]>127):
+                        break
+                        
+                    i+=1
+    
+                text+='</name>\n      <type>number</type>\n'
+                text+='      <value>'+_sn_to_string(data[i+1:i+6],"unable to extract number")
+                text+='</value>\n    </variable>\n'
+                i+=6
+    
+            #array of numbers
+            elif(k==4):
+                text+='    <variable>\n      <name>'+VarName+'</name>\n      <type>numberarray</type>\n      <value>\n'
+                i+=1
+    
+                text+='\n'.join(['        '+x for x in spectrumtranslate.convert_array_to_XML(data[i+2:],128).splitlines()])
+                text+='\n      </value>\n    </variable>\n'
+                i+=2+data[i]+256*data[i+1]
+    
+            #for next loop control
+            elif(k==7):
+                try:
+                    text+='    <variable>\n      <name>'+VarName+'</name>\n      <type>fornext</type>\n'
+                    fortext='      <value>'+_sn_to_string(data[i+1:i+6])+'</value>\n'
+                    fortext+='      <limit>'+_sn_to_string(data[i+6:i+11])+'</limit>\n'
+                    fortext+='      <step>'+_sn_to_string(data[i+11:i+16])+'</step>\n'
+                    fortext+='      <loopbackto>\n        <line>'+str(data[i+16]+256*data[i+17])+'</line>\n'
+                    fortext+='        <statement>'+str(data[i+18])+'</statement>\n      </loopback>\n    </variable>\n'
+                    text+=fortext
+                except:
+                    raise
+                    text+='      Unable to extract FOR...NEXT variables\n    </variable>\n'
+    
+                i+=19
+    
+            #string
+            elif(k==2):
+                text+='    <variable>\n      <name>'+VarName+'$</name>\n      <type>string</type>\n'
+                strlen=data[i+1]+256*data[i+2]
+                text+="      <value>"+get_spectrum_string(data[i+3:i+3+strlen])+"</value>\n    </variable>\n"
+                i+=strlen+3
+    
+            #array of characters
+            elif(k==6):
+                text+='    <variable>\n      <name>'+VarName+'$</name>\n      <type>characterarray</type>\n      <value>\n'
+                i+=1
+    
+                text+='\n'.join(['        '+x for x in spectrumtranslate.convert_array_to_XML(data[i+2:],192).splitlines()])
+                text+='\n      </value>\n    </variable>\n'
+                i+=2+data[i]+256*data[i+1]
+
+            else:
+                raise SpectrumTranslateException("Unrecognised variable type")
+
+        text+="  </variables>\n"
+
+    #exit listing
+    text+='</basiclisting>\n'
 
     return text
 
@@ -4248,7 +4555,6 @@ class SpectrumTranslateException(Exception):
 if __name__=="__main__":
     #print get_spectrum_string("\x7F\x60\x5E\xF0\xF2")
 
-    """
     import spectrumtapblock    
     tbs=spectrumtapblock.get_TapBlocks('/home/william/RR.tap/REBRAID1.TAP')
     for (i,tb) in enumerate(tbs):
@@ -4256,7 +4562,8 @@ if __name__=="__main__":
         #    print tb
         #    continue
             
-        if(not tb.is_headder() or not "array" in tb.get_file_type_string()):
+        #if(not tb.is_headder() or not "array" in tb.get_file_type_string()):
+        if(not tb.is_headder() or not "Program" in tb.get_file_type_string()):
             print tb
             continue
 
@@ -4264,16 +4571,16 @@ if __name__=="__main__":
         #print "%X" % tbs[i+1].filePosition
     
     #display contents of aray
-    x=24
+    #x=24
     #print convert_array_to_text(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
-    print convert_array_to_XML(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
+    #print convert_array_to_XML(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
     #print extract_array(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
     #print str(tbs[x+1].getbytes())
-    """
     
     #display content of program
-    #x=4
+    x=4
     #print convert_program_to_text(tbs[x+1].data,tbs[x].get_headder_autostart_line(),tbs[x].get_headder_variable_offset())
+    print convert_program_to_XML(tbs[x+1].data,tbs[x].get_headder_autostart_line(),tbs[x].get_headder_variable_offset())
     #print str(tbs[x+1].getbytes())
 
     """

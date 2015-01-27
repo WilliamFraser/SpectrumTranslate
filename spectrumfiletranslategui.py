@@ -445,6 +445,11 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         leBasicVariableOffset=QtGui.QLineEdit(self)
         leBasicVariableOffset.setToolTip("Specifies offset to variables BASIC program. Leave blank if not sure.")
         self.leBasicVariableOffset=leBasicVariableOffset
+        cbXMLBasicOutput=QtGui.QCheckBox("XML output")
+        cbXMLBasicOutput.setToolTip("Do you want output as text, or as XML.")
+        cbXMLBasicOutput.toggle()
+        cbXMLBasicOutput.setCheckState(False)
+        self.cbXMLBasicOutput=cbXMLBasicOutput
     
         hbox=QtGui.QHBoxLayout()
         hbox.setSpacing(2)
@@ -464,7 +469,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         hbox.addStretch(1)
         grid2.addLayout(hbox,0,1)
 
-        grid2.setRowStretch(1,1)
+        grid2.addWidget(cbXMLBasicOutput,1,0)
+
+        grid2.setRowStretch(2,1)
 
         gbBasic.setLayout(grid2)
         
@@ -1933,6 +1940,11 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 variable=length
 
             try:
+                #handle XML
+                if(self.cbXMLBasicOutput.isChecked()==True):
+                    return spectrumtranslate.convert_program_to_XML(data,auto,variable)
+                
+                #default to simple text
                 return spectrumtranslate.convert_program_to_text(data,auto,variable)
             except SpectrumTranslateException, ste:
                 QtGui.QMessageBox.warning(self,"Error!",ste.value)
@@ -1990,11 +2002,22 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             
             #handle XML
             if(self.cbXMLVarOutput.isChecked()==True):
+                if(idescriptor&192==64):
+                    vartype='string'
+                elif(idescriptor&192==128):
+                    vartype='numberarray'
+                elif(idescriptor&192==192):
+                    vartype='characterarray'
+                
                 soutput='<?xml version="1.0" encoding="UTF-8" ?>\n'
-                soutput+='<array>\n' if idescriptor&128==128 else '<string>\n'
-                soutput+='  <variablename>'+sVarName+'</variablename>\n'
-                soutput+='\n'.join(['  '+x for x in spectrumtranslate.convert_array_to_XML(data,idescriptor).splitlines()])
-                soutput+='\n</array>\n' if idescriptor&128==128 else '</string>\n'
+                soutput+='<variable>\n  <name>'+sVarName
+                if(idescriptor&64==64):
+                    soutput+='$'
+                    
+                soutput+='</name>\n  <type>'+vartype+'</type>\n'
+                soutput+='  <value>\n'
+                soutput+='\n'.join(['    '+x for x in spectrumtranslate.convert_array_to_XML(data,idescriptor).splitlines()])
+                soutput+='\n  </value>\n</variable>\n'
                 
                 return soutput
             
