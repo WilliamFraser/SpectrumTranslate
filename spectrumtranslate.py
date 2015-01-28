@@ -4400,14 +4400,22 @@ def get_custom_format_values(data,bWantInstructionCode=False):
     converted to a String and used as the argument for a LineNumberEvery_X instruction.Otherwise
     it simply returns absolute values of more use to internal functions.
     
-    returns a tupple14 int array. The values in order (so result[0] would be the first setting,
-    result[1] would be the second etc.) are: The number format of address at the beginning of a
-    line, The number format for numbers being displayed, The format of the bytes of a command,
-    The format for command timings, When to display an empty line after jumps, Which linee numbers
-    to display, How often to display line numbers not refferenced, If you want blank lines after
-    data blocks, Whether to treat numbers in data as line references, Whether to display the bytes
-    of commands, Whether to display comments, What type of separator to use, Whether to show flags,
-    Whether to mark undocumented commands.
+    returns a mapping. The values are:
+    "AddressOutput" - The number format of address at the beginning of a line.
+    "NumberOutput" - The number format for numbers being displayed.
+    "CommandOutput" - The format of the bytes of a command.
+    "OutputTStates" - The format for command timings.
+    "BreakAfterJumps" - When to display an empty line after jumps.
+    "LineNumberOutput" - Which line numbers to display.
+    "ListEveryXLines" - How often to display line numbers not refferenced.
+    "BreakAfterData" - If you want blank lines after data blocks.
+    "TreatDataNumbersAsLineReferences" - Whether to treat numbers in data as line references.
+    "DisplayCommandBytes" - Whether to display the bytes of commands.
+    "DisplayComments" - Whether to display comments.
+    "SeperatorMode" - What type of separator to use.
+    "ShowFlags" - Whether to show flags.
+    "MarkUndocumenedCommand" - Whether to mark undocumented commands.
+    "XMLOutput" - are we outputing in XML?
     """
     
     i=int(data,16)
