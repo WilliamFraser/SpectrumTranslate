@@ -1088,7 +1088,6 @@ def convert_program_to_XML(data,iAutostart=0,ivariableOffset=-1):
                     fortext+='        <statement>'+str(data[i+18])+'</statement>\n      </loopback>\n    </variable>\n'
                     text+=fortext
                 except:
-                    raise
                     text+='      Unable to extract FOR...NEXT variables\n    </variable>\n'
     
                 i+=19
@@ -1299,6 +1298,7 @@ def _sn_to_string(data,message=-1):
     except:
         if(message==-1):
             raise
+
         return message
 
 
