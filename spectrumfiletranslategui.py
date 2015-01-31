@@ -1339,11 +1339,39 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         grid.addWidget(cbCustomFormatDisplayComments,10,0,1,2)
 
         cbCustomFormatSeperatorFormat=QtGui.QComboBox(self)
-        cbCustomFormatSeperatorFormat.addItem("Use space as separator",0)
+        cbCustomFormatSeperatorFormat.addItem("Use double space as separator",0)
         cbCustomFormatSeperatorFormat.addItem("Use tab as separator",1)
+        cbCustomFormatSeperatorFormat.addItem("Custom separator",2)
         cbCustomFormatSeperatorFormat.setToolTip("The type of seperator between parts of the output.")
-        cbCustomFormatSeperatorFormat.setCurrentIndex(settings["SeperatorMode"])
-        grid.addWidget(cbCustomFormatSeperatorFormat,11,0,1,2)
+
+        if(settings["Seperator"]=="  "):
+            sep=0
+        elif(settings["Seperator"]=="\t"):
+            sep=1
+        else:
+            sep=2
+            
+        cbCustomFormatSeperatorFormat.setCurrentIndex(sep)
+        cbCustomFormatSeperatorFormat.activated.connect(self.SeparatorChange)
+        grid.addWidget(cbCustomFormatSeperatorFormat,11,0)
+
+        hbox=QtGui.QHBoxLayout()
+        hbox.setSpacing(2)
+        lab=QtGui.QLabel("custom seperator:")
+        lab.setToolTip("what characters do you want as a seperator?")
+        self.lCustomSeperator=lab
+        hbox.addWidget(lab)
+        leCustomSeperator=QtGui.QLineEdit()
+        leCustomSeperator.setText(settings["Seperator"])
+        leCustomSeperator.setToolTip("what characters do you want as a seperator?")
+        leCustomSeperator.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
+        leCustomSeperator.sizePolicy().setHorizontalStretch(1)
+        self.leCustomSeperator=leCustomSeperator
+        hbox.addWidget(leCustomSeperator)
+        grid.addLayout(hbox,11,1)
+
+        self.lCustomSeperator.setEnabled(sep==2)
+        self.leCustomSeperator.setEnabled(sep==2)
 
         cbCustomFormatCodeFlags=QtGui.QCheckBox("List Flags")
         cbCustomFormatCodeFlags.setToolTip("List flags affected by machine instructions.")
@@ -1382,8 +1410,19 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
         if(dContainer.exec_()==QtGui.QDialog.Accepted):
             i=self.CheckInstructionAddress(leCustomFormatLineFrequency)
+            sep=cbCustomFormatSeperatorFormat.currentIndex()
+            if(sep==0):
+                septext="  "
+            elif(sep==1):
+                septext="\t"
+            else:
+                septext=str(leCustomSeperator.text())
+            
             if(i<0 or i>0xFF):
                 QtGui.QMessageBox.warning(self,"Error!","Unreferenced line frequency must be between 0 and 255 decimal.")
+            
+            elif(len(septext)==0):
+                QtGui.QMessageBox.warning(self,"Error!","Invalid custom seperatord.")
             
             else:
                 instruction.data=spectrumtranslate.get_custom_format_string(
@@ -1398,13 +1437,19 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                                      0 if cbCustomFormatReferenceNumbers.isChecked() else 1,
                                      0 if cbCustomFormatDisplayCommandBytes.isChecked() else 1,
                                      0 if cbCustomFormatDisplayComments.isChecked() else 1,
-                                     cbCustomFormatSeperatorFormat.currentIndex(),
+                                     septext,
                                      1 if cbCustomFormatCodeFlags.isChecked() else 0,
                                      1 if cbCustomFormatCodeUndocumented.isChecked() else 0,
                                      cbXML.currentIndex())
         
         del self.Frequency
-            
+        del self.lCustomSeperator
+        del self.leCustomSeperator
+    
+    def SeparatorChange(self,newindex):
+        self.lCustomSeperator.setEnabled(newindex==2)
+        self.leCustomSeperator.setEnabled(newindex==2)
+    
     def ChangeCustomFormatLineFrequency(self):        
         i=self.CheckInstructionAddress(self.Frequency)
         if(i>0xFF):
@@ -1583,7 +1628,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
             #handle change of format that needs data change            
             if(instructionchanged and txt=="Custom Format"):
-                di.data="100"
+                di.data="0000100  "
                 
             elif(instructionchanged and txt=="Line Number Every X"):
                 di.data="8"

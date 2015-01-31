@@ -1916,7 +1916,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
     TreatDataNumbersAsLineReferences=0 #0=track line numbers for display purposes, 1=don't
     DisplayCommandBytes=0  #0=print them, 1=don't
     DisplayComments=0      #0=display them, 1=don't
-    SeperatorMode=0        #0=2 spaces, 1=tab
+    Seperator="  "
     ShowFlags=0            #0=no, 1=yes
     MarkUndocumenedCommand=0 #0=no, 1=yes
     XMLOutput=0            #0=no, 1=yes
@@ -1941,7 +1941,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
                 TreatDataNumbersAsLineReferences=settingstemp["TreatDataNumbersAsLineReferences"]
                 DisplayCommandBytes=settingstemp["DisplayCommandBytes"]
                 DisplayComments=settingstemp["DisplayComments"]
-                SeperatorMode=settingstemp["SeperatorMode"]
+                Seperator=settingstemp["Seperator"]
                 ShowFlags=settingstemp["ShowFlags"]
                 MarkUndocumenedCommand=settingstemp["MarkUndocumenedCommand"]
                 XMLOutput=settingstemp["XMLOutput"]
@@ -1973,7 +1973,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
 
                 #setup environment ready to search for matches
                 Settings={"DATASTRINGPOS":0,"NUMBERFORMAT":0,"NUMBERSIGNED":0,"NUMBERWORDORDER":0,"DISPLAYEVERYXLINES":1,
-                          "ORIGIONALSEPERATOR":SeperatorMode,"SEPERATOR":SeperatorMode,"ORIGIN":origin,
+                          "ORIGIONALSEPERATOR":Seperator,"SEPERATOR":Seperator,"ORIGIN":origin,
                           "ADDRESSOUTPUT":AddressOutput,"NUMBEROUTPUT":NumberOutput,"COMMANDOUTPUT":CommandOutput,
                           "XMLOutput":XMLOutput}
 
@@ -2023,7 +2023,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
 
     #set up format stack to hold current format
     #hold formatting instructions
-    s=get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,SeperatorMode,ShowFlags,MarkUndocumenedCommand,XMLOutput);
+    s=get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,Seperator,ShowFlags,MarkUndocumenedCommand,XMLOutput);
     Format=[DisassembleInstruction(DisassembleInstruction.DisassembleCodes["Custom Format"],0,65536,s)]
     CurrentFormatEnd=65536  #end after
 
@@ -2060,7 +2060,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
             TreatDataNumbersAsLineReferences=settingstemp["TreatDataNumbersAsLineReferences"]
             DisplayCommandBytes=settingstemp["DisplayCommandBytes"]
             DisplayComments=settingstemp["DisplayComments"]
-            SeperatorMode=settingstemp["SeperatorMode"]
+            Seperator=settingstemp["Seperator"]
             ShowFlags=settingstemp["ShowFlags"]
             MarkUndocumenedCommand=settingstemp["MarkUndocumenedCommand"]
             XMLOutput=settingstemp["XMLOutput"]
@@ -2072,7 +2072,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
         #first check if in data block
         if(di!=None and di.instruction==DisassembleInstruction.DisassembleCodes["Data Block"] and currentAddress>=di.start):
             Settings={"DATASTRINGPOS":0,"NUMBERFORMAT":0,"NUMBERSIGNED":0,"NUMBERWORDORDER":0,"DISPLAYEVERYXLINES":1,
-                      "ORIGIONALSEPERATOR":SeperatorMode,"SEPERATOR":SeperatorMode,"ORIGIN":origin,
+                      "ORIGIONALSEPERATOR":Seperator,"SEPERATOR":Seperator,"ORIGIN":origin,
                       "ADDRESSOUTPUT":AddressOutput,"NUMBEROUTPUT":NumberOutput,"COMMANDOUTPUT":CommandOutput,
                       "XMLOutput":XMLOutput}
             di.end,txt=di.DisassembleDataBlock(Settings,data,ReferencedLineNumbers if (TreatDataNumbersAsLineReferences==0) else None)
@@ -2099,7 +2099,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
         #check formatting command
         if(di!=None and di.is_format_instruction() and currentAddress>=di.start):
             #record current format state in custom, place on stack
-            s=get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,SeperatorMode,ShowFlags,MarkUndocumenedCommand,XMLOutput)
+            s=get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,Seperator,ShowFlags,MarkUndocumenedCommand,XMLOutput)
             Format+=[DisassembleInstruction(DisassembleInstruction.DisassembleCodes["Custom Format"],currentAddress,CurrentFormatEnd,s)]
           
             #deal with format commands
@@ -2130,7 +2130,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
                 TreatDataNumbersAsLineReferences=0
                 DisplayCommandBytes=0
                 DisplayComments=0
-                SeperatorMode=0
+                Seperator="  "
                 ShowFlags=0
                 MarkUndocumenedCommand=0
                 XMLOutput=0
@@ -2148,7 +2148,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
                 TreatDataNumbersAsLineReferences=settingstemp["TreatDataNumbersAsLineReferences"]
                 DisplayCommandBytes=settingstemp["DisplayCommandBytes"]
                 DisplayComments=settingstemp["DisplayComments"]
-                SeperatorMode=settingstemp["SeperatorMode"]
+                Seperator=settingstemp["Seperator"]
                 ShowFlags=settingstemp["ShowFlags"]
                 MarkUndocumenedCommand=settingstemp["MarkUndocumenedCommand"]
                 XMLOutput=settingstemp["XMLOutput"]
@@ -2171,8 +2171,14 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
             elif(di.instruction&0xFF00==0x0D00): #DisplayComments
                 DisplayCommandBytes=di.instruction&0x01
                 
-            elif(di.instruction&0xFF00==0x0E00): #SeperatorMode
-                SeperatorMode=di.instruction&0x01
+            elif(di.instruction&0xFF00==0x0E00): #Seperator space
+                Seperator="  "
+                
+            elif(di.instruction&0xFF00==0x0E01): #Seperator tab
+                Seperator="\t"
+                
+            elif(di.instruction&0xFF00==0x0E02): #Seperator custom
+                Seperator=di.instruction.data
                 
             elif(di.instruction&0xFF00==0x0F00): #Display flags
                 ShowFlags=di.instruction&0x01
@@ -2316,11 +2322,14 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
           maxAddressLength=max(FormatAddressLength[AddressOutput],maxAddressLength)
       
           #output address ready for processing later
-          i=AddressOutput+(LineNumberOutput<<3)+(SeperatorMode<<5)
+          i=AddressOutput+(LineNumberOutput<<3)
+          if(Seperator!="  "):
+              i+=1<<5
+              
           soutput+="\0"+chr(i)+chr(ListEveryXLines)+NumberToString(currentAddress,16,0,False)
       
           #add seperator after address
-          soutput+="  " if (SeperatorMode==0) else "\t"
+          soutput+=Seperator
       
           #remember where commands start
           k=len(soutput)-linestartposition
@@ -2338,7 +2347,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
             
                 #now ensure opcodes line up
                 #don't need to bother if using tabs
-                if(SeperatorMode==0):
+                if(Seperator=="  "):
                     i=5*FormatByteLength[CommandOutput]
                     #adjust for commas
                     if(CommandOutput>0):
@@ -2352,7 +2361,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
             #add seperator after command bytes
             #needed even if no command bytes as can go from disply command bytes to not and have to
             #ensure output stays in same column in case tab seperated output is used in spreadsheet
-            soutput+="  " if (SeperatorMode==0) else "\t"
+            soutput+=Seperator
       
         #output opcode
         #Handle XML output
@@ -2365,7 +2374,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
       
             #align any comments
             #don't need to bother if using tabs
-            if(SeperatorMode==0):
+            if(Seperator=="  "):
                 soutput+=" "*(FormatOpCodeMaxLength[AddressOutput] if FormatOpCodeMaxLength[AddressOutput]>FormatOpCodeMaxLength[NumberOutput] else FormatOpCodeMaxLength[NumberOutput]-len(s))
       
         #Handle XML output of stuff in comments (timing, flags, undocumented commands)
@@ -2403,7 +2412,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
         #if we're not doing XML and want comments, do so
         elif(DisplayComments==0):
             #space between opcode and comments
-            soutput+="  " if (SeperatorMode==0) else "\t"
+            soutput+=Seperator
           
             #output comments
             soutput+=";"
@@ -2499,7 +2508,7 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
         AddressOutput=ord(soutput[i+1])
         bInData=(AddressOutput&4)==4           #are we in a data block?
         LineNumberOutput=(AddressOutput>>3)&3  #0=All, 1=None, 2=only referenced lines
-        SeperatorMode=(AddressOutput>>5)&1     #0=2 spaces, 1=tab
+        SeperatorMode=(AddressOutput>>5)&1     #0=2 spaces
         ListEveryXLines=ord(soutput[i+2])          #list every X lines regardless of LineNumberOutput
         AddressOutput&=3
         
@@ -2580,6 +2589,7 @@ class DisassembleInstruction:
         "Comments Off":0x0D01,
         "Seperators Space":0x0E00,
         "Seperators Tab":0x0E01,
+        "Seperators Custom":0x0E02,
         "Display Flags Off":0x0F00,
         "Display Flags On":0x0F01,
         "Mark Undocumented Command Off":0x1000,
@@ -3503,6 +3513,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
         ','.join(["%X" % i for i,c in enumerate(self.data) if c=='\n']),self.data.replace('\n',''))
 
     def __cmp(self,other):
+        #defined so can sort by starting address
         return self.start.__cmp__(other.start)
 
     def DisassembleDataBlock(self,Settings,data,ReferencedLineNumbers):
@@ -4343,20 +4354,20 @@ def NewSpectrumTranslateException(address,pos,instructions,details):
 
 #custom format bits 0&1=address, 2&3=number, 4&5=command, 6&7=tstates, 8&9+=line after jump
 #A&B=linenumbers, C-13=lineeveryX, 14=emptylineafterdata, 15=referencedatanumbers
-#16=listcommandbytes, 17=comments, 18=seperators, 19=ShowFlags, 1A=MarkUndocumenedCommand,
-#1B=XMLOutput
-def get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,SeperatorMode,ShowFlags,MarkUndocumenedCommand,XMLOutput):
+#16=listcommandbytes, 17=comments, 18=ShowFlags, 19=MarkUndocumenedCommand,
+#1A=XMLOutput
+def get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTStates,BreakAfterJumps,LineNumberOutput,ListEveryXLines,BreakAfterData,TreatDataNumbersAsLineReferences,DisplayCommandBytes,DisplayComments,Seperator,ShowFlags,MarkUndocumenedCommand,XMLOutput):
     """
     This function converts the various format settings into a String that can be used as an argument for
     the CustomFormat instruction in a DisassembleInstruction. You can pass the apropriate format
-    instructions as arguments to this function: you can use the Address Output Format * instructions as the
+    instructions as arguments to this function: you can use the "Address Output Format *" instructions as the
     AddressOutput value to set the address format in the custom format. The same is true of the
-    Number Output Format * instructions for NumberOutput, Command Output Format * for CommandOutput,
-    Output T States Format * for OutputTStates, Line After Jump * for BreakAfterJumps,
-    Line Numbers * for LineNumberOutput, Line Number Every X for ListEveryXLines, Empty Line After Data * for
-    BreakAfterData, Reference Data Numbers * for TreatDataNumbersAsLineReferences, List Command Bytes * for
-    DisplayCommandBytes, Comments * for DisplayComments, Seperators * for SeperatorMode, Display Flags * for
-    ShowFlags, Mark Undocumented Command * for MarkUndocumenedCommand, and XML Output * for XMLOutput.
+    "Number Output Format *" instructions for NumberOutput, "Command Output Format *" for CommandOutput,
+    "Output T States Format *" for OutputTStates, "Line After Jump *" for BreakAfterJumps,
+    "Line Numbers *" for LineNumberOutput, Line Number Every X for ListEveryXLines, "Empty Line After Data *" for
+    BreakAfterData, "Reference Data Numbers *" for TreatDataNumbersAsLineReferences, "List Command Bytes *" for
+    DisplayCommandBytes, "Comments *" for DisplayComments, "Seperators *" for Seperator, "Display Flags *" for
+    ShowFlags, "Mark Undocumented Command *" for MarkUndocumenedCommand, and "XML Output *" for XMLOutput.
    
     AddressOutput is the format of the address at the begining of the line.
     NumberOutput is the format of numbers being displayed.
@@ -4370,7 +4381,9 @@ def get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTSta
     DisplayCommandBytes is whether the bytes making up a command are displayed.
     DisplayComments is whether comments (and thus flags, timings, and undocumented command
         notification) are displayed.
-    SeperatorMode is the seperator.
+    Seperator is the seperator between parts of the output in non-XML mode. It is either a number
+        (DisassembleCode for either "Seperators Space" or "Seperators Tab"), or is a string that
+        is to be used as a seperator.
     ShowFlags is whether flags are displayed or not.
     MarkUndocumenedCommand is if undocumented commands are noted.
     XMLOutput is if outputting as XML or not.
@@ -4381,24 +4394,34 @@ def get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTSta
     i=(AddressOutput&3)+((NumberOutput&3)<<2)+((CommandOutput&3)<<4)+((OutputTStates&3)<<6)
     i+=((BreakAfterJumps&3)<<8)+((LineNumberOutput&3)<<0x0A)+((ListEveryXLines&255)<<0x0C)
     i+=((BreakAfterData&1)<<0x14)+((TreatDataNumbersAsLineReferences&1)<<0x15)
-    i+=((DisplayCommandBytes&1)<<0x16)+((DisplayComments&1)<<0x17)+((SeperatorMode&1)<<0x18)
-    i+=((ShowFlags&1)<<0x19)+((MarkUndocumenedCommand&1)<<0x1A)+((XMLOutput&1)<<0x1B)
+    i+=((DisplayCommandBytes&1)<<0x16)+((DisplayComments&1)<<0x17)
+    i+=((ShowFlags&1)<<0x18)+((MarkUndocumenedCommand&1)<<0x19)+((XMLOutput&1)<<0x1A)
     
-    return "%X" % i
+    if(isinstance(Seperator,str)):
+        sep=Seperator
+    
+    elif(isinstance(Seperator,int) and (Seperator==DisassembleInstruction.DisassembleCodes["Seperators Tab"] or Seperator==DisassembleInstruction.DisassembleCodes["Seperators Space"])):
+        sep="  " if Seperator==DisassembleInstruction.DisassembleCodes["Seperators Space"] else "\t"
+    
+    #check for valid seperator
+    else:
+        raise SpectrumTranslateException("invalid seperator")
+    
+    return "%07X%s" % (i,sep)
 
 def get_custom_format_values(data,bWantInstructionCode=False):
     """
     This function extracts the various format settings from a String that is the argument for the
     CustomFormat instruction in a DisassembleInstruction. The values for the various
-    settings are absolute values. The values are intended for use by SpectrumFileTranslate
-    and SpectrumFileTranslateGUI. Set the bWantInstructionCode option to True if you want
-    the returned values to be valid DisassembleInstruction instruction codes.
+    settings are absolute values (except the seperator value). The values are intended for use by
+    SpectrumFileTranslate and SpectrumFileTranslateGUI. Set the bWantInstructionCode option to True
+    if you want the returned values to be valid DisassembleInstruction instruction codes.
    
     data is the data variable from a CustomFormat instruction.
     bWantInstructionCode is True if you want the returned values to be valid
     instructions (other than number 6: how often to display unreferenced lines) which should be
-    converted to a String and used as the argument for a LineNumberEvery_X instruction.Otherwise
-    it simply returns absolute values of more use to internal functions.
+    converted to a String and used as the argument for a LineNumberEvery_X instruction. Otherwise
+    it simply returns absolute values of more use to internal functions. Seperator will be text of the seperator.
     
     returns a mapping. The values are:
     "AddressOutput" - The number format of address at the beginning of a line.
@@ -4412,13 +4435,13 @@ def get_custom_format_values(data,bWantInstructionCode=False):
     "TreatDataNumbersAsLineReferences" - Whether to treat numbers in data as line references.
     "DisplayCommandBytes" - Whether to display the bytes of commands.
     "DisplayComments" - Whether to display comments.
-    "SeperatorMode" - What type of separator to use.
+    "Seperator" - The separator to use betwen fields in the non-XML output.
     "ShowFlags" - Whether to show flags.
     "MarkUndocumenedCommand" - Whether to mark undocumented commands.
     "XMLOutput" - are we outputing in XML?
     """
     
-    i=int(data,16)
+    i=int(data[0:7],16)
 
     ret={
         "AddressOutput":i&0x03,
@@ -4432,10 +4455,10 @@ def get_custom_format_values(data,bWantInstructionCode=False):
         "TreatDataNumbersAsLineReferences":(i>>0x15)&0x01,
         "DisplayCommandBytes":(i>>0x16)&0x01,
         "DisplayComments":(i>>0x17)&0x01,
-        "SeperatorMode":(i>>0x18)&0x01,
-        "ShowFlags":(i>>0x19)&0x01,
-        "MarkUndocumenedCommand":(i>>0x1A)&0x01,
-        "XMLOutput":(i>>0x1B)&0x01
+        "ShowFlags":(i>>0x18)&0x01,
+        "MarkUndocumenedCommand":(i>>0x19)&0x01,
+        "XMLOutput":(i>>0x1A)&0x01,
+        "Seperator":data[7:]
         }
 
     #convert results to instruction codes if requested
@@ -4450,7 +4473,6 @@ def get_custom_format_values(data,bWantInstructionCode=False):
         ret["TreatDataNumbersAsLineReferences"]|=DisassembleInstruction.DisassembleCodes["Reference Data Numbers On"]
         ret["DisplayCommandBytes"]|=DisassembleInstruction.DisassembleCodes["List Command Bytes On"]
         ret["DisplayComments"]|=DisassembleInstruction.DisassembleCodes["Comments On"]
-        ret["SeperatorMode"]|=DisassembleInstruction.DisassembleCodes["Seperators Space"]
         ret["ShowFlags"]|=DisassembleInstruction.DisassembleCodes["Display Flags Off"]
         ret["MarkUndocumenedCommand"]|=DisassembleInstruction.DisassembleCodes["Mark Undocumented Command Off"]
         ret["XMLOutput"]|=DisassembleInstruction.DisassembleCodes["XML Output Off"]
