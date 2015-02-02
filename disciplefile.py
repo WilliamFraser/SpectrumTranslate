@@ -59,8 +59,14 @@ class DiscipleFile:
         
         return self.image.GetSector((self.filenumber-1)/20,(((self.filenumber-1)/2)%10)+1,0)[headderstart:headderstart+256]
 
-    def GetFileData(self):
-        """Get the data of the file. Returns a byte string array containing the file data."""
+    def GetFileData(self,wantheadder=False):
+        """Get the data of the file. Returns a byte string array containing the file data.
+        
+        BASIC, code, number array, string array, and screen files have and extra 9 bytes at the
+        start of the file (these extra bytes are not included in the file length as returned by
+        GetFileLength(). These are a copy of the headder data. Normally you don't want these
+        bytes, but use wantheadder=True if you do (it defaults to False if unspecified.
+        """
 
         #load file headder
         headder=self.GetHeadder()
@@ -79,11 +85,15 @@ class DiscipleFile:
         track=ord(headder[13])
         sector=ord(headder[14])
         
-        #BASIC, code, number array, string array, or screen have 1st 9 bytes of file as copy of headder data.
-        #can be ignored and can be infered from the directory entry
+        #BASIC, code, number array, string array, or screen have extra 9 bytes of file as copy of headder data.
         t=self.GetFileType(headder)
         if((t>0 and t<5) or t==7):
-            readpos=9
+            if(wantheadder):
+                readpos=0
+                bytestocopy+=9
+
+            else:
+                readpos=9
         
         else:
             readpos=0
@@ -164,6 +174,9 @@ class DiscipleFile:
         """
         Returns the length of this file.
         headderdata is optional but saves resources.
+        NB BASIC, code, number array, string array, and screen files have and extra 9 bytes at the
+        start of the file data which is a copy of the 9 byte headder data as if it were saved to
+        tape. These 9 bytes are extra to the length of the file as returned by this method.
         """
 
         #if no headder supplied, need to load it up

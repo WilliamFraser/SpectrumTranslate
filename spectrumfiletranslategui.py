@@ -307,7 +307,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         lFileNameIn=QtGui.QLabel("Source File:")
         lDataOffset=QtGui.QLabel("Data Offset:")
         lDataEnd=QtGui.QLabel("Data End:")
-        lDataFile=QtGui.QLabel("File Number:")
+        lDataFile=QtGui.QLabel("+D File Number:")
+        lDataFileOffset=QtGui.QLabel("Offset in image file:")
         lDataType=QtGui.QLabel("Extract As:")
         lNumberFormat=QtGui.QLabel("Number Format:")
         lFileNameOut=QtGui.QLabel("Destination File:")
@@ -323,8 +324,12 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         self.leDataEnd=leDataEnd
         leDataFile=QtGui.QLineEdit(self)
         leDataFile.setMaxLength(2)
-        leDataFile.setToolTip("File number to extract in selected image file.")
+        leDataFile.setToolTip("File number to extract in selected +D image file.")
         self.leDataFile=leDataFile
+        leDataFileOffset=QtGui.QLineEdit(self)
+        leDataFileOffset.setMaxLength(2)
+        leDataFileOffset.setToolTip("Offset from start of selected +D image file from where to extract data.")
+        self.leDataFileOffset=leDataFileOffset
         leFileNameOut=QtGui.QLineEdit(self)
         leFileNameOut.setToolTip("Filename of where to save translation.")
         self.leFileNameOut=leFileNameOut
@@ -404,6 +409,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         hbox.addStretch(1)
         grid.addLayout(hbox,1,1)
 
+        grid.addWidget(bBrowseHex,1,3)
+
         hbox=QtGui.QHBoxLayout()
         hbox.setSpacing(2)
         lDataFile.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
@@ -411,9 +418,16 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         leDataFile.setAlignment(QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
         hbox.addWidget(leDataFile)
         hbox.addStretch(1)
-        grid.addLayout(hbox,1,2)
+        grid.addLayout(hbox,2,0)
 
-        grid.addWidget(bBrowseHex,1,3)
+        hbox=QtGui.QHBoxLayout()
+        hbox.setSpacing(2)
+        lDataFile.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+        hbox.addWidget(lDataFileOffset)
+        leDataFile.setAlignment(QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+        hbox.addWidget(leDataFileOffset)
+        hbox.addStretch(1)
+        grid.addLayout(hbox,2,1)
 
         hbox=QtGui.QHBoxLayout()
         hbox.setSpacing(2)
@@ -426,7 +440,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         hbox.addWidget(lNumberFormat)
         hbox.addWidget(cbNumberFormat)
         
-        grid.addLayout(hbox,2,0,1,3)
+        grid.addLayout(hbox,3,0,1,3)
 
 
         stack=QtGui.QStackedWidget()
@@ -656,15 +670,15 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         self.settingsstack=stack
 
         #layout after processing options
-        grid.addWidget(stack,3,0,1,4)
+        grid.addWidget(stack,4,0,1,4)
         grid.setRowStretch(3,1)
         
 
-        grid.addWidget(cbViewOutput,4,0)
-        grid.addWidget(cbSaveOutput,5,0)
+        grid.addWidget(cbViewOutput,5,0)
+        grid.addWidget(cbSaveOutput,6,0)
 
-        grid.addWidget(cbExportToContainer,4,1)
-        grid.addWidget(bExportSettings,4,2)
+        grid.addWidget(cbExportToContainer,5,1)
+        grid.addWidget(bExportSettings,5,2)
 
         hbox=QtGui.QHBoxLayout()
         hbox.setSpacing(2)
@@ -673,13 +687,13 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         leFileNameOut.sizePolicy().setHorizontalStretch(1)
         hbox.addWidget(leFileNameOut)
         hbox.addWidget(bBrowseOut)
-        grid.addLayout(hbox,5,1,1,3)
+        grid.addLayout(hbox,6,1,1,3)
 
         hbox=QtGui.QHBoxLayout()
         hbox.addStretch(1)
         hbox.addWidget(bTranslate)
         hbox.addStretch(1)
-        grid.addLayout(hbox,6,0,1,4)
+        grid.addLayout(hbox,7,0,1,4)
 
         self.setLayout(grid) 
 
@@ -1991,7 +2005,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 
                 #default to simple text
                 return spectrumtranslate.convert_program_to_text(data,auto,variable)
-            except SpectrumTranslateException, ste:
+            except spectrumtranslate.SpectrumTranslateException, ste:
+                raise
                 QtGui.QMessageBox.warning(self,"Error!",ste.value)
                 return None
 
@@ -2119,17 +2134,22 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         #first check if is +d/disciple file as go by file number rather than start & stop
         if(self.bBrowseContainer.text()=="Browse disk image"):
             i=self.getNumber(self.leDataFile)
+            o=self.getNumber(self.leDataFileOffset)
             
             if(i<1 or i>80):
                 QtGui.QMessageBox.warning(self,"Error!",'Valid file numbers are 1 to 80 inclusive.')
                 return None
             
+            if(o<0):
+                QtGui.QMessageBox.warning(self,"Error!",'Valid offsets are 0 and above.')
+                return None
+
             try:
                 #get disciple file object
                 di=disciplefile.DiscipleImage(self.leFileNameIn.text())
                 df=disciplefile.DiscipleFile(di,i)
-                #return it's data
-                return df.GetFileData()
+                #return it's data, ignoreing any offset
+                return (df.GetFileData(True))[o:]
             except:
                 QtGui.QMessageBox.warning(self,"Error!",'Failed to extract file %d from "%s".' % (i,self.leFileNameIn.text()))
                 return None
@@ -2185,6 +2205,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         self.SetNewNumberFormat(self.leDataOffset)
         self.SetNewNumberFormat(self.leDataEnd)
         self.SetNewNumberFormat(self.leDataFile)
+        self.SetNewNumberFormat(self.leDataFileOffset)
         self.SetNewNumberFormat(self.leBasicAutoLine)
         self.SetNewNumberFormat(self.leBasicVariableOffset)
         self.SetNewNumberFormat(self.leCodeOrigin)
@@ -2289,13 +2310,15 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         df=index.model().itemFromIndex(index).Ddata
 
         headder=df.GetHeadder()
-        
-        self.SetSourceLimits(-1,-1,df.filenumber)
+        t=df.GetFileType(headder)
+
+        #set filenumber and offset (remmbering that basic, code, screen number and character array
+        #have a 9 byte headder at the start of the file        
+        self.SetSourceLimits(-1,-1,df.filenumber,9 if ((t>0 and t<5) or t==7) else 0)
 
         #save off filename incase want to export it
         self.ExportSettings["Filename"]=df.GetRawFileName()
 
-        t=df.GetFileType(headder)
         if(t==1):
             #basic program
             self.SetBasicDetails(df.GetAutostartLine(headder),df.GetVariableOffset(headder))
@@ -2522,10 +2545,11 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             #default to code block
             self.SetCodeDetails(0)
 
-    def SetSourceLimits(self,datastartoffset,datalength,filenumber=-1):
+    def SetSourceLimits(self,datastartoffset,datalength,filenumber=-1,fileoffset=0):
         self.leDataOffset.setText(self.FormatNumber(datastartoffset))
         self.leDataEnd.setText("" if datalength==-1 else self.FormatNumber(datastartoffset+datalength-1))
         self.leDataFile.setText(self.FormatNumber(filenumber))
+        self.leDataFileOffset.setText("" if filenumber==-1 else self.FormatNumber(fileoffset))
 
     def SetCodeDetails(self,origin):
         self.leBasicAutoLine.setText("")
