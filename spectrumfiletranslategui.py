@@ -340,7 +340,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         cbDataType.addItem("Screen",3)
         cbDataType.addItem("Raw Data",4)
         cbDataType.addItem("Snapshot",5)
-        #cbDataType.setItemData(5,QtCore.QVariant(0),QtCore.Qt.UserRole-1)
+        #disable Snapshot option for now until snapshot is selected
+        cbDataType.setItemData(5,QtCore.QVariant(0),QtCore.Qt.UserRole-1)
         cbDataType.setToolTip("Specifies what to translate data as.")
         self.cbDataType=cbDataType
         setCombo(cbDataType,"Basic Program")
