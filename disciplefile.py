@@ -59,34 +59,36 @@ class DiscipleFile:
         
         return self.image.GetSector((self.filenumber-1)/20,(((self.filenumber-1)/2)%10)+1,0)[headderstart:headderstart+256]
 
-    def GetFileData(self,wantheadder=False):
+    def GetFileData(self,wantheadder=False,headderdata=None):
         """Get the data of the file. Returns a byte string array containing the file data.
         
         BASIC, code, number array, string array, and screen files have and extra 9 bytes at the
         start of the file (these extra bytes are not included in the file length as returned by
         GetFileLength(). These are a copy of the headder data. Normally you don't want these
         bytes, but use wantheadder=True if you do (it defaults to False if unspecified.
+        headderdata is optional but saves resources.
         """
 
-        #load file headder
-        headder=self.GetHeadder()
-
+        #if no headder supplied, need to load it up
+        if(headderdata==None):
+            headderdata=self.GetHeadder()
+        
         #make note of number of sectors in file
-        i=self.GetSectorsUsed(headder)
+        i=self.GetSectorsUsed(headderdata)
         
         #get map of sectors used
-        sectorMap=[ord(x) for x in headder[15:210]]
+        sectorMap=[ord(x) for x in headderdata[15:210]]
         
-        bytestocopy=self.GetFileLength(headder)
+        bytestocopy=self.GetFileLength(headderdata)
         
         data=""
         
         #get start track & sector
-        track=ord(headder[13])
-        sector=ord(headder[14])
+        track=ord(headderdata[13])
+        sector=ord(headderdata[14])
         
         #BASIC, code, number array, string array, or screen have extra 9 bytes of file as copy of headder data.
-        t=self.GetFileType(headder)
+        t=self.GetFileType(headderdata)
         if((t>0 and t<5) or t==7):
             if(wantheadder):
                 readpos=0
@@ -442,6 +444,85 @@ class DiscipleFile:
             return -1
 
         return ord(headderdata[217])
+
+    def GetSnapshotRegisters(self,headderdata=None):
+        """
+        This returns a dictionary of all the registers in a snapshot.
+        It returns None if this file is not a valid snapshot file
+        headderdata is optional but saves resources.
+        
+        The dictionary returned has the following keys:
+        The Registers A, F, BC, DE, HL, IY, and IX are the standard Z80 registers.
+        A', F', BC', DE', HL' are the alternate registers.
+        PC is the program counter, SP is the stack pointer.
+        I is the interupt register, and R the refresh register.
+        IM is the interupt mode.
+        IFF1, and IFF2 are the interupt flags denoting whether interupts are enabled or disabled.
+        RAMbank denotes which RAM bank is paged onto loacation 0xC000.
+        Screen denotes which screen is being displayed (0 if screen in RAM 5 (at 0x4000), and 1 if from RAM 7.
+        ROM is 0 if 128K editor ROM paged in, and 1 if 48K ROM in place.
+        IgnorePageChange is 1 if 0x7FFD is locked until a hard reset occurs, and 1 if it can be changed.
+        """
+         
+        #if no headder supplied, need to load it up
+        if(headderdata==None):
+            headderdata=self.GetHeadder()
+        
+        if(ord(headderdata[0])!=5 or ord(headderdata[0])!=9):
+            return None
+        
+        regs={}
+        #add registers
+        regs["IY"]=ord(headderdata[220])+256*ord(headderdata[221])
+        regs["IX"]=ord(headderdata[222])+256*ord(headderdata[223])
+        regs["DE'"]=ord(headderdata[224])+256*ord(headderdata[225])
+        regs["BC'"]=ord(headderdata[226])+256*ord(headderdata[227])
+        regs["HL'"]=ord(headderdata[228])+256*ord(headderdata[229])
+        regs["F'"]=ord(headderdata[230])
+        regs["A'"]=ord(headderdata[231])
+        regs["DE"]=ord(headderdata[232])+256*ord(headderdata[233])
+        regs["BC"]=ord(headderdata[234])+256*ord(headderdata[235])
+        regs["HL"]=ord(headderdata[236])+256*ord(headderdata[237])
+        regs["I"]=ord(headderdata[239])
+        #value of interupt mode is coded in the I register
+        regs["IM"]=1 if (regs["I"]==0 or regs["I"]==63) else 2
+        regs["SP"]=ord(headderdata[240])+256*ord(headderdata[241])
+
+        #load up memory        
+        mem=self.GetFileData(False,headderdata)
+
+        #handle 128K specific stuff
+        if(ord(headderdata[0])==9):
+            #get which rambank is paged in
+            regs["RAMbank"]=ord(mem[0])&7
+            #get which screen
+            regs["Screen"]=ord(mem[0]>>3)&1
+            #get which ROM
+            regs["ROM"]=ord(mem[0]>>4)&1
+            #are we ignoreing output to 0x7FFD
+            regs["IgnorePageChange"]=ord(mem[0]>>5)&1
+            #now set mem to be which pages are loaded
+            #RAM5 is at 0x4000 to 0x7FFF
+            #RAM2 is at 0x8000 to 0xBFFF
+            #paged RAM is at 0xC000 to 0xFFFF
+            #Ram banks are offset by 1 byte at [0] which is a record of which bank is paged in
+            mem=mem[0x14001:0x18000]+mem[0x8001:0xC000]+mem[regs["RAMbank"]*0x4000+1:(regs["RAMbank"]+1)*0x4000]
+        
+        #now we have an image of the working RAM at time of snapshot, and can figure out where the stack is
+        #extract stack
+        mem=mem[regs["SP"]-0x4000:regs["SP"]-0x4000+6]
+        
+        regs["R"]=ord(mem[1])
+        regs["IFF1"]=(ord(mem[0])>>2)&1
+        regs["IFF2"]=regs["IFF1"]
+        regs["F"]=ord(mem[2])
+        regs["A"]=ord(mem[3])
+        regs["PC"]=ord(mem[4])+256*ord(mem[5])
+
+        #SP contains values for the R register, AF, and PC pushed on it, hence needs to be 6 higher
+        regs["SP"]=(regs["SP"]+6)&0xFFFF
+
+        return regs
 
     def __str__(self,headderdata=None):
         """

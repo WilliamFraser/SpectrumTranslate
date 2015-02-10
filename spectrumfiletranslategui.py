@@ -339,6 +339,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         cbDataType.addItem("Variable Array",2)
         cbDataType.addItem("Screen",3)
         cbDataType.addItem("Raw Data",4)
+        cbDataType.addItem("Snapshot",5)
+        #cbDataType.setItemData(5,QtCore.QVariant(0),QtCore.Qt.UserRole-1)
         cbDataType.setToolTip("Specifies what to translate data as.")
         self.cbDataType=cbDataType
         setCombo(cbDataType,"Basic Program")
@@ -666,6 +668,36 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         gbRaw=QtGui.QGroupBox("Raw Data",self)
         stack.addWidget(gbRaw)
 
+        #panel to hold snapshot variables
+        gbSnap=QtGui.QGroupBox("Snapshot",self)
+        self.gbSnap=gbSnap
+
+        grid2=QtGui.QGridLayout()
+        grid2.setSpacing(10)
+
+        lSnapshotOutput=QtGui.QLabel("Convert to what format:")
+
+        cbSnapshotOutput=QtGui.QComboBox(self)
+        cbSnapshotOutput.addItem(".SNA",0)
+        cbSnapshotOutput.addItem(".Z80 (version 1)",1)
+        cbSnapshotOutput.addItem(".Z80 (version 2)",2)
+        cbSnapshotOutput.addItem(".Z80 (version 3)",3)
+        cbSnapshotOutput.setToolTip("What type of snapshot would you like to save as.")
+        self.cbSnapshotOutput=cbSnapshotOutput
+
+        hbox=QtGui.QHBoxLayout()
+        hbox.setSpacing(2)
+        lSnapshotOutput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+        hbox.addWidget(lSnapshotOutput)
+        hbox.addWidget(cbSnapshotOutput)
+        hbox.addStretch(1)
+        grid2.addLayout(hbox,0,0)
+
+        grid2.setRowStretch(1,1)
+
+        gbSnap.setLayout(grid2)
+
+        stack.addWidget(gbSnap)
 
         self.settingsstack=stack
 
@@ -724,9 +756,14 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 self.leFileNameIn.setText(newfile)
                 self.CheckIfKnownContainerFile()
                 #set start and finish translate to start & end of file if changed
-                if(filein!=newfile and os.path.isfile(newfile)):
-                    self.leDataOffset.setText("0")
-                    self.leDataEnd.setText(self.FormatNumber(os.path.getsize(newfile)-1))
+                if(filein!=newfile):
+                    self.leDataOffset.setText("")
+                    self.leDataEnd.setText("")
+                    self.leDataFile.setText("")
+                    self.leDataFileOffset.setText("")
+                    if(os.path.isfile(newfile)):
+                        self.leDataOffset.setText("0")
+                        self.leDataEnd.setText(self.FormatNumber(os.path.getsize(newfile)-1))
 
             return
             
@@ -1897,39 +1934,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             
             #preview image if needed
             if(self.cbViewOutput.isChecked()):
-                #create dialog to display image
-                dContainer=QtGui.QDialog(self)
-                dContainer.setWindowTitle("Translation results")
-                dContainer.setModal(True)
-                
-                #create label to hold gif (which might be animated)
-                pic=QtGui.QLabel()
-                buf=QtCore.QBuffer()
-                buf.open(QtCore.QIODevice.ReadWrite)
-                buf.write(data)
-                buf.seek(0)
-                movie=QtGui.QMovie(buf,QtCore.QByteArray())
-                pic.setMovie(movie)
-                movie.start()
-                
-                #set out dialog
-                pic.setAlignment(QtCore.Qt.AlignCenter)
-                
-                lay=QtGui.QVBoxLayout()
-                
-                lay.addWidget(pic)
-                
-                hbox=QtGui.QHBoxLayout()
-                hbox.addStretch(1)
-                ok=QtGui.QPushButton("Ok",self)
-                ok.clicked.connect(dContainer.accept)
-                hbox.addWidget(ok)
-                hbox.addStretch(1)
-                lay.addLayout(hbox)
-                
-                dContainer.setLayout(lay)
-                
-                dContainer.exec_()
+                self.DisplayImageDialog("Translation results",data)
 
             #save image if required
             if(self.cbSaveOutput.isChecked()):
@@ -1978,6 +1983,67 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
             return
 
+        #handle snapshot
+        if(outputformat=="Snapshot"):
+            if(len(data)!=131073 and len(data)!=49152):
+                QtGui.QMessageBox.warning(self,"Error!",'Snapshot data wrong size for 48K or 128K snapshots.')
+                return
+            
+            #get requested format
+            snapformat=self.cbSnapshotOutput.currentIndex()
+            
+            if(snapformat==1 and len(data)==131073):
+                QtGui.QMessageBox.warning(self,"Error!",'Z80 version 1 can only handle 48K snapshots.')
+                return
+            
+            #if 128K get rid of page byte
+            if(len(data)==131073):
+                data=data[1:]
+            
+            #get registers etc
+            di=disciplefile.DiscipleImage(self.leFileNameIn.text())
+            df=disciplefile.DiscipleFile(di,self.getNumber(self.leDataFile))
+            registers=df.GetSnapshotRegisters()
+            
+            #display waiting cursor while do translation
+            QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+            #get image that's being displayed in snapshot
+            #work out where in data image is
+            if(len(data)==49152):
+                picoffset=0
+            elif(registers["Screen"]==0):
+                picoffset=5*0x4000
+            else:
+                picoffset=7*0x4000
+            
+            picdata=spectrumtranslate.get_GIF_from_screen(data[picoffset:picoffset+6912],320)
+            #convert snapshot to requested format
+            try:
+                if(snapformat==0):
+                    data=spectrumtranslate.snap_to_SNA(data,registers)
+                    
+                else:
+                    data=spectrumtranslate.snap_to_z80(data,registers,version=snapformat)
+
+            #was there a problem?
+            except spectrumtranslate.SpectrumTranslateException, ste:
+                QtGui.QMessageBox.warning(self,"Error!",'Unable to convert snapshot. Error:\n%s' % ste.value)
+                return
+
+            #restore cursor
+            QtGui.QApplication.restoreOverrideCursor()
+
+            #preview image from snapshotif needed
+            if(self.cbViewOutput.isChecked()):
+                self.DisplayImageDialog("Translation results",picdata)
+
+            #save snapshot if required
+            if(self.cbSaveOutput.isChecked()):
+                self.PutFileData(data)
+            
+            return
+
+
         #otherwise translate into text
         s=self.DoTextTranslation(data,outputformat)
         if(s==None):
@@ -1988,6 +2054,41 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             
         if(self.cbSaveOutput.isChecked()):
             self.PutFileData(s)
+
+    def DisplayImageDialog(self,title,imagedata):
+        #create dialog to display image
+        dContainer=QtGui.QDialog(self)
+        dContainer.setWindowTitle("Translation results")
+        dContainer.setModal(True)
+        
+        #create label to hold gif (which might be animated)
+        pic=QtGui.QLabel()
+        buf=QtCore.QBuffer()
+        buf.open(QtCore.QIODevice.ReadWrite)
+        buf.write(imagedata)
+        buf.seek(0)
+        movie=QtGui.QMovie(buf,QtCore.QByteArray())
+        pic.setMovie(movie)
+        movie.start()
+        
+        #set out dialog
+        pic.setAlignment(QtCore.Qt.AlignCenter)
+        
+        lay=QtGui.QVBoxLayout()
+        
+        lay.addWidget(pic)
+        
+        hbox=QtGui.QHBoxLayout()
+        hbox.addStretch(1)
+        ok=QtGui.QPushButton("Ok",self)
+        ok.clicked.connect(dContainer.accept)
+        hbox.addWidget(ok)
+        hbox.addStretch(1)
+        lay.addLayout(hbox)
+        
+        dContainer.setLayout(lay)
+        
+        dContainer.exec_()
 
     def DoTextTranslation(self,data,datatype):
         if(datatype=="Basic Program"):
@@ -2006,7 +2107,6 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 #default to simple text
                 return spectrumtranslate.convert_program_to_text(data,auto,variable)
             except spectrumtranslate.SpectrumTranslateException, ste:
-                raise
                 QtGui.QMessageBox.warning(self,"Error!",ste.value)
                 return None
 
@@ -2193,7 +2293,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             self.bTranslate.setText("Export")
             self.bExportSettings.setEnabled(True)
         else:
-            self.bTranslate.setText(("Translate","Translate","Translate","Translate","Extract")[self.cbDataType.currentIndex()])
+            self.bTranslate.setText(("Translate","Translate","Translate","Translate","Extract","Convert")[self.cbDataType.currentIndex()])
             self.bExportSettings.setEnabled(False)
 
     def FormatChange(self,newformat):
@@ -2335,6 +2435,10 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             else:
                   self.SetCodeDetails(df.GetCodeStart(headder))
 
+        elif(t==5):
+            #48K Snapshot
+            self.SetSnapshotDetails(False)
+
         elif(t==7):
             #SCREEN$
             self.SetScreenDetails(df.GetCodeStart(headder))
@@ -2343,15 +2447,13 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             #Execute
             self.SetCodeDetails(df.GetCodeStart(headder))
 
+        elif(t==9):
+            #128K Snapshot
+            self.SetSnapshotDetails(True)
+
         else:
-            #todo
-            """            
-            t==5: //48K snapshot
-            t==9: //128K Snapshop
-            t==6: //microdrive
-            t==8: //Special
-            t==10: //Opentype
-            """
+            #microdrive(6), special(8), and opentype(10) all default to raw data
+
             #treat as raw data extract for now
             self.SetRawData()
         
@@ -2551,6 +2653,18 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         self.leDataFile.setText(self.FormatNumber(filenumber))
         self.leDataFileOffset.setText("" if filenumber==-1 else self.FormatNumber(fileoffset))
 
+    def SetSnapshotDetails(self,is128):
+        self.leBasicAutoLine.setText("")
+        self.leBasicVariableOffset.setText("")
+        self.leArrayVarName.setText("")
+        self.leCodeOrigin.setText(self.FormatNumber(0))
+        self.cbDataType.removeItem(5)
+        self.cbDataType.addItem("Snapshot",5)
+        setCombo(self.cbDataType,"Snapshot")
+        self.gbSnap.setTitle("128K Snapshot" if is128 else "48K Snapshot")
+        self.SetTranslateButtonText()
+        self.settingsstack.setCurrentIndex(5)
+
     def SetCodeDetails(self,origin):
         self.leBasicAutoLine.setText("")
         self.leBasicVariableOffset.setText("")
@@ -2559,6 +2673,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         setCombo(self.cbDataType,"Machine Code")
         self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(1)
+        self.cbDataType.setItemData(5,QtCore.QVariant(0),QtCore.Qt.UserRole-1)
 
     def SetScreenDetails(self,origin):
         self.leBasicAutoLine.setText("")
@@ -2568,6 +2683,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         setCombo(self.cbDataType,"Screen")
         self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(3)
+        self.cbDataType.setItemData(5,QtCore.QVariant(0),QtCore.Qt.UserRole-1)
 
     def SetVariableArrayDetails(self,variableletter,arraydescriptor):
         self.leBasicAutoLine.setText("")
@@ -2582,8 +2698,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         setCombo(self.cbDataType,"Variable Array")
         self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(2)
+        self.cbDataType.setItemData(5,QtCore.QVariant(0),QtCore.Qt.UserRole-1)
 
-    def  SetBasicDetails(self,autoline,variableoffset):
+    def SetBasicDetails(self,autoline,variableoffset):
         self.leBasicAutoLine.setText("" if (autoline<0) else self.FormatNumber(autoline))
         self.leBasicVariableOffset.setText(self.FormatNumber(variableoffset))
         self.leArrayVarName.setText("")
@@ -2591,6 +2708,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         setCombo(self.cbDataType,"Basic Program")
         self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(0)
+        self.cbDataType.setItemData(5,QtCore.QVariant(0),QtCore.Qt.UserRole-1)
 
     def SetRawData(self):
         self.leBasicAutoLine.setText("")
@@ -2600,6 +2718,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         setCombo(self.cbDataType,"Raw Data")
         self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(4)
+        self.cbDataType.setItemData(5,QtCore.QVariant(0),QtCore.Qt.UserRole-1)
         
     def FormatNumber(self,n):
         if(n==-1):
@@ -2613,7 +2732,6 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
     def handle_changed_text(self,txt):
         if(self.leFileNameIn.hasFocus()):
             self.CheckIfKnownContainerFile()
-            #QtGui.QMessageBox.information(self,"Test","txt="+txt)
 
     def CheckIfKnownContainerFile(self):
         if(os.path.isfile(self.leFileNameIn.text())):

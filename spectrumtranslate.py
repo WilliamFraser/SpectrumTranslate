@@ -1745,27 +1745,34 @@ def get_RGB_from_screen(data):
     return [image1,None]
 
 #todo implement other formats of snapshot
-def snap_to_SNA(data,AF,BC,DE,HL,AF_,BC_,DE_,HL_,I,R,IX,IY,SP,IFF2,IM,border,port7FFD,bank):
+def snap_to_SNA(data,register,border=0):
     """Function to convert data of +D/Disciple format snapshot to .SNA format byte string that can be saved.
-    AF,BC,DE,HL,I,R,IX,IY,and SP are the Z80 registers of the same name. AF_, BC_, DE_, and HL_ are the 
-    Z80 alternate registers AF', BC', DE', and HL'. IFF2 is interupt state, IM is the interupt mode,
-    border is the border colour, port7FFD and bank are 128K details to do with which page is in memory and sound.
+    Register is a dictionary of the various registers. A,F,BC,DE,HL,I,R,IX,IY,SP,PC,A',F',BC',DE',HL',
+    IFF2 (the interupt state), and IM (the interupt mode) are all required. RAMbank is required in any
+    128K snapshot.
+    The type of snapshot is determined by the size of data which is the memory of the snapshot. For 48K
+    images it should be 49152 bytes (memory address 0x4000 to 0xFFFF inclusive). For 128K it has to
+    be 131072 bytes (the 16K rampages in order 0 to 7).
+    border is the border colour. compressed is if you want compression in your file.
     """
     
     #first check have valid data
     #return if not 48k or 128K
     if(len(data)!=49152 and len(data)!=131072):
-        return None
+        raise SpectrumTranslateException("Wrong size memory")
 
     #convert data to list of ints if needed
     if(isinstance(data,str)):
         data=[ord(x[0]) for x in data]
 
     #output common headder registers
-    out=[I&0xFF,HL_&0xFF,(HL_>>8)&0xFF,DE_&0xFF,(DE_>>8)&0xFF,BC_&0xFF,(BC_>>8)&0xFF,AF_&0xFF,(AF_>>8)&0xFF]
-    out+=[HL&0xFF,(HL>>8)&0xFF,DE&0xFF,(DE>>8)&0xFF,BC&0xFF,(BC>>8)&0xFF,IY&0xFF,(IY>>8)&0xFF]
-    out+=[IX&0xFF,(IX>>8)&0xFF,4 if IFF2 else 0,R&0xFF,AF&0xFF,(AF>>8)&0xFF,SP&0xFF,(SP>>8)&0xFF]
-    out+=[IM&0xFF,border&7]
+    out=[register["I"]&0xFF,register["HL'"]&0xFF,(register["HL'"]>>8)&0xFF]
+    out+=[register["DE'"]&0xFF,(register["DE'"]>>8)&0xFF,register["BC'"]&0xFF,(register["BC'"]>>8)&0xFF]
+    out+=[register["F'"]&0xFF,register["A'"]&0xFF,register["HL"]&0xFF,(register["HL"]>>8)&0xFF]
+    out+=[register["DE"]&0xFF,(register["DE"]>>8)&0xFF,register["BC"]&0xFF,(register["BC"]>>8)&0xFF]
+    out+=[register["IY"]&0xFF,(register["IY"]>>8)&0xFF,register["IX"]&0xFF,(register["IX"]>>8)&0xFF]
+    out+=[4 if register["IFF2"]==1 else 0,register["R"]&0xFF,register["F"]&0xFF,register["A"]&0xFF]
+    out+=[register["SP"]&0xFF,(register["SP"]>>8)&0xFF,register["IM"]&0xFF,border&7]
 
     #if 48K then add memory dump & return
     if(len(data)==49152):
@@ -1789,23 +1796,23 @@ def snap_to_SNA(data,AF,BC,DE,HL,AF_,BC_,DE_,HL_,I,R,IX,IY,SP,IFF2,IM,border,por
     #output ram bank 2
     out+=data[2*16384:3*16384]
     #check if valid bank
-    if(bank<0 or bank>7):
-        return None
+    if(register["RAMbank"]<0 or register["RAMbank"]>7):
+        raise SpectrumTranslateException("RAMbank has to be 0 to 7 inclusive.")
         
     #output currently paged ram bank
-    out+=data[bank*16384:(bank+1)*16384]
+    out+=data[register["RAMbank"]*16384:(register["RAMbank"]+1)*16384]
 
     #output program counter
     out+=[PC&0xFF,(PC>>8)&0xFF]
     #output port 7FFD setting
-    out+=[port7FFD&0xFF]
-    #output empty byte that no-one seems to know what it's for
+    out+=[register["RAMbank"]+(8 if regs["Screen"]==1 else 0)+(16 if regs["ROM"]==1 else 0)+(32 if regs["IgnorePageChange"]==1 else 0)]
+    #output 0 as TR-DOS ROM is not paged in
     out+=[0]
 
     #now output remaining RAM banks
     for i in range(8):
         #check if RAM bank already output
-        if(i==2 or i==5 or i==bank):
+        if(i==2 or i==5 or i==register["RAMbank"]):
             continue
             
         #otherwise output RAM bank
@@ -1814,6 +1821,134 @@ def snap_to_SNA(data,AF,BC,DE,HL,AF_,BC_,DE_,HL_,I,R,IX,IY,SP,IFF2,IM,border,por
     #return snapshot as byte array string
     return ''.join([chr(c) for c in out])
 
+def snap_to_z80(data,register,version=3,compressed=True,border=0):
+    """Function to convert data of +D/Disciple format snapshot to .Z80 format byte string that can be saved.
+    Register is a dictionary of the various registers. A,F,BC,DE,HL,I,R,IX,IY,SP,PC,A',F',BC',DE',HL',
+    IFF2 (the interupt state), and IM (the interupt mode) are all required. RAMbank is required in any
+    128K snapshot. IFF1 is optional. Screen is optional and is 1 if screen in RAM bank 7 is being displayed
+    otherwise the screen in RAM bank 5 is displayed. ROM is optional and is 1 if 48K ROM is paged in a 128K
+    machine, or 0 if the 128K ROM is paged in at 0x0000. This defaults to 1. IgnorePageChange is optional
+    and is 1 if 0x7FFD is locked until hard reset and defaults to 0.
+
+    The type of snapshot is determined by the size of data which is the memory of the snapshot. For 48K
+    images it should be 49152 bytes (memory address 0x4000 to 0xFFFF inclusive). For 128K it has to
+    be 131072 bytes (the 16K rampages in order 0 to 7).
+    border is the border colour. compressed is if you want compression in your file.
+    version is the Z80 file format version (defaults to 3)
+    """
+
+    #nested function to compress memory
+    def compress(mem,wantblockterminator=False):
+        out=[]
+        i=0
+        
+        #loop through memory stopping 4 bytes before end
+        while(i<len(mem)-4):
+            x=mem[i]
+            #check for runs of 5 or more bytes, or 2 or more if ED
+            if((x==mem[i+1] and x==mem[i+2] and x==mem[i+3] and x==mem[i+4]) or
+               (x==0xED and mem[i+1]==0xED)):
+                c=0
+                while(i<len(mem) and x==mem[i]):
+                    c+=1
+                    i+=1
+                
+                out+=[0xED,0xED,c,x]
+            
+            elif(x==0xED):
+                out+=[0xED,mem[i+1]]
+                i+=2
+            
+            else:
+                out+=[x]
+                i+=1
+        
+        if(i<len(mem)):
+            out+=mem[i:]
+        
+        if(wantblockterminator):
+            out+=[0,0xED,0xED,0]
+        
+        return out
+
+    #first check have valid data
+    #return if not 48k or 128K
+    if(len(data)!=49152 and len(data)!=131072):
+        raise SpectrumTranslateException("Wrong size memory")
+
+    #version 1 can only handle 48K snapshots
+    if(version==1 and len(data)!=49152):
+        raise SpectrumTranslateException("version 1 of Z80 format can't handle 128K snapshots.")
+
+    #ensure we have valid version
+    if(version!=1 and version!=2 and version!=3):
+        raise SpectrumTranslateException("Valid version numbers for Z80 files are 1, 2, and 3.")
+
+    #convert data to list of ints if needed
+    if(isinstance(data,str)):
+        data=[ord(x[0]) for x in data]
+
+    #save off basic registers in 30 byte headder
+    out=[register["A"],register["F"],register["BC"]&0xFF,(register["BC"]>>8)&0xFF,register["HL"]&0xFF,(register["HL"]>>8)&0xFF]
+    out+=[0 if version>1 else register["PC"]&0xFF,0 if version>1 else (register["PC"]>>8)&0xFF]
+    out+=[register["SP"]&0xFF,(register["SP"]>>8)&0xFF]
+    out+=[register["I"],register["R"],((register["R"]>>7)&1)+((border&7)<<1)+32 if compressed else 0]
+    out+=[register["DE"]&0xFF,(register["DE"]>>8)&0xFF]
+    out+=[register["BC'"]&0xFF,(register["BC'"]>>8)&0xFF,register["DE'"]&0xFF,(register["DE'"]>>8)&0xFF]
+    out+=[register["HL'"]&0xFF,(register["HL'"]>>8)&0xFF,register["A'"],register["F'"]]
+    out+=[register["IY"]&0xFF,(register["IY"]>>8)&0xFF,register["IX"]&0xFF,(register["IX"]>>8)&0xFF]
+    out+=[register["IFF2"] if not register.has_key("IFF1") else register["IFF1"],register["IFF2"],register["IM"]&3]
+    
+    if(version==1):
+        #add memory
+        if(compressed==True):
+            out+=compress(data,True)
+        
+        else:
+            out+=data
+        
+        #return as byte array 
+        return ''.join([chr(x) for x in out])
+    
+    #now version 2 or 3
+    out+=[23 if version==2 else 54,0]
+    out+=[register["PC"]&0xFF,(register["PC"]>>8)&0xFF]
+    #hardware: will be 48K/128K in V2, otherwise 48K+MGT/128K+MGT in V3
+    out+=[(0 if len(data)==49152 else 3)+(0 if version==2 else 3)]
+    out+=[register["RAMbank"]+(8 if register.has_key("Screen") and register["Screen"]==1 else 0)+
+          (0 if register.has_key("ROM") and register["ROM"]==0 else 16)+
+          (32 if register.has_key("IgnorePageChange") and register["IgnorePageChange"]==1 else 0)]
+    out+=[0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+
+    if(version==3):
+        out+=[0]*28
+        out+=[16,0,0]
+
+    #handle 48K data
+    if(len(data)==49152):
+        #move through pages
+        for page,address in ((8,0),(4,0x4000),(5,0x8000)):
+            if(compressed==True):
+                compdat=compress(data[address:address+0x3FFF])
+                out+=[len(compdat)&0xFF,(len(compdat)>>8)&0xFF,page]+compdat
+            
+            else:
+                out+=[0xFF,0xFF,page]+data[address:address+0x3FFF]
+    
+    #handle 128K
+    else:
+        #move through pages
+        for page in range(8):
+            if(compressed==True):
+                compdat=compress(data[page*0x4000:page*0x4000+0x3FFF])
+                out+=[len(compdat)&0xFF,(len(compdat)>>8)&0xFF,page+3]+compdat
+            
+            else:
+                out+=[0xFF,0xFF,page+3]+data[page*0x4000:page*0x4000+0x3FFF]
+
+    #return as byte array 
+    return ''.join([chr(x) for x in out])
+    
 def disassemble(data,offset,origin,length,SpecialInstructions=None):
     """
     This function will disassemble a byte string or list holding Z80 code.
