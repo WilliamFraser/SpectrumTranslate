@@ -31,6 +31,7 @@
 # Date: 14th January 2015
 
 import spectrumnumber
+import sys
 
 #tables of all the opcodes
 Z80_OPCODES={
@@ -547,8 +548,7 @@ SPECTRUM_COMMANDS=(
     "INK","PAPER","FLASH","BRIGHT","INVERSE","OVER","OUT","LPRINT","LLIST","STOP",
     "READ","DATA","RESTORE","NEW","BORDER","CONTINUE","DIM","REM","FOR","GO TO",
     "GO SUB","INPUT","LOAD","LIST","LET","PAUSE","NEXT","POKE","PRINT","PLOT",
-    "RUN","SAVE","RANDOMIZE","IF","CLS","DRAW","CLEAR","RETURN","COPY",
-    "DEFFN","OPEN#","CLOSE#","GOTO","GOSUB")
+    "RUN","SAVE","RANDOMIZE","IF","CLS","DRAW","CLEAR","RETURN","COPY")
 
 def convert_program_to_text(data,iAutostart=0,ivariableOffset=-1):
     """
@@ -1529,7 +1529,6 @@ class _gif_encoder_stream():
         for y in range(192):
             for x in range(startx,256):
                 #calculate internal code for sequence+next pixel
-                #_logString("compressionval:("+str(OldCompressionValue)+"->"+str((OldCompressionValue<<12)|self.GetPixelColour(x,y,bFlash))+"\n")
                 CompressionValue=(OldCompressionValue<<12)|self.GetPixelColour(x,y,bFlash)
                 #search list of sequences to see if current sequence already exists
                 i=SearchPoint
@@ -1539,8 +1538,6 @@ class _gif_encoder_stream():
                     
                     i+=1
                
-                #_logString("compressionarray:"+str(i)+" out of "+str(compressionArraySize)+"\n")
-                        
                 #if sequence already exists, then remember loop back to look for longer sequence
                 if(i<compressionArraySize):
                     #longer matching sequence will come later in sequence table if exists so no point searching
@@ -1612,12 +1609,10 @@ class _gif_encoder_stream():
 
         pixels=self.data[((y>>6)<<11)+((y&7)<<8)+(((y>>3)&7)<<5)+(x>>3)]
 
-        #_logString("getpixel:("+str(x)+","+str(y)+")="+str(fg if ((pixels>>(7-(x&7)))&1)==1 else bg)+"\n")
         return fg if ((pixels>>(7-(x&7)))&1)==1 else bg
 
     #output bits to bit output cue
     def OutputBits(self,bits):
-        #_logString("Output:"+str(bits)+"("+str(self.output_dataSize)+")\n")
         #tidy bitcue in case loose bits attached (not sure if this is strictly needed but is safe)
         self.output_cue&=self.output_masks[self.output_cueBits]
         #add new bits to bitcue
@@ -1744,7 +1739,6 @@ def get_RGB_from_screen(data):
     #return only one image as no flash
     return [image1,None]
 
-#todo implement other formats of snapshot
 def snap_to_SNA(data,register,border=0):
     """Function to convert data of +D/Disciple format snapshot to .SNA format byte string that can be saved.
     Register is a dictionary of the various registers. A,F,BC,DE,HL,I,R,IX,IY,SP,PC,A',F',BC',DE',HL',
@@ -2060,28 +2054,112 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
     DisassembleInstructions=[]
     if(SpecialInstructions!=None and len(SpecialInstructions)>0):
         for di in SpecialInstructions:
-            #first see if it's a special format instruction holding formatting info
-            if(di.start==0x0000 and di.end==0xFFFF and
-               di.instruction==DisassembleInstruction.DisassembleCodes["Custom Format"]):
-                #get default dissassembly format settings
-                settingstemp=get_custom_format_values(di.data,False)
-                AddressOutput=settingstemp["AddressOutput"]
-                NumberOutput=settingstemp["NumberOutput"]
-                CommandOutput=settingstemp["CommandOutput"]
-                OutputTStates=settingstemp["OutputTStates"]
-                BreakAfterJumps=settingstemp["BreakAfterJumps"]
-                LineNumberOutput=settingstemp["LineNumberOutput"]
-                ListEveryXLines=settingstemp["ListEveryXLines"]
-                BreakAfterData=settingstemp["BreakAfterData"]
-                TreatDataNumbersAsLineReferences=settingstemp["TreatDataNumbersAsLineReferences"]
-                DisplayCommandBytes=settingstemp["DisplayCommandBytes"]
-                DisplayComments=settingstemp["DisplayComments"]
-                Seperator=settingstemp["Seperator"]
-                ShowFlags=settingstemp["ShowFlags"]
-                MarkUndocumenedCommand=settingstemp["MarkUndocumenedCommand"]
-                XMLOutput=settingstemp["XMLOutput"]
+            #check if special formatting commands for default for whole output
+            if(di.start==0x0000 and di.end>=0xFFFF):
+                if(di.instruction&0xFF00==0x0100): #AddressOutputFormat
+                    AddressOutput=di.instruction&0x03
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0200): #NumberOutputFormat
+                    NumberOutput=di.instruction&0x03
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0300): #CommandOutputFormat
+                    CommandOutput=di.instruction&0x03
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0400): #OutputTStatesFormat
+                    OutputTStates=di.instruction&0x03
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0500): #LineAfterJumpOutputFormat
+                    BreakAfterJumps=di.instruction&0x03
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0600): #DefaultFormat
+                    AddressOutput=di.instruction&0x03
+                    NumberOutput=di.instruction&0x03
+                    CommandOutput=di.instruction&0x03
+                    OutputTStates=0
+                    BreakAfterJumps=1
+                    LineNumberOutput=0
+                    ListEveryXLines=0
+                    BreakAfterData=0
+                    TreatDataNumbersAsLineReferences=0
+                    DisplayCommandBytes=0
+                    DisplayComments=0
+                    Seperator="  "
+                    ShowFlags=0
+                    MarkUndocumenedCommand=0
+                    XMLOutput=0
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0700): #CustomFormat
+                    settingstemp=get_custom_format_values(di.data,False)
+                    AddressOutput=settingstemp["AddressOutput"]
+                    NumberOutput=settingstemp["NumberOutput"]
+                    CommandOutput=settingstemp["CommandOutput"]
+                    OutputTStates=settingstemp["OutputTStates"]
+                    BreakAfterJumps=settingstemp["BreakAfterJumps"]
+                    LineNumberOutput=settingstemp["LineNumberOutput"]
+                    ListEveryXLines=settingstemp["ListEveryXLines"]
+                    BreakAfterData=settingstemp["BreakAfterData"]
+                    TreatDataNumbersAsLineReferences=settingstemp["TreatDataNumbersAsLineReferences"]
+                    DisplayCommandBytes=settingstemp["DisplayCommandBytes"]
+                    DisplayComments=settingstemp["DisplayComments"]
+                    Seperator=settingstemp["Seperator"]
+                    ShowFlags=settingstemp["ShowFlags"]
+                    MarkUndocumenedCommand=settingstemp["MarkUndocumenedCommand"]
+                    XMLOutput=settingstemp["XMLOutput"]
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0800): #LineNumberOutput
+                    LineNumberOutput=di.instruction&0x03
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0900): #ListEveryXLines
+                    ListEveryXLines=int(di.data,16)
+                    continue
+    
+                elif(di.instruction&0xFF00==0x0A00): #BreakAfterData
+                    BreakAfterData=di.instruction&0x01
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0B00): #TreatDataNumbersAsLineReferences
+                    TreatDataNumbersAsLineReferences=di.instruction&0x01
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0C00): #DisplayCommandBytes
+                    DisplayCommandBytes=di.instruction&0x01
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0D00): #DisplayComments
+                    DisplayCommandBytes=di.instruction&0x01
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0E00): #Seperator space
+                    Seperator="  "
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0E01): #Seperator tab
+                    Seperator="\t"
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0E02): #Seperator custom
+                    Seperator=di.instruction.data
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x0F00): #Display flags
+                    ShowFlags=di.instruction&0x01
+                    continue
+                    
+                elif(di.instruction&0xFF00==0x1000): #note undocumened commands
+                    MarkUndocumenedCommand=di.instruction&0x01
+                    continue
                 
-                continue
+                elif(di.instruction&0xFF00==0x1200): #XML mode
+                    XMLOutput=di.instruction&0x01
+                    continue
 
             #check if end after end of code, in which case truncate it
             if(di.end>=origin+len(data)):
@@ -3995,12 +4073,17 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                     
                 Settings["DISPLAYEVERYXLINES"]=k+((i&0xFF)<<8)
 
-            elif((i>>8)==4): #separator to default/space/tab
+            elif((i>>8)==4): #separator to space/tab/default
                 if((i&0xFF)>2):
                     raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Seperator setting argument must be 0 to 2")
-                    
-                Settings["SEPERATOR"]=i&0xFF
-                if(Settings["SEPERATOR"]==2):
+                
+                if(i==0):
+                    Settings["SEPERATOR"]="  "
+                
+                elif(i==1):
+                    Settings["SEPERATOR"]="\t"
+                
+                else:
                     Settings["SEPERATOR"]=Settings["ORIGIONALSEPERATOR"]
                     
             else:
@@ -4094,7 +4177,9 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 soutput+=NumberToString(k,16,Settings["NUMBERFORMAT"],False)
 
             else:
-                i=Settings["NUMBERFORMAT"]+4+(Settings["SEPERATOR"]<<5)
+                i=Settings["NUMBERFORMAT"]+4
+                if(Settings["SEPERATOR"]!="  "):
+                    i+=1<<5
                 soutput+="\0"+chr(i)+chr(Settings["DISPLAYEVERYXLINES"])+NumberToString(k,16,0,False)
       
         elif(s[0]=='C'):  #output char, defaults to unsigned byte if not printable
@@ -4151,7 +4236,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
         elif(s[0]=='S'):  #output seperator
             #only output if not in xml mode
             if(Settings["XMLOutput"]==0):
-                soutput+="  " if Settings["SEPERATOR"]==0 else "\t"
+                soutput+=Settings["SEPERATOR"]
       
         elif(s[0]=='N'):  #output newline
             soutput+='\n'
@@ -4717,96 +4802,334 @@ class SpectrumTranslateException(Exception):
     def __str__(self):
         return repr(self.value)
 
-if __name__=="__main__":
-    #print get_spectrum_string("\x7F\x60\x5E\xF0\xF2")
+def usage():
+    """
+    returns the command line arguments for spectrumtranslate as a string.
+    """
+    
+    return """usage:
+  python spectrumtranslate.py basic [-s|--start autostartlinenumber] [-v|--variableoffset variableoffset]
+    [-x|--xml] [-o|--tostandardoutput] [-i|--fromstandardinput] (inputfile) (outputfile)
+    
+      converts the supplied file to a BASIC listing.
+      -s specifies the auto start line (where a program is run from when loaded) and requires an
+         aditional argument which can be a hexadecimal or decimal number. The -s option is not
+         required.
+      -v specifies the offset in bytes to any variables saved with the BASIC program. and requires
+         an aditional argument which can be a hexadecimal or decimal number. The -v option is not
+         required and if not present, it is assumed that there are no variables with the BASIC
+         program.
+      -x specifies that the user wants the output as XML rather than plain text.
+      -o specifies that the output from this program is to be directed to the standard output and
+         not outputfile which should be omited.
+      -i specifies that this program gets it's data from the standard input and not inputfile
+         which should be omited.
+      -t specifies the array type. This is required for all array functions. It must be
+         followed by the type descriptor which can be a number with bits 6 and 7 as 64, 128, or 192,
+         or be 'number', 'character', or 'string' depending on the type of array.
+      -d specified that want the dimensions of an array and not it's content.
+      -g specified that we want the image to be outputed as a gif file (possibly animated) as
+         opposed to a RGB file.
+      -f Specifies the number of milliseconds between the two images in a gif image of a screen
+         with flashing colours. Set this to -1 if you want a non-flashing image. If not supplied
+         the default is 320.
+      -b specifies the base address for assebmbly code. If omitted the base address will be assumed
+         to be 0x0000.
+      -c specifies special instructions are to be used in disassembling the assembly code. If
+         omitted then it is assumed that there are no special instructions. If this flag is used it
+         must be followed by either f or s (or si) for file input or standard input as the source of
+         the special instructions. If file input is specified then it must be followed by the
+         filename of the special instruction data file. If s is specified and the -i flag is being
+         used then the special instructions must be passed first and be ended by a single empty line
+         before the code to disassemble is passed through the standard input.
+    
 
-    import spectrumtapblock    
-    tbs=spectrumtapblock.get_TapBlocks('/home/william/RR.tap/REBRAID1.TAP')
-    for (i,tb) in enumerate(tbs):
-        #if(not tb.is_headder() or not "Program" in tb.get_file_type_string()):
-        #    print tb
-        #    continue
+
+  python spectrumtranslate.py array
+  python spectrumtranslate.py text
+  python spectrumtranslate.py screen
+  python spectrumtranslate.py code
+
+options:
+  
+  -d    followed by a number (0x denoted hex, or decimal). Specified the descriptor
+"""
+
+if __name__=="__main__":
+    #analyse args
+    i=0
+    mode=None
+    error=None
+    xml=False
+    start=0
+    varoff=-1
+    descriptor=None
+    fromstandardinput=False
+    tostandardoutput=False
+    inputfile=None
+    outputfile=None
+    wantarraydimensions=False
+    flashrate=320
+    imageFormat="RGB"
+    baseaddress=0
+    commandsource=None
+
+    #handle no arguments
+    if(len(sys.argv)==1):
+        mode='help'    
+    
+    #go through arguments analysing them
+    while(i<len(sys.argv)-1):
+        i+=1
+
+        arg=sys.argv[i]
+        if(arg=='basic' or arg=='array' or arg=='text' or arg=='screen' or arg=='code'):
+            if(mode!=None):
+                error="Can't have multiple formats to convert into."
+                break
             
-        #if(not tb.is_headder() or not "array" in tb.get_file_type_string()):
-        if(not tb.is_headder() or not "Program" in tb.get_file_type_string()):
-            print tb
+            mode=arg
+            continue
+        
+        if(arg=='-x' or arg=='-xml' or arg=='--x' or arg=='--xml'):
+            xml=True
+            continue
+        
+        if(arg=='-s' or arg=='-start' or arg=='--s' or arg=='--start'):
+            try:
+                i+=1
+                start=int(sys.argv[i],16 if sys.argv[i].lower().startswith("0x") else 10)
+                continue
+            except:
+                error="Missing or invalid autostart line number."
+                break
+
+        if(arg=='-v' or arg=='-variableoffset' or arg=='--v' or arg=='--variableoffset'):
+            try:
+                i+=1
+                varoff=int(sys.argv[i],16 if sys.argv[i].lower().startswith("0x") else 10)
+                continue
+            except:
+                error="Missing or invalid offset to variables."
+                break
+
+        if(arg=='-t' or arg=='-type' or arg=='--t' or arg=='--type'):
+            try:
+                i+=1
+                opt=sys.argv[i]
+                
+                if(opt=='number' or opt=='numberarray'):
+                    descriptor=128
+                
+                elif(opt=='character' or opt=='characterarray'):
+                    descriptor=192
+                
+                elif(opt=='string'):
+                    descriptor=64
+
+                else:
+                    descriptor=int(opt,16 if opt.lower().startswith("0x") else 10)
+                    #am only interested in bits 6 and 7. Only invalid if they are both 0
+                    if(descriptor&192==0):
+                        error="Invalid array description. Must have integer with bits 6 and 7 as 64, 128, or 192, or be number, character, or string."
+                        break
+                    
+                continue
+            except:
+                error="Missing or invalid array description."
+                break
+            
+        if(arg=='-d' or arg=='-dimensions' or arg=='--d' or arg=='--dimensions'):
+            wantarraydimensions=True
             continue
 
-        print "%i %i %s" % (i,tb.get_headder_array_descriptor()&192,tb.get_file_details_string())
-        #print "%X" % tbs[i+1].filePosition
+        if(arg=='-i' or arg=='-fromstandardinput' or arg=='--i' or arg=='--fromstandardinput'):
+            fromstandardinput=True
+            continue
+
+        if(arg=='-o' or arg=='-tostandardoutput' or arg=='--o' or arg=='--tostandardoutput'):
+            tostandardoutput=True
+            continue
+        
+        if(arg=='-h' or arg=='-help' or arg=='--h' or arg=='--help'):
+            mode='help'
+            break
+        
+        if(arg=='-f' or arg=='-flashrate' or arg=='--f' or arg=='--flashrate'):
+            try:
+                i+=1
+                flashrate=int(sys.argv[i],16 if sys.argv[i].lower().startswith("0x") else 10)
+                continue
+            except:
+                error="Missing or invalid image flash rate."
+                break
+
+        if(arg=='-g' or arg=='-gif' or arg=='--g' or arg=='--gif'):
+            imageFormat="GIF"
+            continue
+        
+        if(arg=='-b' or arg=='-baseaddress' or arg=='-base' or arg=='--b' or arg=='--baseaddress' or arg=='--base'):
+            try:
+                i+=1
+                baseaddress=int(sys.argv[i],16 if sys.argv[i].lower().startswith("0x") else 10)
+                continue
+            except:
+                error="Missing or invalid base code address."
+                break
+        
+        if(arg=='-c' or arg=='-commands' or arg=='--c' or arg=='--commands'):
+            try:
+                i+=1
+                if(sys.argv[i]!='f' and sys.argv[i]!='s' and sys.argv[i]!='si'):
+                    error="Missing or invalid input source descriptor for special instructions."
+                    break
+
+                commandsource='f' if sys.argv[i]=='f' else 's'
+                
+                if(commandsource=='f'):
+                    i+=1
+                    commandsourcefile=sys.argv[i]
+                
+                continue
+            except:
+                error="Missing or invalid base code address."
+                break
+
+        #have unrecognised argument.
+        #check if is input or output file
+        #will be inputfile if not already defined, fromstandardinput is False, is second from
+        #last argument, or last if tostandardoutput is true
+        if(inputfile==None and fromstandardinput==False):
+            inputfile=arg
+            continue
+            
+        #will be outputfile if not already defined, tostandardoutput is False, and is last
+        #argument
+        if(outputfile==None and tostandardoutput==False and i==len(sys.argv)-1):
+            outputfile=arg
+            continue
+
+        error='"%s" is unrecognised argument.' % arg
+        break
     
-    #display contents of aray
-    #x=24
-    #print convert_array_to_text(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
-    #print convert_array_to_XML(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
-    #print extract_array(tbs[x+1].data,tbs[x].get_headder_array_descriptor())
-    #print str(tbs[x+1].getbytes())
+    #finished processing arguments now.
+    #Check we've got what we need
+    if(error==None and mode==None):
+        error='No translateing mode (basic, code, screen, array or text) specified.'
     
-    #display content of program
-    x=4
-    #print convert_program_to_text(tbs[x+1].data,tbs[x].get_headder_autostart_line(),tbs[x].get_headder_variable_offset())
-    print convert_program_to_XML(tbs[x+1].data,tbs[x].get_headder_autostart_line(),tbs[x].get_headder_variable_offset())
-    #print str(tbs[x+1].getbytes())
-
-    """
-    #get image
-    x=26
-
-    import os
-    #os.remove("py_debug.txt")    
-    fo=open("x1.gif","wb")
-    fo.write(get_GIF_from_screen(tbs[x+1].data))
-    fo.close()
-    """
-
-    """
-    #dissassemble code
-    x=2
-    fo=open("x.txt","wb")
-    fo.write(disassemble(tbs[x+1].data,0,tbs[x].get_headder_code_start(),tbs[x].get_headder_described_data_length()))
-    fo.close()
-    #print str(tbs[x+1].getbytes())
-    """
-
-    #print str(tbs[x+1].getbytes())
-
-    #testsplit
-    """
-    print DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"]
-    x=GetPartsOfPatternDataBlock(DisassembleInstruction.DisassemblePatternBlockCodes["RST#28 (Calculator)"])
-    print x
-    print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    print x[0]
-    print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    print x[1]
-    print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    print x[2]
-    print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    """
+    if(error==None and inputfile==None and fromstandardinput==False and mode!='help'):
+        error='No input file specified.'
     
-    """
-    #test translate macine code
-    diInstructions=[DisassembleInstruction(DisassembleInstruction.DisassembleCodes["Custom Format"],
-        0,
-        0xFFFF,
-        get_custom_format_string(0,
-            0,
-            0,
-            0,
-            1,
-            DisassembleInstruction.DisassembleCodes["Line Numbers Referenced"],
-            16,
-            DisassembleInstruction.DisassembleCodes["Empty Line After Data On"],
-            DisassembleInstruction.DisassembleCodes["Reference Data Numbers On"],
-            DisassembleInstruction.DisassembleCodes["List Command Bytes On"],
-            DisassembleInstruction.DisassembleCodes["Comments Off"],
-            DisassembleInstruction.DisassembleCodes["Seperators Space"],
-            DisassembleInstruction.DisassembleCodes["Display Flags Off"],
-            DisassembleInstruction.DisassembleCodes["Mark Undocumented Command Off"],
-            DisassembleInstruction.DisassembleCodes["XML Output On"]))]
+    if(error==None and outputfile==None and tostandardoutput==False and mode!='help'):
+        error='No output file specified.'
 
-    """
-    #DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,35,38,3B,42,96,9F,F3,F8,FD,103,116,11B,122,125,12A,139,13C,13F,143#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
-    #DisassembleInstruction("""10000#754D#10000#6,B,16,21,26,4A,4D,50,57,AB,B4,108,10D,11A,120,133,138,13F,142,147,156,159,15C,160#%F0004%ACA%S%S DM %S%X01000000%L%(  %?LE%V0F%V0E            %#testing%)%(  %I%(    %(%?EQ%V000001 %?BA %(%?LT%MV0F0020 %?BO %(%?MT%MV0F007F%?BA%?LT%MV0F00A3%)%)%)    %?BO    %(%?EQ%V000000 %?BA %(%?MT%MV0F00A2 %?BO %(%?MT%MV0F001F%?BA%?LT%MV0F0080%)%)%)  %)  %(  %#test    "    %X03000001%V00  %)  %C0F%)%I%(  %?EQ%V000001%)%(  "%)""")]
-    #data='\xdd!\x00\x80\x11\x0e\x00\xcdBu\xdd!\x0e\x80\xed[\x0b\x80\xaf=\xcd\xc2\x04\x06\x19v\x10\xfd\xc9LPICTITLGAM1GAM2MSFXBAN4L0MAL0DEL0REL0ALL0B0L0B1L1MAL1DEL1REL1ALL1B0L1B1L2MAL2DEL2REL2ALL2B0L2B1L3MAL3DEL3REL3ALL3B0L3B1L4MAL4DEL4REL4ALL4B1'
-    #print disassemble(data,0,0x7530,len(data),diInstructions)
+    #handle error with arguments
+    if(error!=None):
+        sys.stderr.write(error+"\n")
+        sys.stdout.write("Use 'python spectrumtranslate.py' to see full list of options.\n")
+        sys.exit(2)
+    
+    #if help is needed display it
+    if(mode=='help'):
+        print usage()
+        sys.exit(0)
+
+    #get special instructions if needed
+    specialInstructions=None
+    if(mode=='code' and commandsource!=None):
+        if(commandsource=='f'):
+            #get instructions from file
+            try:
+                fo=open(commandsourcefile,"rb")
+                specialInstructions=[DisassembleInstruction(line.rstrip('\n')) for line in fo]
+                fo.close()
+            except:
+                sys.stderr.write('Failed to read instructions from "%s".\n' % commandsourcefile)
+                sys.exit(2)
+        
+        else:
+            try:
+                #if there is only the commands commeing from standard input then no blank lines
+                if(fromstandardinput==False):
+                    specialInstructions=[DisassembleInstruction(line.rstrip('\n')) for line in sys.stdin]
+                
+                #otherwise will be blank line terminated
+                else:
+                    while(True):
+                        line=sys.stdin.readline()
+                        if(line==None or line=='\n'):
+                            break
+                            
+                        if(specialInstructions==None):
+                            specialInstructions=[DisassembleInstruction(line.rstrip('\n'))]
+                        
+                        else:
+                            specialInstructions+=[DisassembleInstruction(line.rstrip('\n'))]
+            
+            except:
+                sys.stderr.write('Failed to read instructions from standard input.\n')
+                sys.exit(2)
+
+    #get data
+    if(fromstandardinput==False):
+        with open(inputfile,'rb') as infile:
+            data=infile.read()
+    
+    else:
+        data=sys.stdin.read()
+    
+    #now translate the data
+    try:
+        if(mode=='basic'):
+            if(xml==True):
+                retdata=convert_program_to_XML(data,start,varoff)
+            
+            else:
+                retdata=convert_program_to_text(data,start,varoff)
+
+        elif(mode=='text'):
+            retdata=get_spectrum_string(data)
+        
+        elif(mode=='array'):
+            if(wantarraydimensions==True):
+                retdata=str(get_array_depth(data,descriptor))
+            
+            elif(xml==True):
+                retdata=convert_array_to_XML(data,descriptor)
+            
+            else:
+                retdata=convert_array_to_text(data,descriptor)
+
+        elif(mode=='screen'):
+            if(imageFormat=="GIF"):
+                retdata=get_GIF_from_screen(data,flashrate)
+            
+            else:
+                retdata=get_RGB_from_screen(data)
+                #is RGB format ints (bits 16-23 are red, 8-15 are green, and 0-7 are Blue)
+                #expand list out so each component gets one byte each
+                retdata=[(x>>i)&0xFF for x in retdata for i in (16,8,0)]
+
+        elif(mode=='code'):
+            if(xml==True):
+                if(specialInstructions==None):
+                    specialInstructions=[DisassembleInstruction("XML Output On")]
+                
+                else:
+                    specialInstructions=[DisassembleInstruction("XML Output On")]+specialInstructions
+            
+            retdata=disassemble(data,0,baseaddress,len(data),specialInstructions)
+
+    except SpectrumTranslateException, ste:
+        sys.stderr.write(ste.value+"\n")
+        sys.exit(1)
+    
+    #output data
+    if(tostandardoutput==False):
+        fo=open(outputfile,"wb")
+        fo.write(retdata)
+        fo.close()
+
+    else:
+        sys.stdout.write(retdata)
+    
