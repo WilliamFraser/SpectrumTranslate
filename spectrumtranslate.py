@@ -4807,52 +4807,79 @@ def usage():
     returns the command line arguments for spectrumtranslate as a string.
     """
     
-    return """usage:
-  python spectrumtranslate.py basic [-s|--start autostartlinenumber] [-v|--variableoffset variableoffset]
-    [-x|--xml] [-o|--tostandardoutput] [-i|--fromstandardinput] (inputfile) (outputfile)
+    return """usage: python spectrumtranslate.py translatemode [args] infile outfile
     
-      converts the supplied file to a BASIC listing.
-      -s specifies the auto start line (where a program is run from when loaded) and requires an
-         aditional argument which can be a hexadecimal or decimal number. The -s option is not
-         required.
-      -v specifies the offset in bytes to any variables saved with the BASIC program. and requires
-         an aditional argument which can be a hexadecimal or decimal number. The -v option is not
-         required and if not present, it is assumed that there are no variables with the BASIC
-         program.
-      -x specifies that the user wants the output as XML rather than plain text.
-      -o specifies that the output from this program is to be directed to the standard output and
-         not outputfile which should be omited.
-      -i specifies that this program gets it's data from the standard input and not inputfile
-         which should be omited.
-      -t specifies the array type. This is required for all array functions. It must be
-         followed by the type descriptor which can be a number with bits 6 and 7 as 64, 128, or 192,
-         or be 'number', 'character', or 'string' depending on the type of array.
-      -d specified that want the dimensions of an array and not it's content.
-      -g specified that we want the image to be outputed as a gif file (possibly animated) as
-         opposed to a RGB file.
-      -f Specifies the number of milliseconds between the two images in a gif image of a screen
-         with flashing colours. Set this to -1 if you want a non-flashing image. If not supplied
-         the default is 320.
-      -b specifies the base address for assebmbly code. If omitted the base address will be assumed
-         to be 0x0000.
-      -c specifies special instructions are to be used in disassembling the assembly code. If
-         omitted then it is assumed that there are no special instructions. If this flag is used it
-         must be followed by either f or s (or si) for file input or standard input as the source of
-         the special instructions. If file input is specified then it must be followed by the
-         filename of the special instruction data file. If s is specified and the -i flag is being
-         used then the special instructions must be passed first and be ended by a single empty line
-         before the code to disassemble is passed through the standard input.
+    Translates data in infile and outputs it to outfile.
     
+    translatemode is required and specifies how to treat the data. It must be
+    'basic', 'code', 'screen', 'text' or 'array'. basic, code, screen, and array
+    treat the input as the code of a basic program, code file, screen memory (or
+    saved to a file), or an array file as saved to tape. text takes as it's
+    input a spectrum string or character and outputs it in a more readable
+    format (although sometimes non-printable characters are replaced with an ^
+    followed by a 2 character hexadecimal number). The spectrum did not have ^
+    in it's character set, instead useing an upward pointing arrow.
+    
+    infile and outfile are required unless reading from the standard input or
+    outputting to the standard output. Usually arguments are ignored if they
+    don't apply to the selected translation mode.
+    
+    -o specifies that the output from this program is to be directed to the
+       standard output and not outputfile which should be omited. It can be used
+       for all translation modes.
+    --tostandardoutput same as -o.
+    -i specifies that this program gets it's data from the standard input and
+       not inputfile which should be omited. It can be used for all translation
+       modes.
+    --fromstandardinput same as -i.
+    -x specifies that the user wants the output as XML rather than plain text.
+       This can be used for basic, code, and array translation modes.
+    --xml same as -x.
+    
+    basic flags:
+    -s specifies the auto start line (where a program is run from when loaded)
+       and requires an aditional argument which can be a hexadecimal or decimal
+       number. The -s option is not required.
+    --start same as -s.
+    -v specifies the offset in bytes to any variables saved with the BASIC
+       program. It requires an aditional argument which can be a hexadecimal or
+       decimal number. The -v option is not required and if not present, it is
+       assumed that there are no variables with the BASIC program.
+    --variableoffset same as -v.
+       
+    array flags:
+    -t specifies the array type. This is required for all array functions. It
+       must be followed by the type descriptor which can be a number with bits 6
+       and 7 as 64, 128, or 192, or be 'number', 'character', or 'string'
+       depending on the type of array.
+    --type same as -t.
+    -d specifies that we want the dimensions of an array and not it's content.
+    --dimensions same as -d.
 
-
-  python spectrumtranslate.py array
-  python spectrumtranslate.py text
-  python spectrumtranslate.py screen
-  python spectrumtranslate.py code
-
-options:
-  
-  -d    followed by a number (0x denoted hex, or decimal). Specified the descriptor
+    screen flags:
+    -g specifies that we want the image to be outputed as a gif file (possibly
+       animated) as opposed to a RGB file.
+    --gif same as -g.
+    -f Specifies the number of milliseconds between the two images in a gif
+       image of a screen with flashing colours. Set this to -1 if you want a
+       non-flashing image. If not supplied the default is 320.
+    --flashrate same as -f.
+    
+    code flags:
+    -b specifies the base address for assebmbly code. If omitted the base
+       address will be assumed to be 0x0000.
+    --base same as -b.
+    --baseaddress same as -b.
+    -c specifies special instructions are to be used in disassembling the
+       assembly code. If omitted then it is assumed that there are no special
+       instructions. If this flag is used it must be followed by either f or s
+       (or si) for file input or standard input as the source of the special
+       instructions. If file input is specified then it must be followed by the
+       filename of the special instruction data file. If s is specified and the
+       -i flag is being used then the special instructions must be passed first
+       and be ended by a single empty line before the code to disassemble is
+       passed through the standard input.
+    --commands same as -c.
 """
 
 if __name__=="__main__":
@@ -4997,8 +5024,7 @@ if __name__=="__main__":
 
         #have unrecognised argument.
         #check if is input or output file
-        #will be inputfile if not already defined, fromstandardinput is False, is second from
-        #last argument, or last if tostandardoutput is true
+        #will be inputfile if not already defined, and fromstandardinput is False
         if(inputfile==None and fromstandardinput==False):
             inputfile=arg
             continue
@@ -5120,6 +5146,7 @@ if __name__=="__main__":
             
             retdata=disassemble(data,0,baseaddress,len(data),specialInstructions)
 
+    #handle any exceptions while translating
     except SpectrumTranslateException, ste:
         sys.stderr.write(ste.value+"\n")
         sys.exit(1)
@@ -5132,4 +5159,3 @@ if __name__=="__main__":
 
     else:
         sys.stdout.write(retdata)
-    
