@@ -4782,6 +4782,33 @@ def GetPartsOfPatternDataBlock(pdb):
     except:
         return (test,prep,action)
 
+def GetDisassembleCodeNameFromValue(value):
+    """Returns the name of the DisassembleCode given it's numerical value.
+       Returns None if not a valid DisassembleCode."""
+       
+    for instructionname,code in DisassembleInstruction.DisassembleCodes.items():
+        if(code==value):
+            return instructionname
+    
+    return None
+
+def GetDisassembleBlockNameFromValue(value):
+    """Returns the name of the DisassembleDataBlockCode or DisassemblePatternBlockCode given it's
+       numerical value.
+       Returns None if not a valid DisassembleDataBlockCode or DisassemblePatternBlockCode."""
+
+    if(value in DisassembleInstruction.DisassembleDataBlockCodes.values()):
+        for blockname,code in DisassembleInstruction.DisassembleDataBlockCodes.items():
+            if(code==value):
+                return blockname
+
+    if(value in DisassembleInstruction.DisassemblePatternBlockCodes.values()):
+        for blockname,code in DisassembleInstruction.DisassemblePatternBlockCodes.items():
+            if(code==value):
+                return blockname
+
+    return None
+
 #todo
 #remove once finished debugging.
 #remove references to this also
@@ -4812,13 +4839,14 @@ def usage():
     Translates data in infile and outputs it to outfile.
     
     translatemode is required and specifies how to treat the data. It must be
-    'basic', 'code', 'screen', 'text' or 'array'. basic, code, screen, and array
-    treat the input as the code of a basic program, code file, screen memory (or
-    saved to a file), or an array file as saved to tape. text takes as it's
-    input a spectrum string or character and outputs it in a more readable
-    format (although sometimes non-printable characters are replaced with an ^
-    followed by a 2 character hexadecimal number). The spectrum did not have ^
-    in it's character set, instead useing an upward pointing arrow.
+    'basic', 'code', 'screen', 'text', 'array', or 'instruction'. basic, code,
+    screen, and array treat the input as the code of a basic program, code file,
+    screen memory (or saved to a file), or an array file as saved to tape. text
+    takes as it's input a spectrum string or character and outputs it in a more
+    readable format (although sometimes non-printable characters are replaced
+    with a ^ followed by a 2 character hexadecimal number). The spectrum did not
+    have ^ in it's character set, instead useing an upward pointing arrow.
+    instruction is used to manipulate or convert disassembly instructions.
     
     infile and outfile are required unless reading from the standard input or
     outputting to the standard output. Usually arguments are ignored if they
@@ -4880,6 +4908,23 @@ def usage():
        and be ended by a single empty line before the code to disassemble is
        passed through the standard input.
     --commands same as -c.
+    
+    instruction flags:
+        the input and output are string arguments for creating disassemble
+        instructions. Unless the flags below are used, then it is assumed that
+        there is one instruction per line.
+        
+    -m  specifies that both the input and output are definitions of instructions
+        spread over multiple lines. The instruction name or decimal code, or
+        hexadecimal code preceded by '0x' is on the first line, the start
+        address is on the second line (decimal or hexadecimal preceded by '0x'),
+        the end address (either decimal or '0x' hexadecimal) is on the third
+        line, and any data is from the fourth line onwards.
+    -mi same as -m flag but indicates that only the input is multiline.
+    -mo same as -m flag but indicates that only the output is multiline.
+    -n  specifies that want names of instruction or data rather than code in the
+        output. Input will accept either instruction number, data code,
+        instruction name, or data instruction name.
 """
 
 if __name__=="__main__":
@@ -4900,6 +4945,11 @@ if __name__=="__main__":
     imageFormat="RGB"
     baseaddress=0
     commandsource=None
+    multilinein=False
+    multilineout=False
+    wantinstructionname=False
+
+    getint=lambda x: int(x,16 if x.lower().startswith("0x") else 10)
 
     #handle no arguments
     if(len(sys.argv)==1):
@@ -4910,7 +4960,7 @@ if __name__=="__main__":
         i+=1
 
         arg=sys.argv[i]
-        if(arg=='basic' or arg=='array' or arg=='text' or arg=='screen' or arg=='code'):
+        if(arg=='basic' or arg=='array' or arg=='text' or arg=='screen' or arg=='code' or arg=='instruction'):
             if(mode!=None):
                 error="Can't have multiple formats to convert into."
                 break
@@ -4925,7 +4975,7 @@ if __name__=="__main__":
         if(arg=='-s' or arg=='-start' or arg=='--s' or arg=='--start'):
             try:
                 i+=1
-                start=int(sys.argv[i],16 if sys.argv[i].lower().startswith("0x") else 10)
+                start=getint(sys.argv[i])
                 continue
             except:
                 error="Missing or invalid autostart line number."
@@ -4934,7 +4984,7 @@ if __name__=="__main__":
         if(arg=='-v' or arg=='-variableoffset' or arg=='--v' or arg=='--variableoffset'):
             try:
                 i+=1
-                varoff=int(sys.argv[i],16 if sys.argv[i].lower().startswith("0x") else 10)
+                varoff=getint(sys.argv[i])
                 continue
             except:
                 error="Missing or invalid offset to variables."
@@ -4955,7 +5005,7 @@ if __name__=="__main__":
                     descriptor=64
 
                 else:
-                    descriptor=int(opt,16 if opt.lower().startswith("0x") else 10)
+                    descriptor=getint(opt)
                     #am only interested in bits 6 and 7. Only invalid if they are both 0
                     if(descriptor&192==0):
                         error="Invalid array description. Must have integer with bits 6 and 7 as 64, 128, or 192, or be number, character, or string."
@@ -4985,7 +5035,7 @@ if __name__=="__main__":
         if(arg=='-f' or arg=='-flashrate' or arg=='--f' or arg=='--flashrate'):
             try:
                 i+=1
-                flashrate=int(sys.argv[i],16 if sys.argv[i].lower().startswith("0x") else 10)
+                flashrate=getint(sys.argv[i])
                 continue
             except:
                 error="Missing or invalid image flash rate."
@@ -4998,7 +5048,7 @@ if __name__=="__main__":
         if(arg=='-b' or arg=='-baseaddress' or arg=='-base' or arg=='--b' or arg=='--baseaddress' or arg=='--base'):
             try:
                 i+=1
-                baseaddress=int(sys.argv[i],16 if sys.argv[i].lower().startswith("0x") else 10)
+                baseaddress=getint(sys.argv[i])
                 continue
             except:
                 error="Missing or invalid base code address."
@@ -5022,6 +5072,23 @@ if __name__=="__main__":
                 error="Missing or invalid base code address."
                 break
 
+        if(arg=='-m'):
+            multilinein=True
+            multilineout=True
+            continue
+
+        if(arg=='-mi'):
+            multilinein=True
+            continue
+
+        if(arg=='-mo'):
+            multilineout=True
+            continue
+        
+        if(arg=='-n'):
+            wantinstructionname=True
+            continue
+
         #have unrecognised argument.
         #check if is input or output file
         #will be inputfile if not already defined, and fromstandardinput is False
@@ -5041,7 +5108,7 @@ if __name__=="__main__":
     #finished processing arguments now.
     #Check we've got what we need
     if(error==None and mode==None):
-        error='No translateing mode (basic, code, screen, array or text) specified.'
+        error='No translateing mode (basic, code, screen, array, text, or instruction) specified.'
     
     if(error==None and inputfile==None and fromstandardinput==False and mode!='help'):
         error='No input file specified.'
@@ -5143,8 +5210,52 @@ if __name__=="__main__":
                 
                 else:
                     specialInstructions=[DisassembleInstruction("XML Output On")]+specialInstructions
-            
+
             retdata=disassemble(data,0,baseaddress,len(data),specialInstructions)
+
+        if(mode=='instruction'):
+            #get instructions
+            if(multilinein==False):
+                #instructions in non-multiline can be on multiple lines
+                di=[DisassembleInstruction(line) for line in data.splitlines()]
+            
+            else:
+                lines=data.splitlines()
+
+                #if argument is string for instruction type then get code
+                if(lines[0] in DisassembleInstruction.DisassembleCodes):
+                    di=DisassembleInstruction(lines[0])
+            
+                else:
+                    di=DisassembleInstruction(getint(lines[0]))
+                
+                di.start=getint(lines[1])
+                di.end=getint(lines[2])
+                lines='\n'.join(lines[3:])
+                if(lines in DisassembleInstruction.DisassembleDataBlockCodes.keys()):
+                    di.data=DisassembleInstruction.DisassembleDataBlockCodes[lines]
+
+                elif(lines in DisassembleInstruction.DisassemblePatternBlockCodes.keys()):
+                    di.data=DisassembleInstruction.DisassemblePatternBlockCodes[lines]
+                    
+                else:
+                    di.data=None if lines=='' else lines
+                    
+                di=[di]
+            
+            #now prepare them for output
+            if(multilineout==False):
+                retdata='\n'.join([str(x) for x in di])
+            
+            else:
+                if(wantinstructionname==True):
+                    nameornumber=lambda c: ("%X" % c) if GetDisassembleCodeNameFromValue(c)==None else GetDisassembleCodeNameFromValue(c)
+                    nameorcode=lambda c: GetDisassembleBlockNameFromValue(c) if GetDisassembleBlockNameFromValue(c)!=None else c
+
+                    retdata='\n'.join("%s\n%X\n%X\n%s" % (nameornumber(x.instruction),x.start,x.end,'' if x.data==None else nameorcode(x.data)) for x in di)
+                
+                else:
+                    retdata='\n'.join("%X\n%X\n%X\n%s" % (x.instruction,x.start,x.end,'' if x.data==None else x.data) for x in di)
 
     #handle any exceptions while translating
     except SpectrumTranslateException, ste:

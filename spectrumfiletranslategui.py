@@ -1708,10 +1708,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         di=None if selectpos==-1 else instructionlist.currentItem().di
         
         if(di!=None):
-            for key,value in spectrumtranslate.DisassembleInstruction.DisassembleCodes.iteritems():
-                if(value==di.instruction):
-                    setCombo(dialog.cbDisassembleCommands,key)
-                    break
+            key=spectrumtranslate.GetDisassembleCodeNameFromValue(di.instruction)
+            if(key!=None):
+                setCombo(dialog.cbDisassembleCommands,key)
 
             #could have used the textEdited signal to avoid disconnecting and reconnecting.
             #This way will allow highlighting of all abnormal value inputs
@@ -1736,9 +1735,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
     def setLabelText(self,lwInstruction):
         #find code name
-        for key,value in spectrumtranslate.DisassembleInstruction.DisassembleCodes.iteritems():
-            if(value==lwInstruction.di.instruction):
-                break
+        key=spectrumtranslate.GetDisassembleCodeNameFromValue(lwInstruction.di.instruction)
         
         s=("<strong>%s</strong><br/>"+self.Ddialog.Format.format(lwInstruction.di.start)+"->"+self.Ddialog.Format.format(lwInstruction.di.end))% (key)
 
