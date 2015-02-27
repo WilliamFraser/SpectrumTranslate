@@ -4920,11 +4920,15 @@ def usage():
         address is on the second line (decimal or hexadecimal preceded by '0x'),
         the end address (either decimal or '0x' hexadecimal) is on the third
         line, and any data is from the fourth line onwards.
+    --multiline same as -m.
     -mi same as -m flag but indicates that only the input is multiline.
+    --multilinein same as -mi.
     -mo same as -m flag but indicates that only the output is multiline.
+    --multilineout same as -mo.
     -n  specifies that want names of instruction or data rather than code in the
         output. Input will accept either instruction number, data code,
         instruction name, or data instruction name.
+    --namewanted same as -n.
 """
 
 if __name__=="__main__":
@@ -4960,7 +4964,7 @@ if __name__=="__main__":
         i+=1
 
         arg=sys.argv[i]
-        if(arg=='basic' or arg=='array' or arg=='text' or arg=='screen' or arg=='code' or arg=='instruction'):
+        if(arg=='basic' or arg=='array' or arg=='text' or arg=='screen' or arg=='code' or arg=='instruction' or arg=='help'):
             if(mode!=None):
                 error="Can't have multiple formats to convert into."
                 break
@@ -5072,20 +5076,20 @@ if __name__=="__main__":
                 error="Missing or invalid base code address."
                 break
 
-        if(arg=='-m'):
+        if(arg=='-m' or arg=='-multiline' or arg=='--m' or arg=='--multiline'):
             multilinein=True
             multilineout=True
             continue
 
-        if(arg=='-mi'):
+        if(arg=='-mi' or arg=='-multilinein' or arg=='--mi' or arg=='--multilinein'):
             multilinein=True
             continue
 
-        if(arg=='-mo'):
+        if(arg=='-mo' or arg=='-multilineout' or arg=='--mo' or arg=='--multilineout'):
             multilineout=True
             continue
         
-        if(arg=='-n'):
+        if(arg=='-n' or arg=='-namewanted' or arg=='--n' or arg =='--namewanted'):
             wantinstructionname=True
             continue
 

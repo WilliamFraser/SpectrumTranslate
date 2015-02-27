@@ -31,6 +31,8 @@
 # Date: 14th January 2015
 
 import spectrumtranslate
+import sys
+import io
 
 class SpectrumTapBlock:
     """
@@ -386,6 +388,25 @@ def TapBlock_from_file(filename,position=0):
             else:
                 break
 
+def TapBlock_from_bytestring(bytestring,position=0):
+    """
+    Generator function that will supply TapBlock objects
+    example:
+    for tb in TapBlock_from_file(data):
+        do_stuff_with(tb)
+    """
+    with io.BytesIO(bytestring) as f:
+        while True:
+            tb=get_TapBlock_from_file(f,position)
+            if(tb):
+                #2 bytes block length, 1 byte flag, 1 byte checksum, and the rest for the block data
+                position+=4+len(tb.data)
+
+                yield tb
+
+            else:
+                break
+
 def CreateProgramHeadder(filename,VariableOffset,ProgLength,AutoStart=0):
     """
     Create a headder for a program SpectrumTapBlock.
@@ -492,9 +513,77 @@ def CreateDataBlock(data,flag=0xFF):
     
     return tb
     
+def usage():
+    """
+    returns the command line arguments for spectrumtapblock as a string.
+    """
+
+    return"""usage: python spectrumtapblock.py instruction [args] infile outfile
+
+    moves data from infile which should be a tap file and outputs it to outfile.
+    
+    instruction is required and specifies what you want to do. It must be 'list'
+    'extract', or 'copy. 'list' will list the contents of the specified tapfile.
+    'extract' extracts the data from a tap file entry to wherever you want.
+    'copy' copies the specified tap file entries to another tap file.
+    
+    infile and outfile are required unless reading from the standard input or
+    outputting to the standard output. Usually arguments are ignored if they
+    don't apply to the selected translation mode.
+
+    For the extract instruction, the index of the tap entry you want to extract
+    must be specified before the filenames.
+    
+    For the copy instruction, the index(s) of the tap entry(entries) you want to
+    copy must be specified before the filename. You do not need to do this if
+    you have already specified which entries you want with the -s flag.
+
+    general flags:    
+    -o specifies that the output from this program is to be directed to the
+       standard output and not outputfile which should be omited. It can be used
+       for all instructions.
+    --tostandardoutput same as -o.
+    -i specifies that this program gets it's data from the standard input and
+       not inputfile which should be omited. It can be used for all
+       instructions.
+    --fromstandardinput same as -i.
+    -s specifies which tap entries you want. These are the same as returned by
+       the list instruction. You can specify more than one, seperated by commas,
+       and can even specify ranges of them with a minus. The numbers are assumed
+       to be decimal unless preceded by 0x in which case they are assumed to be
+       hexadecimal. For example 2,0x10-20,23 will specify entry 2, 16 to 20
+       inclusive, and 23. This flag is used by list, and copy.
+    --specifyfiles same as -s.
+    --specificfiles same as -s.
+    
+    list flags:
+    -d specifies that we want all information about each tap file entry divided
+       by tabs. All entries begin with the index of the entry in the tap file,
+       followed by either 'Headder' for a headder or 'Data' for data. For Data
+       entries, the flag value and then the data length is listed. For Headders
+       the data following this depends on the file type.
+       For Program headders, the data given is filename, 'Program', length of
+       data in the coresponding data file, the autostart line number or 0 if
+       there isn't one, and the offset in bytes to the atached variables (will
+       be the same as the length if there are no variables).
+       For Byte headders there follows the file name, 'Bytes', the address where
+       the code was saved from (and would automatically be loaded to), and then
+       the length.
+       For array headders there follows the filename, 'Number array' or
+       'Character array', the length of the array data, the array letter, the
+       array variable name, and the array descriptor specifying what sort of
+       array it contains.
+       Finally for unknown file types, there follows the file name, 'Unknown',
+       the file type number, and the length of the ascociated data.
+    --details is the same as -d.
+
+    copy flags:
+    -a specifies that the output should be appended to an existing file rather
+       than overwriting it.
+"""
 
 if __name__=="__main__":
-    
+    """    
     #for tb in TapBlock_from_file('/home/william/java/RebelStar/source/Data/Rebelstar 1 Player.tap'):
     #for tb in TapBlock_from_file('/home/william/java/RebelStar/source/Rebelstar 2 2 Player.tap'):
     #for tb in TapBlock_from_file('/home/william/RR.tap/REBRAID1.TAP'):
@@ -515,3 +604,205 @@ if __name__=="__main__":
     data=[ord(x) for x in data]
     
     print data
+    """
+
+    getint=lambda x: int(x,16 if x.lower().startswith("0x") else 10)
+
+    def getindices(arg):
+        try:
+            specifiedfiles=[]
+            for n in arg.split(','):
+                if('-' in n):
+                    v=n.split('-',1)
+                    specifiedfiles+=range(getint(v[0]),getint(v[1])+1)
+                
+                else:
+                    specifiedfiles+=[getint(n)]
+            
+            if(len(specifiedfiles)==0):
+                return None
+            
+            return specifiedfiles
+
+        except:
+            return None
+
+
+    i=0
+    mode=None
+    error=None
+    wantdetails=False
+    fromstandardinput=False
+    tostandardoutput=False
+    inputfile=None
+    outputfile=None
+    entrywanted=None
+    specifiedfiles=None
+    append=False
+
+    #handle no arguments
+    if(len(sys.argv)==1):
+        mode='help'    
+    
+    #go through arguments analysing them
+    while(i<len(sys.argv)-1):
+        i+=1
+
+        arg=sys.argv[i]
+        if(arg=='help' or arg=='extract' or arg=='list' or arg=='copy'):
+            if(mode!=None):
+                error="Can't have multiple commands."
+                break
+            
+            mode=arg
+            continue
+        
+        if(arg=='-i' or arg=='-fromstandardinput' or arg=='--i' or arg=='--fromstandardinput'):
+            fromstandardinput=True
+            continue
+
+        if(arg=='-o' or arg=='-tostandardoutput' or arg=='--o' or arg=='--tostandardoutput'):
+            tostandardoutput=True
+            continue
+
+        if(arg=='-d' or arg=='-details' or arg=='--d' or arg=='--details'):
+            wantdetails=True
+            continue
+        
+        if(arg=='-s' or arg=='-specifyfiles' or arg=='-specificfiles' or arg=='--s' or arg=='--specifyfiles' or arg=='--specificfiles'):
+            i+=1
+            specifiedfiles=getindices(sys.argv[i])
+            if(specifiedfiles==None):
+                error='"'+sys.argv[i]+'" is invalid list of file indexes.'
+                break
+
+            continue
+
+        if(arg=='-a' or arg=='-append' or arg=='--a' or arg=='--append'):
+            append=True
+            continue
+
+        #have unrecognised argument.
+        
+        #check if is what entry we want to extract
+        if(mode=='extract' and entrywanted==None):
+            try:
+                entrywanted=getint(arg)
+                continue
+                
+            except:
+                error='%s is not a valid index in the input file.' % arg
+                break
+
+        #if it is what entries we want to copy
+        if(mode=='copy' and specifiedfiles==None):
+            specifiedfiles=getindices(arg)
+            if(specifiedfiles==None):
+                error='"'+arg+'" is invalid list of file indexes.'
+                break
+
+            continue
+       
+        #check if is input or output file
+        #will be inputfile if not already defined, and fromstandardinput is False
+        if(inputfile==None and fromstandardinput==False):
+            inputfile=arg
+            continue
+
+        #will be outputfile if not already defined, tostandardoutput is False, and is last
+        #argument
+        if(outputfile==None and tostandardoutput==False and i==len(sys.argv)-1):
+            outputfile=arg
+            continue
+
+        error='"%s" is unrecognised argument.' % arg
+        break
+
+    if(error==None and mode==None):
+        error='No command (list, extract, copy, or help) specified.'
+
+    if(error==None and inputfile==None and fromstandardinput==False and mode!='help'):
+        error='No input file specified.'
+    
+    if(error==None and outputfile==None and tostandardoutput==False and mode!='help'):
+        error='No output file specified.'
+
+    if(error==None and mode=='copy' and specifiedfiles==None):
+        error='No entries specified to copy.'
+        
+    #handle error with arguments
+    if(error!=None):
+        sys.stderr.write(error+"\n")
+        sys.stdout.write("Use 'python spectrumtapblock.py' to see full list of options.\n")
+        sys.exit(2)
+    
+    #if help is needed display it
+    if(mode=='help'):
+        print usage()
+        sys.exit(0)
+
+    #get data
+    if(fromstandardinput==False):
+        with open(inputfile,'rb') as infile:
+            data=infile.read()
+    
+    else:
+        data=sys.stdin.read()
+    
+    #now do command
+    if(mode=='list'):
+        pos=0
+        retdata='' if wantdetails else 'position type    information\n'
+        for tb in TapBlock_from_bytestring(data):
+            if(specifiedfiles!=None and not pos in specifiedfiles):
+                pos+=1
+                continue
+                
+            if(wantdetails):
+                if(not tb.is_headder()):
+                    retdata+="%i\tData\t%i\t%i\n" % (pos,tb.flag,len(tb.data))
+                    
+                else:
+                    filetype=tb.get_file_type_string()
+                    if(filetype=="Program"):
+                        retdata+="%i\tHeadder\t%s\tProgram\t%i\t%i\t%i\n" % (pos,tb.get_file_name(),tb.get_headder_described_data_length(),0 if tb.get_headder_autostart_line()<0 else tb.get_headder_autostart_line(),tb.get_headder_variable_offset())
+                    elif(filetype=="Bytes"):
+                        retdata+="%i\tHeadder\t%s\tBytes\t%i\t%i\n" % (pos,tb.get_file_name(),tb.get_headder_code_start(),tb.get_headder_described_data_length())
+                    elif(filetype=="Number array" or filetype=="Character array"):
+                        retdata+="%i\tHeadder\t%s\t%s\t%i\t%s\t%s\t%i\n" % (pos,tb.get_file_name(),filetype,tb.get_headder_described_data_length(),tb.get_headder_variable_letter(),tb.get_headder_variable_name(),tb.get_headder_array_descriptor()&192)
+                    else:
+                        retdata+="%i\tHeadder\t%s\tUnknown\t%i\t%i\n" % (pos,tb.get_file_name(),tb.getbyte(0),tb.get_headder_described_data_length())
+                
+            else:
+                retdata+="%3i      %s %s\n" % (pos,"Headder" if tb.is_headder() else "Data   ",tb.get_file_details_string() if tb.is_headder() else str(tb))
+
+            pos+=1
+
+    if(mode=='extract'):
+        tbs=[tb for tb in TapBlock_from_bytestring(data)]
+        if(entrywanted>len(tbs)):
+            sys.stderr.write(str(entrywanted)+" is greater than the number of entries in the source data.\n")
+            sys.stdout.write("Use 'python spectrumtapblock.py' to see full list of options.\n")
+            sys.exit(2)
+            
+        retdata=tbs[entrywanted].data
+
+    if(mode=='copy'):
+        tbs=[tb for tb in TapBlock_from_bytestring(data)]
+        retdata=''
+        for x in specifiedfiles:
+            if(x>len(tbs)):
+                sys.stderr.write(str(x)+" is greater than the number of entries in the source data.\n")
+                sys.stdout.write("Use 'python spectrumtapblock.py' to see full list of options.\n")
+                sys.exit(2)
+            
+            retdata+=tbs[x].getPackagedForFile()
+
+    #output data
+    if(tostandardoutput==False):
+        fo=open(outputfile,"ab" if mode=='copy' and append else "wb")
+        fo.write(retdata)
+        fo.close()
+
+    else:
+        sys.stdout.write(retdata)
