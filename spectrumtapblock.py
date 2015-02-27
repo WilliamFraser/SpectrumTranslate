@@ -583,28 +583,6 @@ def usage():
 """
 
 if __name__=="__main__":
-    """    
-    #for tb in TapBlock_from_file('/home/william/java/RebelStar/source/Data/Rebelstar 1 Player.tap'):
-    #for tb in TapBlock_from_file('/home/william/java/RebelStar/source/Rebelstar 2 2 Player.tap'):
-    #for tb in TapBlock_from_file('/home/william/RR.tap/REBRAID1.TAP'):
-    #    print tb
-    #    print tb.get_file_details_string()
-
-    tbs=get_TapBlocks('/home/william/RR.tap/REBRAID1.TAP')
-    print tbs[1]
-    pass
-
-    f=open("x.bin","rb")
-    data=f.read()
-    f.close()
-    
-    tb=CreateDataBlock(data,0xFF)
-    data=tb.getPackagedForFile()
-    
-    data=[ord(x) for x in data]
-    
-    print data
-    """
 
     getint=lambda x: int(x,16 if x.lower().startswith("0x") else 10)
 
