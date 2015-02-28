@@ -72,6 +72,10 @@ class DiscipleFile:
         #if no headder supplied, need to load it up
         if(headderdata==None):
             headderdata=self.GetHeadder()
+
+        #check to make sure is valid file
+        if(self.IsEmpty(headderdata)):
+            return None
         
         #make note of number of sectors in file
         i=self.GetSectorsUsed(headderdata)
@@ -169,6 +173,10 @@ class DiscipleFile:
         if(headderdata==None):
             headderdata=self.GetHeadder()
         
+        #check to make sure is valid file
+        if(self.IsEmpty(headderdata)):
+            return 0
+
         #is stored at offset 11 in motorola byte order (most significant byte first)
         return ord(headderdata[12])+256*ord(headderdata[11])
 
@@ -293,6 +301,7 @@ class DiscipleFile:
 
         details={"filenumber":self.filenumber,
                  "filename":self.GetFileName(headderdata),
+                 "rawfilename":self.GetRawFileName(headderdata),
                  "sectors":self.GetSectorsUsed(headderdata),
                  "filetype":self.GetFileType(headderdata),
                  "filetypeshort":self.GetFileTypeCatString(headderdata),
@@ -308,7 +317,14 @@ class DiscipleFile:
         if(details["filetype"]==1):
             #basic
             details["autostartline"]=self.GetAutostartLine(headderdata)
+            details["variableoffset"]=self.GetVariableOffset(headderdata)
             details["catextradata"]="%5d" % self.GetAutostartLine(headderdata)
+        
+        if(details["filetype"]==2 or details["filetype"]==3):
+            #number or character array
+            details["variableletter"]=self.GetVariableLetter(headderdata)
+            details["variablename"]=self.GetVariableName(headderdata)
+            details["arraydescriptor"]=self.GetArrayDescriptor(headderdata)
         
         return details
 
@@ -559,7 +575,7 @@ class DiscipleFile:
         elif(t==4 or t==7): #code or screen$
             s+="code start address: %d(%X)\n" % (self.GetCodeStart(headderdata),self.GetCodeStart(headderdata))
 
-        s+="file details: %s" % self.GetFileDetailsString(headderdata)
+        s+="file details: %s\n" % self.GetFileDetailsString(headderdata)
         s+="directory entry address: T=%d S=%d offset=%d\n" % ((self.filenumber-1)/20,(((self.filenumber-1)/2)%10)+1,((self.filenumber-1)&1)*256)
         s+="Number of sectors used: %d\n" % self.GetSectorsUsed(headderdata)
 
@@ -870,11 +886,245 @@ class DiscipleImage:
             yield DiscipleFile(self,i)
             i+=1
 
-if __name__=="__main__":
-    di=DiscipleImage("/home/william/java/tap reader/01.img")
+def usage():
+    """
+    returns the command line arguments for disciplefile as a string.
+    """
 
-    for df in di.IterateDiscipleFiles():
-        print df.GetFileDetailsString()
+    return"""usage: python disciplefile.py instruction [args] infile outfile
+
+    moves data from infile which should be a disciple disc image file and
+    outputs it to outfile.
     
-    print di.CheckImageIsValid(True)
-    print di.ImageFormat
+    instruction is required and specifies what you want to do. It must be 'list'
+    or 'extract'. 'list' will list the contents of the specified image file.
+    'extract' extracts the data from an image file entry to wherever you want.
+    
+    infile and outfile are required unless reading from the standard input or
+    outputting to the standard output. Usually arguments are ignored if they
+    don't apply to the selected instruction.
+
+    For the extract instruction, the index of the image file you want to extract
+    must be specified before the filenames.
+    
+    general flags:    
+    -o specifies that the output from this program is to be directed to the
+       standard output and not outputfile which should be omited. It can be used
+       for all instructions.
+    --tostandardoutput same as -o.
+    -i specifies that this program gets it's data from the standard input and
+       not inputfile which should be omited. It can be used for all
+       instructions.
+    --fromstandardinput same as -i.
+    
+    list flags:
+    -d specifies that we want all information about each file entry divided by
+       tabs. All entries begin with the index of the entry in the image file,
+       followed by the file name (there might be a name in an empty slot if the
+       file has been deleted), the file type number, the filetype string, the
+       number of sectors used on the disk, and the file length. Further data
+       depends on the file type.
+       For Program files, The autostart line number (or 0 if there isn't one),
+       and the offset in bytes to the atached variables (will be the same as the
+       length if there are no variables) follow.
+       For Code files there follows the address where the code was saved from
+       (and would automatically be loaded to).
+       For array files there follows the the array letter, the array variable
+       name, and the array descriptor specifying what sort of array it contains.
+    --details is the same as -d.
+    -s specifies which file entries you want. These are the same as returned by
+       the list instruction. You can specify more than one, seperated by commas,
+       and can even specify ranges of them with a minus. The numbers are assumed
+       to be decimal unless preceded by 0x in which case they are assumed to be
+       hexadecimal. For example 2,0x10-20,23 will specify entry 2, 16 to 20
+       inclusive, and 23.
+    --specifyfiles same as -s.
+    --specificfiles same as -s.
+    -l specifies that you want empty file slots to be returned in the listing.
+       Normally these are omitted from a listing for increased clarity and
+       brevity.
+    --listempty same as -l.
+"""
+
+if __name__=="__main__":
+    import sys
+
+    getint=lambda x: int(x,16 if x.lower().startswith("0x") else 10)
+
+    def getindices(arg):
+        try:
+            specifiedfiles=[]
+            for n in arg.split(','):
+                if('-' in n):
+                    v=n.split('-',1)
+                    specifiedfiles+=range(getint(v[0]),getint(v[1])+1)
+                
+                else:
+                    specifiedfiles+=[getint(n)]
+            
+            if(len(specifiedfiles)==0):
+                return None
+            
+            return specifiedfiles
+
+        except:
+            return None
+
+
+    i=0
+    mode=None
+    error=None
+    wantdetails=False
+    fromstandardinput=False
+    tostandardoutput=False
+    inputfile=None
+    outputfile=None
+    entrywanted=None
+    specifiedfiles=None
+    listempty=False
+
+    #handle no arguments
+    if(len(sys.argv)==1):
+        mode='help'    
+    
+    #go through arguments analysing them
+    while(i<len(sys.argv)-1):
+        i+=1
+
+        arg=sys.argv[i]
+        if(arg=='help' or arg=='extract' or arg=='list'):
+            if(mode!=None):
+                error="Can't have multiple commands."
+                break
+            
+            mode=arg
+            continue
+        
+        if(arg=='-i' or arg=='-fromstandardinput' or arg=='--i' or arg=='--fromstandardinput'):
+            fromstandardinput=True
+            continue
+
+        if(arg=='-o' or arg=='-tostandardoutput' or arg=='--o' or arg=='--tostandardoutput'):
+            tostandardoutput=True
+            continue
+
+        if(arg=='-d' or arg=='-details' or arg=='--d' or arg=='--details'):
+            wantdetails=True
+            continue
+        
+        if(arg=='-l' or arg=='-listempty' or arg=='--l' or arg=='--listempty'):
+            listempty=True
+            continue
+        
+        if(arg=='-s' or arg=='-specifyfiles' or arg=='-specificfiles' or arg=='--s' or arg=='--specifyfiles' or arg=='--specificfiles'):
+            i+=1
+            specifiedfiles=getindices(sys.argv[i])
+            if(specifiedfiles==None):
+                error='"'+sys.argv[i]+'" is invalid list of file indexes.'
+                break
+
+            continue
+
+
+        #have unrecognised argument.
+        
+        #check if is what entry we want to extract
+        if(mode=='extract' and entrywanted==None):
+            try:
+                entrywanted=getint(arg)
+                continue
+                
+            except:
+                error='%s is not a valid index in the input file.' % arg
+                break
+
+        #check if is input or output file
+        #will be inputfile if not already defined, and fromstandardinput is False
+        if(inputfile==None and fromstandardinput==False):
+            inputfile=arg
+            continue
+
+        #will be outputfile if not already defined, tostandardoutput is False, and is last
+        #argument
+        if(outputfile==None and tostandardoutput==False and i==len(sys.argv)-1):
+            outputfile=arg
+            continue
+
+        error='"%s" is unrecognised argument.' % arg
+        break
+
+    if(error==None and mode==None):
+        error='No command (list, extract, or help) specified.'
+
+    if(error==None and inputfile==None and fromstandardinput==False and mode!='help'):
+        error='No input file specified.'
+    
+    if(error==None and outputfile==None and tostandardoutput==False and mode!='help'):
+        error='No output file specified.'
+
+    #handle error with arguments
+    if(error!=None):
+        sys.stderr.write(error+"\n")
+        sys.stdout.write("Use 'python disciplefile.py' to see full list of options.\n")
+        sys.exit(2)
+    
+    #if help is needed display it
+    if(mode=='help'):
+        print usage()
+        sys.exit(0)
+
+    #get disc image
+    if(fromstandardinput==False):
+        di=DiscipleImage(inputfile)
+    
+    else:
+        di=DiscipleImage()
+        di.setBytes(sys.stdin.read())
+    
+    #now do command
+    if(mode=='list'):
+        for df in di.IterateDiscipleFiles():
+            retdata='' if wantdetails else "  pos   filename  sectors   type\n"
+            for df in di.IterateDiscipleFiles():
+                if(specifiedfiles!=None and not df.filenumber in specifiedfiles):
+                    continue
+                
+                if(listempty==False and df.IsEmpty()):
+                    continue
+                    
+                if(wantdetails):
+                    d=df.GetFileDetails()
+        
+                    retdata+="%i\t%s\t%i\t%s\t%i\t%i" % (d['filenumber'],d['filename'],d['filetype'],d['filetypelong'],d['sectors'],d['filelength'])
+                    
+                    if(d["filetype"]==1):
+                        retdata+="\t"+str(d["autostartline"])+"\t"+str(d["variableoffset"])
+        
+                    if(d["filetype"]==4):
+                        retdata+="\t"+str(d["codeaddress"])
+        
+                    if(d["filetype"]==2 or d["filetype"]==3):
+                        retdata+="\t"+str(d["variableletter"])+"\t"+str(d["variablename"])+"\t"+str(d["arraydescriptor"])
+                    
+                else:
+                    retdata+=df.GetFileDetailsString()
+        
+                retdata+="\n"
+
+    if(mode=='extract'):
+        df=DiscipleFile(di,entrywanted)
+        if(entrywanted>80 or entrywanted<1):
+            sys.stderr.write(str(entrywanted)+" is not a valid entry number (should be 1 to 80).\n")
+            sys.stdout.write("Use 'python disciplefile.py' to see full list of options.\n")
+            sys.exit(2)
+            
+        retdata=df.GetFileData()
+
+    #output data
+    if(tostandardoutput==False):
+        fo=open(outputfile,"wb")
+        fo.write(retdata)
+        fo.close()
+
+    else:
+        sys.stdout.write(retdata)

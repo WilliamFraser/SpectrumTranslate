@@ -529,7 +529,7 @@ def usage():
     
     infile and outfile are required unless reading from the standard input or
     outputting to the standard output. Usually arguments are ignored if they
-    don't apply to the selected translation mode.
+    don't apply to the selected instruction.
 
     For the extract instruction, the index of the tap entry you want to extract
     must be specified before the filenames.
