@@ -31,7 +31,6 @@
 # Date: 14th January 2015
 
 import spectrumtranslate
-import sys
 import io
 
 class SpectrumTapBlock:
@@ -512,7 +511,7 @@ def CreateDataBlock(data,flag=0xFF):
         tb.data=''.join([chr(x) for x in data])
     
     return tb
-    
+
 def usage():
     """
     returns the command line arguments for spectrumtapblock as a string.
@@ -580,9 +579,15 @@ def usage():
     copy flags:
     -a specifies that the output should be appended to an existing file rather
        than overwriting it.
+    -p specifies that the output should be inserted at the position in the
+       desitnation file. The index where you want the copied entry(entries)
+       inserted must follow the flag and must be either a decimal or hexadecimal
+       number preceded by '0x'.
+    --pos same as -p.
+    --position same as -p.
 """
 
-if __name__=="__main__":
+def CommandLine(args):
 
     getint=lambda x: int(x,16 if x.lower().startswith("0x") else 10)
 
@@ -617,16 +622,17 @@ if __name__=="__main__":
     entrywanted=None
     specifiedfiles=None
     append=False
+    copyposition=False
 
     #handle no arguments
-    if(len(sys.argv)==1):
+    if(len(args)==1):
         mode='help'    
     
     #go through arguments analysing them
-    while(i<len(sys.argv)-1):
+    while(i<len(args)-1):
         i+=1
 
-        arg=sys.argv[i]
+        arg=args[i]
         if(arg=='help' or arg=='extract' or arg=='list' or arg=='copy'):
             if(mode!=None):
                 error="Can't have multiple commands."
@@ -649,9 +655,9 @@ if __name__=="__main__":
         
         if(arg=='-s' or arg=='-specifyfiles' or arg=='-specificfiles' or arg=='--s' or arg=='--specifyfiles' or arg=='--specificfiles'):
             i+=1
-            specifiedfiles=getindices(sys.argv[i])
+            specifiedfiles=getindices(args[i])
             if(specifiedfiles==None):
-                error='"'+sys.argv[i]+'" is invalid list of file indexes.'
+                error='"'+args[i]+'" is invalid list of file indexes.'
                 break
 
             continue
@@ -659,6 +665,16 @@ if __name__=="__main__":
         if(arg=='-a' or arg=='-append' or arg=='--a' or arg=='--append'):
             append=True
             continue
+
+        if(arg=='-p' or arg=='-position' or arg=='-pos' or arg=='--p' or arg=='--position' or arg=='--pos'):
+            i+=1
+            try:
+                copyposition=getint(args[i])
+                continue
+
+            except:
+                error='%s is not a valid index for the output file.' % args[i]
+                break
 
         #have unrecognised argument.
         
@@ -689,7 +705,7 @@ if __name__=="__main__":
 
         #will be outputfile if not already defined, tostandardoutput is False, and is last
         #argument
-        if(outputfile==None and tostandardoutput==False and i==len(sys.argv)-1):
+        if(outputfile==None and tostandardoutput==False and i==len(args)-1):
             outputfile=arg
             continue
 
@@ -716,7 +732,7 @@ if __name__=="__main__":
     
     #if help is needed display it
     if(mode=='help'):
-        print usage()
+        sys.stdout.write(usage())
         sys.exit(0)
 
     #get data
@@ -776,6 +792,20 @@ if __name__=="__main__":
             
             retdata+=tbs[x].getPackagedForFile()
 
+        #handle copy inserting at position
+        if(copyposition!=False):
+            import os.path
+            if(tostandardoutput==False and os.path.isfile(outputfile)):
+                #get tapblocks (if any in destination file)
+                with open(outputfile,'rb') as infile:
+                    destinationtbs=[tb for tb in TapBlock_from_bytestring(infile.read())]
+    
+                if(copyposition<len(destinationtbs)):
+                    retdata="".join([tb.getPackagedForFile() for tb in destinationtbs[:copyposition]]) + retdata + "".join([tb.getPackagedForFile() for tb in destinationtbs[copyposition:]])
+                
+                else:
+                    retdata=destinationtbs+retdata
+            
     #output data
     if(tostandardoutput==False):
         fo=open(outputfile,"ab" if mode=='copy' and append else "wb")
@@ -784,3 +814,7 @@ if __name__=="__main__":
 
     else:
         sys.stdout.write(retdata)
+    
+if __name__=="__main__":
+    import sys
+    CommandLine(sys.argv)
