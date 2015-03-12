@@ -522,9 +522,11 @@ def usage():
     moves data from infile which should be a tap file and outputs it to outfile.
     
     instruction is required and specifies what you want to do. It must be 'list'
-    'extract', or 'copy. 'list' will list the contents of the specified tapfile.
-    'extract' extracts the data from a tap file entry to wherever you want.
-    'copy' copies the specified tap file entries to another tap file.
+    'extract', 'delete' or 'copy. 'list' will list the contents of the specified
+    tapfile. 'extract' extracts the data from a tap file entry to wherever you
+    want. 'copy' copies the specified tap file entries to another tap file.
+    'delete' deletes the specified entries from the source tap file and outputs
+    the resulting tap file.
     
     infile and outfile are required unless reading from the standard input or
     outputting to the standard output. Usually arguments are ignored if they
@@ -533,9 +535,10 @@ def usage():
     For the extract instruction, the index of the tap entry you want to extract
     must be specified before the filenames.
     
-    For the copy instruction, the index(s) of the tap entry(entries) you want to
-    copy must be specified before the filename. You do not need to do this if
-    you have already specified which entries you want with the -s flag.
+    For the copy and delete instructions, the index(s) of the tap entry(entries)
+    you want to copy must be specified before the filename. You do not need to
+    do this if you have already specified which entries you want with the -s
+    flag.
 
     general flags:    
     -o specifies that the output from this program is to be directed to the
@@ -551,7 +554,7 @@ def usage():
        and can even specify ranges of them with a minus. The numbers are assumed
        to be decimal unless preceded by 0x in which case they are assumed to be
        hexadecimal. For example 2,0x10-20,23 will specify entry 2, 16 to 20
-       inclusive, and 23. This flag is used by list, and copy.
+       inclusive, and 23. This flag is used by list, delete, and copy.
     --specifyfiles same as -s.
     --specificfiles same as -s.
     
@@ -633,7 +636,7 @@ def CommandLine(args):
         i+=1
 
         arg=args[i]
-        if(arg=='help' or arg=='extract' or arg=='list' or arg=='copy'):
+        if(arg=='help' or arg=='extract' or arg=='list' or arg=='copy' or arg=='delete'):
             if(mode!=None):
                 error="Can't have multiple commands."
                 break
@@ -689,7 +692,7 @@ def CommandLine(args):
                 break
 
         #if it is what entries we want to copy
-        if(mode=='copy' and specifiedfiles==None):
+        if((mode=='copy' or mode=='delete') and specifiedfiles==None):
             specifiedfiles=getindices(arg)
             if(specifiedfiles==None):
                 error='"'+arg+'" is invalid list of file indexes.'
@@ -713,7 +716,7 @@ def CommandLine(args):
         break
 
     if(error==None and mode==None):
-        error='No command (list, extract, copy, or help) specified.'
+        error='No command (list, extract, copy, delete, or help) specified.'
 
     if(error==None and inputfile==None and fromstandardinput==False and mode!='help'):
         error='No input file specified.'
@@ -721,8 +724,8 @@ def CommandLine(args):
     if(error==None and outputfile==None and tostandardoutput==False and mode!='help'):
         error='No output file specified.'
 
-    if(error==None and mode=='copy' and specifiedfiles==None):
-        error='No entries specified to copy.'
+    if(error==None and (mode=='copy' or mode=='delete') and specifiedfiles==None):
+        error='No entries specified to '+mode+'.'
         
     #handle error with arguments
     if(error!=None):
@@ -806,6 +809,13 @@ def CommandLine(args):
                 else:
                     retdata=destinationtbs+retdata
             
+    if(mode=='delete'):
+        tbs=[tb for tb in TapBlock_from_bytestring(data)]
+        retdata=''
+        for x in range(len(tbs)):
+            if(not x in specifiedfiles):
+                retdata+=tbs[x].getPackagedForFile()
+
     #output data
     if(tostandardoutput==False):
         fo=open(outputfile,"ab" if mode=='copy' and append else "wb")
