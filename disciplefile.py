@@ -31,6 +31,7 @@
 # Date: 14th January 2015
 
 import spectrumtranslate
+import mmap
 
 class DiscipleFile:
     """A class that holds information about a file from a +D/Disciple disk image."""
@@ -260,7 +261,7 @@ class DiscipleFile:
         if(i>11):
             return None
 
-        return ("","BAS","D.ARRAY","$.ARRAY","CDE","SNP 48k","MD.FILE","SCREEN$","SPECIAL","SNP 128k","OPENTYPE",
+        return ("ERASED","BAS","D.ARRAY","$.ARRAY","CDE","SNP 48k","MD.FILE","SCREEN$","SPECIAL","SNP 128k","OPENTYPE",
                 "EXECUTE", #list unidos cat names also
                 "DIR","CREATE")[i]
 
@@ -614,13 +615,13 @@ class DiscipleImage:
         self.filehandle=filehandle
         self.setImageFormat(form)
     
-    def setFileName(self,filename,form="Unknown"):
+    def setFileName(self,filename,form="Unknown",accessmode="rb"):
         """
         sets the source for the disciple image to be a file wiuth the given name.
         Will close this file upon deletion of this object
         """
         try:
-            self.filehandle=open(filename,"rb")
+            self.filehandle=open(filename,accessmode)
         except:
             raise spectrumtranslate.SpectrumTranslateException('can not open "%s" for reading' % filename)
             return
@@ -722,6 +723,60 @@ class DiscipleImage:
         
         else:
             raise spectrumtranslate.SpectrumTranslateException('Uninitiated DiscipleImage')
+
+    def WriteSector(self,data,track,sector,head=-1):
+        """Writes supplied sector to image. data is a 512 byte string to write. If the image is
+        not initiated, then it will be set up as a byte image. You will need to save off the
+        data at the end to save any changes."""
+
+        if(len(data)!=512 or not isinstance(data,str)):
+            raise spectrumtranslate.SpectrumTranslateException('Sector data must be a 512 byte string.')
+
+        #if we've got uninitiated DiscipleImage then set up as byte array
+        if(self.ImageSource=="Undefined"):
+            self.setBytes('\x00'*819200)
+            
+        #where is sector we're after
+        pos=self.GetSectorPos(track,sector,head)
+        if(self.ImageSource=="Bytes"):
+            self.bytedata=self.bytedata[:pos]+data+self.bytedata[pos+512:]
+
+        elif(self.ImageSource=="File" or self.ImageSource=="FileName"):
+            #have we got overwrite access?
+            if(len(self.filehandle.mode)!=3 or 0 in [c in self.filehandle.mode for c in "r+b"]):
+                #if not we can't write to it
+                raise spectrumtranslate.SpectrumTranslateException('DiscipleImage not opened with access mode rb+')
+
+            #memory map the sector in the file
+            mm=mmap.mmap(self.filehandle.fileno(),0)
+            #write the data
+            mm[pos:pos+512]=data
+            mm.flush()
+            mm.close()
+        
+        #this should not happen, but be cautious
+        else:
+            raise spectrumtranslate.SpectrumTranslateException('Uninitiated DiscipleImage')
+
+    def DeleteEntry(self,entrynumber):
+        """
+        This method deletes the specified entry in this disk image. Valid entry numbers are 1 to 80.
+        """
+
+        #check input
+        if(entrynumber>80 or entrynumber<1):
+            raise spectrumtranslate.SpectrumTranslateException('Invalid file enty number (must be 1 to 80 inclusive).')
+        
+        #work out track, sector, and offset for file descriptor byte for file
+        headderstart=((entrynumber-1)&1)*256
+        track=(entrynumber-1)/20
+        sector=(((entrynumber-1)/2)%10)+1
+        
+        sectordata=self.GetSector(track,sector)
+        #set file type byte to 0 to mark it deleted
+        sectordata=sectordata[:headderstart]+'\x00'+sectordata[headderstart+1:]
+        self.WriteSector(sectordata,track,sector)
+        
 
     def CheckImageIsValid(self,deeptest=False):
         """
@@ -897,8 +952,10 @@ def usage():
     outputs it to outfile.
     
     instruction is required and specifies what you want to do. It must be 'list'
-    or 'extract'. 'list' will list the contents of the specified image file.
-    'extract' extracts the data from an image file entry to wherever you want.
+    'delete' or 'extract'. 'list' will list the contents of the specified image
+    file. 'delete' will output a copy of the input with the specified file(s)
+    deleted.'extract' extracts the data from an image file entry to wherever you
+    want.
     
     infile and outfile are required unless reading from the standard input or
     outputting to the standard output. Usually arguments are ignored if they
@@ -906,6 +963,13 @@ def usage():
 
     For the extract instruction, the index of the image file you want to extract
     must be specified before the filenames.
+    
+    For the delete instruction, the index of the file in the disk image you want
+    to delete must be specified before the filenames. You can have ranges of
+    indexes if you want to delete more that one file from the image. The syntax
+    is the same as for the -s flag. You can use the -s flag in the delete
+    instruction in which case you should not specify a file index before the
+    input or output files.
     
     general flags:    
     -o specifies that the output from this program is to be directed to the
@@ -916,6 +980,14 @@ def usage():
        not inputfile which should be omited. It can be used for all
        instructions.
     --fromstandardinput same as -i.
+    -s specifies which file entries you want. These are the same as returned by
+       the list instruction. You can specify more than one, seperated by commas,
+       and can even specify ranges of them with a minus. The numbers are assumed
+       to be decimal unless preceded by 0x in which case they are assumed to be
+       hexadecimal. For example 2,0x10-20,23 will specify entry 2, 16 to 20
+       inclusive, and 23. This flag can be used in the list and delete commands.
+    --specifyfiles same as -s.
+    --specificfiles same as -s.
     
     list flags:
     -d specifies that we want all information about each file entry divided by
@@ -932,23 +1004,13 @@ def usage():
        For array files there follows the the array letter, the array variable
        name, and the array descriptor specifying what sort of array it contains.
     --details is the same as -d.
-    -s specifies which file entries you want. These are the same as returned by
-       the list instruction. You can specify more than one, seperated by commas,
-       and can even specify ranges of them with a minus. The numbers are assumed
-       to be decimal unless preceded by 0x in which case they are assumed to be
-       hexadecimal. For example 2,0x10-20,23 will specify entry 2, 16 to 20
-       inclusive, and 23.
-    --specifyfiles same as -s.
-    --specificfiles same as -s.
     -l specifies that you want empty file slots to be returned in the listing.
        Normally these are omitted from a listing for increased clarity and
        brevity.
     --listempty same as -l.
 """
 
-if __name__=="__main__":
-    import sys
-
+def CommandLine(args):
     getint=lambda x: int(x,16 if x.lower().startswith("0x") else 10)
 
     def getindices(arg):
@@ -984,15 +1046,15 @@ if __name__=="__main__":
     listempty=False
 
     #handle no arguments
-    if(len(sys.argv)==1):
+    if(len(args)==1):
         mode='help'    
     
     #go through arguments analysing them
-    while(i<len(sys.argv)-1):
+    while(i<len(args)-1):
         i+=1
 
-        arg=sys.argv[i]
-        if(arg=='help' or arg=='extract' or arg=='list'):
+        arg=args[i]
+        if(arg=='help' or arg=='extract' or arg=='list' or arg=='delete'):
             if(mode!=None):
                 error="Can't have multiple commands."
                 break
@@ -1018,9 +1080,9 @@ if __name__=="__main__":
         
         if(arg=='-s' or arg=='-specifyfiles' or arg=='-specificfiles' or arg=='--s' or arg=='--specifyfiles' or arg=='--specificfiles'):
             i+=1
-            specifiedfiles=getindices(sys.argv[i])
+            specifiedfiles=getindices(args[i])
             if(specifiedfiles==None):
-                error='"'+sys.argv[i]+'" is invalid list of file indexes.'
+                error='"'+args[i]+'" is invalid list of file indexes.'
                 break
 
             continue
@@ -1038,6 +1100,16 @@ if __name__=="__main__":
                 error='%s is not a valid index in the input file.' % arg
                 break
 
+        #check if is what entry we want to extract
+        if(mode=='delete' and entrywanted==None and specifiedfiles==None):
+            try:
+                specifiedfiles=getindices(arg)
+                continue
+                
+            except:
+                error='%s is not a valid index in the input file.' % arg
+                break
+
         #check if is input or output file
         #will be inputfile if not already defined, and fromstandardinput is False
         if(inputfile==None and fromstandardinput==False):
@@ -1046,7 +1118,7 @@ if __name__=="__main__":
 
         #will be outputfile if not already defined, tostandardoutput is False, and is last
         #argument
-        if(outputfile==None and tostandardoutput==False and i==len(sys.argv)-1):
+        if(outputfile==None and tostandardoutput==False and i==len(args)-1):
             outputfile=arg
             continue
 
@@ -1054,13 +1126,19 @@ if __name__=="__main__":
         break
 
     if(error==None and mode==None):
-        error='No command (list, extract, or help) specified.'
+        error='No command (list, extract, delete, or help) specified.'
 
     if(error==None and inputfile==None and fromstandardinput==False and mode!='help'):
         error='No input file specified.'
     
     if(error==None and outputfile==None and tostandardoutput==False and mode!='help'):
         error='No output file specified.'
+
+    if(error==None and entrywanted==None and mode=='extract'):
+        error='No file index specified to extract.'
+
+    if(error==None and specifiedfiles==None and entrywanted==None and mode=='delete'):
+        error='No file index(s) specified to delete.'
 
     #handle error with arguments
     if(error!=None):
@@ -1070,12 +1148,19 @@ if __name__=="__main__":
     
     #if help is needed display it
     if(mode=='help'):
-        print usage()
+        sys.stdout.write(usage())
         sys.exit(0)
 
     #get disc image
     if(fromstandardinput==False):
-        di=DiscipleImage(inputfile)
+        #if we're deleteing or copying then we need to work with a copy of the input file
+        if(mode=='delete' or mode=='copy'):
+            with open(inputfile,'rb') as infile:
+                di=DiscipleImage()
+                di.setBytes(infile.read())
+                
+        else:
+            di=DiscipleImage(inputfile)
     
     else:
         di=DiscipleImage()
@@ -1120,6 +1205,22 @@ if __name__=="__main__":
             
         retdata=df.GetFileData()
 
+    if(mode=='delete'):
+        if(specifiedfiles==None):
+            specifiedfiles=[entrywanted]
+        
+        for i in specifiedfiles:
+            if(i>80 or i<1):
+                sys.stderr.write(str(i)+" is not a valid entry number (should be 1 to 80).\n")
+                sys.stdout.write("Use 'python disciplefile.py' to see full list of options.\n")
+                sys.exit(2)
+            
+            di.DeleteEntry(i)
+        
+        #now set disk image as output
+        retdata=di.bytedata
+
+
     #output data
     if(tostandardoutput==False):
         fo=open(outputfile,"wb")
@@ -1128,3 +1229,9 @@ if __name__=="__main__":
 
     else:
         sys.stdout.write(retdata)
+
+
+if __name__=="__main__":
+    import sys
+
+    CommandLine(sys.argv)
