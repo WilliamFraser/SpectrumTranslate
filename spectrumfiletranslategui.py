@@ -2749,6 +2749,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             #try from disciple/+D image file
             try:
                 di=disciplefile.DiscipleImage(self.leFileNameIn.text())
+                di.GuessImageFormat()
                 
                 if(di.CheckImageIsValid(True)):
                     self.bBrowseContainer.setText("Browse disk image")

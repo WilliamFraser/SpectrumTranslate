@@ -32,6 +32,7 @@
 
 import spectrumtranslate
 import mmap
+import os
 
 class DiscipleFile:
     """A class that holds information about a file from a +D/Disciple disk image."""
@@ -50,7 +51,7 @@ class DiscipleFile:
         
         #is it a valid filenumber? Origional valid filenumbers are 1 to 80
         if(self.filenumber<1 or self.filenumber>80):
-            raise spectrumtranslate.SpectrumTranslateException("Invalid File Number");
+            raise spectrumtranslate.SpectrumTranslateException("Invalid File Number")
 
     def GetHeadder(self):
         """Returns 256 byte file headder"""
@@ -58,7 +59,7 @@ class DiscipleFile:
         #work out if first or second entry in sector
         headderstart=((self.filenumber-1)&1)*256
         
-        return self.image.GetSector((self.filenumber-1)/20,(((self.filenumber-1)/2)%10)+1,0)[headderstart:headderstart+256]
+        return self.image.GetSector((self.filenumber-1)/20,(((self.filenumber-1)/2)%10)+1,-1)[headderstart:headderstart+256]
 
     def GetFileData(self,wantheadder=False,headderdata=None):
         """Get the data of the file. Returns a byte string array containing the file data.
@@ -650,6 +651,16 @@ class DiscipleImage:
             
         raise spectrumtranslate.SpectrumTranslateException('Only valid image formats are "MGT" and "IMG"')
 
+    def GetOffsetAndBitFromTrackAndSector(self,track,sector):
+        """calculate offset & bit of this track & sector in sectorMap"""
+        o=(track&127)+(80 if track>=128 else 0)-4
+        o*=10
+        o+=sector-1
+        b=1<<(o%8)
+        o//=8
+        
+        return o,b
+
     def GuessImageFormat(self):
         """
         This method will try and work out and set the image format for this image.
@@ -788,6 +799,17 @@ class DiscipleImage:
         it matches the FAT. This will involve loading lots of sectors and may take some time.
         """
 
+        #check image source
+        if(self.ImageSource=="Undefined"):
+            return False
+
+        if(self.ImageFormat=="Unknown"):
+            return False
+
+        #todo handle non 80 track, 2 sided disks
+        if(self.ImageSource=="Bytes" and len(self.bytedata)!=819200):
+            return False
+
         #create empty sector map        
         sectorMap=[0]*195
         
@@ -800,7 +822,7 @@ class DiscipleImage:
             if(track!=(entry-1)/20 or sector!=(((entry-1)/2)%10)+1):
                 track=(entry-1)/20
                 sector=(((entry-1)/2)%10)+1
-                headder=self.GetSector(track,sector,0)
+                headder=self.GetSector(track,sector)
             
             #is filetype (excluding flags) consistent with valid file?
             filetype=ord(headder[headderstart])&31
@@ -862,11 +884,7 @@ class DiscipleImage:
             starttrack=ord(headder[headderstart+13])
 
             #calculate offset & bit of this track & sector in sectorMap
-            o=(starttrack&127)+(80 if starttrack>=128 else 0)-4
-            o*=10
-            o+=startsector-1
-            b=1<<(o%8)
-            o/=8
+            o,b=self.GetOffsetAndBitFromTrackAndSector(starttrack,startsector)
             #check if is sector owned by this file
             if((sectorMap[o]&b)!=b):
                 return False
@@ -896,11 +914,7 @@ class DiscipleImage:
                         return False
                     
                     #calculate offset & bit of this track & sector in sectorMap
-                    o=(t&127)+(80 if t>=128 else 0)-4
-                    o*=10
-                    o+=s-1
-                    b=1<<(o%8)
-                    o/=8
+                    o,b=self.GetOffsetAndBitFromTrackAndSector(t,s)
                     #check if is sector owned by this file
                     if((sm[o]&b)!=b):
                         return False
@@ -929,6 +943,228 @@ class DiscipleImage:
                         return False
                 
         return True
+    
+    def WriteFile(self,headder,filedata,position=-1):
+        """This method will write the supplied filedata to the disk image with the headder as specified
+        by headder. headder has to be a 256 byte string for the file. Bytes 11 to 209 will be ignored and
+        overwritten, but the other bytes have to correct fot the file. filedata is then written to the
+        disk. position is optional, but specifies into which file entry you want this saved. If it's -1
+        then it will be saved to the first free headder slot.
+        """
+        
+        #first check input
+        if(len(headder)!=256):
+            raise spectrumtranslate.SpectrumTranslateException("Header block must be 256 bytes long.")
+        
+        if(position!=-1 and position<1 and position>80):
+            raise spectrumtranslate.SpectrumTranslateException("Invalid file position.")
+        
+        #find first empty headder slot and build map of used sectors
+        i=1
+        sectorcount=0
+        #create empty sector map        
+        sectorMap=[0]*195
+        while(i<=80):
+            sector=self.GetSector((i-1)/20,(((i-1)/2)%10)+1)
+            for headderoffset in (0,256):
+                #if empty check if we can use it
+                if(ord(sector[headderoffset])==0):
+                    if(position==-1):
+                        position=i
+                
+                #if used then make note of sectors used if we're not overwriting
+                elif(position!=i):
+                    for l in range(195):
+                        if(sectorMap[l]&ord(sector[headderoffset+15+l])!=0):
+                            #we have conflicting FAT entries
+                            raise spectrumtranslate.SpectrumTranslateException("Corrupt FAT table in destination image.")
+                        
+                        #update sector map
+                        sectorMap[l]|=ord(sector[headderoffset+15+l])
+                        #work out number of sectors used
+                        sectorcount+=bin(ord(sector[headderoffset+15+l])).count("1")
+                    
+                i+=1
+        
+        #if no empty headders and not wanting to over-write then raise error    
+        if(position==-1):
+            raise spectrumtranslate.SpectrumTranslateException("No empty headder entries.")
+        
+        #check if we have enogh sectors. 510 bytes can be saved per sector
+        sectorsused=(len(filedata)+509)//510
+        
+        if(sectorsused+sectorcount>1560):
+            raise spectrumtranslate.SpectrumTranslateException("Not enough space on disk for file.")
+        
+        #define nested function to search for next unused sector
+        def NextUnusedSector(sectormap):
+            for i in range(195):
+                if(sectormap[i]==255):
+                    continue
+                
+                for b in range(8):
+                    if(sectormap[i]&(1<<b)==0):
+                        #work out track & sector
+                        s=i*8+b
+                        t=(s//10)+4
+                        if(t>79):
+                            t+=48
+                        
+                        s=(s%10)+1
+                        return [t,s]
+
+            raise spectrumtranslate.SpectrumTranslateException("Image full.")
+
+        #make copy of headder localy to alter
+        headder=[ord(x) for x in headder]
+        
+        #clear FAT table for file headder
+        for i in range(195):
+            headder[i+15]=0
+
+        #get starting sector, and remember it in headder
+        t,s=NextUnusedSector(sectorMap)
+        
+        headder[13]=t
+        headder[14]=s
+        
+        #make note of number of sectors
+        headder[12]=sectorsused&0xFF
+        headder[11]=sectorsused//0x100
+        
+        #now save file
+        l=0
+        while(l<len(filedata)):
+            #mark sector as being used in disk FAT & file FAT
+            o,b=self.GetOffsetAndBitFromTrackAndSector(t,s)
+            sectorMap[o]|=b
+            headder[15+o]|=b
+
+            #work out how much to save in this sector
+            chunklength=min(len(filedata)-l,510)
+            
+            #work out what next track & sector will be
+            #will be 0,0 if last sector in chain
+            if(len(filedata)-l<=510):
+                nextsector=[0,0]
+                
+            else:
+                nextsector=NextUnusedSector(sectorMap)
+            
+            #create sector padding with 0 and finishing off with next sector
+            sectordata=filedata[l:l+chunklength]+"".join([chr(x) for x in ([0]*(510-chunklength)+nextsector)])
+            self.WriteSector(sectordata,t,s)
+
+            #update counters and next sectors            
+            t,s=nextsector
+            l+=chunklength
+
+        #now save headder
+        #prepare headder for saveing
+        headder="".join([chr(x) for x in headder])
+        #work out track, sector, and offset for headder for file
+        headderstart=((position-1)&1)*256
+        track=(position-1)//20
+        sector=(((position-1)//2)%10)+1
+        
+        sectordata=self.GetSector(track,sector)
+        sectordata=sectordata[:headderstart]+headder+sectordata[headderstart+256:]
+        self.WriteSector(sectordata,track,sector)
+        
+    def WriteBasicFile(self,filedata,filename,position=-1,autostartline=0,varposition=-1,overwritename=True):
+        """This method writes a BASIC file to the disk image. filedata is a byte string of the BASIC
+        file (with or without extra variables). filename is the name to save the BASIC file as on the
+        disk image. Normaly this method would overwrite an existing file with the same name. If
+        overwritename is False then it will not overwrite the existing file. Haveing two files with
+        the same name on a disk is not impossible but is confusing. position can be used to specify
+        which directory entry to save the file details at. If -1 it will use the first available
+        empty slot (assuming that we're not overwriting a file with the same name), otherwise it will
+        save the file in this slot even if a file with the same name exists in another directory slot.
+        autostartline specifies the line to automatically start running if loaded. If not specified then
+        no automatic start line is set. varposition specifies the offset to the variables being saved
+        with the BASIC program. If set to None then it will save the file as if there were no variables,
+        if -1 then this method will work out where the variables are (if any). Only set this manually
+        if you know the correct value as this could cause confusion if wrong. If in doubt use -1.
+        Filenames consist of up to 10 characters as either a string, or a list of strings or list of
+        numbers for the character values. The method will raise an exception if the filename is invalid.
+        """
+        
+        #validate input
+        #check filename is valid
+        if(isinstance(filename,list)):
+            #if is list of numbers convert to list of strings
+            if(False not in [isinstance(x,(int,long)) for x in filename]):
+                filename=[chr(x) for x in filename]
+            
+            #if there are only strings in the list then convert list to a string
+            if(False not in [isinstance(x,str) for x in filename]):
+                filename="".join(filename)
+                
+        if(not isinstance(filename,str) or len(filename)>10):
+            raise spectrumtranslate.SpectrumTranslateException("Filename must be a string, or list of ints or strings of no more than 10 characters.")
+
+        #create headder
+        headder=[0,32,32,32,32,32,32,32,32,32,32]+([0]*245)
+        #set filename
+        for i in range(len(filename)):
+            headder[i+1]=ord(filename[i])
+        
+        #set basic file
+        headder[0]=1
+        headder[211]=0
+        #set length
+        headder[212]=len(filedata)&255
+        headder[213]=len(filedata)//256
+        #set start
+        headder[214]=23755&255
+        headder[215]=23755//256
+        #set variable offset
+        if(varposition==-1):
+            #work out position of variables
+            offset=0
+            while(offset<len(filedata)):
+                linenumber=(ord(filedata[offset])*256)+ord(filedata[offset+1])
+                #bits 5,6,7 of variable code will be 16384 or more
+                if(linenumber>9999):
+                    #too big for line number: is 1st variable
+                    break
+                
+                #otherwise move to next line
+                linelength=ord(filedata[offset+2])+(ord(filedata[offset+3])*256)
+                offset+=linelength+4
+            
+            varposition=min(offset,len(filedata))
+        
+        if(varposition==None):
+            varposition=len(filedata)
+            
+        headder[216]=varposition&255
+        headder[217]=varposition//256
+        
+        #setautostart
+        headder[218]=autostartline&255
+        headder[219]=autostartline//256
+        
+        #convert back to string
+        headder="".join([chr(x) for x in headder])
+        
+        #outputfile
+        #first work out if we're overwriting existing filename
+        if(overwritename):
+            #if so search to see if file exists
+            i=1
+            while(i<=80 and position==-1):
+                sector=self.GetSector((i-1)/20,(((i-1)/2)%10)+1)
+                for headderoffset in (0,256):
+                    #if exists and is the file we're after then use it
+                    if(ord(sector[headderoffset])!=0 and sector[headderoffset+1:headderoffset+12]==headder[1:12]):
+                        position=i
+                        break
+                    
+                    i+=1
+                
+        #NB basic, code, and variable files have 9 byte extra headder saved before the filedata
+        self.WriteFile(headder,headder[211:220]+filedata,position)
 
     def IterateDiscipleFiles(self):
         """
@@ -952,10 +1188,11 @@ def usage():
     outputs it to outfile.
     
     instruction is required and specifies what you want to do. It must be 'list'
-    'delete' or 'extract'. 'list' will list the contents of the specified image
-    file. 'delete' will output a copy of the input with the specified file(s)
-    deleted.'extract' extracts the data from an image file entry to wherever you
-    want.
+    'delete', 'copy' or 'extract'. 'list' will list the contents of the
+    specified image file. 'delete' will output a copy of the input with the
+    specified file(s) deleted.'extract' extracts the data from an image file
+    entry to wherever you want. 'copy; copies the specified file(s) from one
+    image to another (a new image will be generated if none is specified).
     
     infile and outfile are required unless reading from the standard input or
     outputting to the standard output. Usually arguments are ignored if they
@@ -964,12 +1201,12 @@ def usage():
     For the extract instruction, the index of the image file you want to extract
     must be specified before the filenames.
     
-    For the delete instruction, the index of the file in the disk image you want
-    to delete must be specified before the filenames. You can have ranges of
-    indexes if you want to delete more that one file from the image. The syntax
-    is the same as for the -s flag. You can use the -s flag in the delete
-    instruction in which case you should not specify a file index before the
-    input or output files.
+    For the delete and copy instructions, the index of the file in the disk
+    image you want to copy or delete must be specified before the filenames. You
+    can have ranges of indexes if you want to delete or copy more that one file
+    from the image. The syntax is the same as for the -s flag. You can use the
+    -s flag in the instruction in which case you should not specify a file index
+    before the input or output files.
     
     general flags:    
     -o specifies that the output from this program is to be directed to the
@@ -1008,6 +1245,26 @@ def usage():
        Normally these are omitted from a listing for increased clarity and
        brevity.
     --listempty same as -l.
+    -c specifies that after the listing is complete you want the number of bytes
+       free on the disk to be displayed on a new line.
+    --capacity same as -c.
+    -ck same as -c but number of free K on disk is listed. If the number seems
+        odd then remember that only 510 bytes can be fitted in per sector.
+    -cs same as -c but number of free sectors on disk is listed.
+    
+    copy flags:
+    -p specifies the positions where you want to copy the file entries to. You
+       can specify more than one, seperated by commas, and can even specify
+       ranges of them with a minus. The numbers are assumed to be decimal unless
+       preceded by 0x in which case they are assumed to be hexadecimal. For
+       example 2,0x10-20,23 will specify entry 2, 16 to 20 inclusive, and 23.
+       These positions will be worked through in order as the source files are
+       copied across. If there are more destination positions than source files,
+       then the extra positions will be ignored. If there are fewer specified
+       destination positions than files to copy, then the extra files will be
+       saved to the first empty directry entries in the disk image.
+    --pos same as -p.
+    --position same as -p.
 """
 
 def CommandLine(args):
@@ -1044,6 +1301,9 @@ def CommandLine(args):
     entrywanted=None
     specifiedfiles=None
     listempty=False
+    copyposition=[]
+    wantdiskcapacity=False
+    capacityformat="Bytes"
 
     #handle no arguments
     if(len(args)==1):
@@ -1054,7 +1314,7 @@ def CommandLine(args):
         i+=1
 
         arg=args[i]
-        if(arg=='help' or arg=='extract' or arg=='list' or arg=='delete'):
+        if(arg=='help' or arg=='extract' or arg=='list' or arg=='delete' or arg=='copy'):
             if(mode!=None):
                 error="Can't have multiple commands."
                 break
@@ -1078,6 +1338,20 @@ def CommandLine(args):
             listempty=True
             continue
         
+        if(arg=='-c' or arg=='-capacity' or arg=='--c' or arg=='--capacity'):
+            wantdiskcapacity=True
+            continue
+        
+        if(arg=='-cs' or arg=='--cs'):
+            wantdiskcapacity=True
+            capacityformat="Sector"
+            continue
+
+        if(arg=='-ck' or arg=='--ck'):
+            wantdiskcapacity=True
+            capacityformat="K"
+            continue
+        
         if(arg=='-s' or arg=='-specifyfiles' or arg=='-specificfiles' or arg=='--s' or arg=='--specifyfiles' or arg=='--specificfiles'):
             i+=1
             specifiedfiles=getindices(args[i])
@@ -1087,6 +1361,15 @@ def CommandLine(args):
 
             continue
 
+        if(arg=='-p' or arg=='-position' or arg=='-pos' or arg=='--p' or arg=='--position' or arg=='--pos'):
+            i+=1
+            try:
+                copyposition=getindices(args[i])
+                continue
+
+            except:
+                error='%s is not a valid index for the output file.' % args[i]
+                break
 
         #have unrecognised argument.
         
@@ -1100,8 +1383,8 @@ def CommandLine(args):
                 error='%s is not a valid index in the input file.' % arg
                 break
 
-        #check if is what entry we want to extract
-        if(mode=='delete' and entrywanted==None and specifiedfiles==None):
+        #check if is what entry we want to delete or copy
+        if((mode=='delete' or  mode=='copy') and entrywanted==None and specifiedfiles==None):
             try:
                 specifiedfiles=getindices(arg)
                 continue
@@ -1125,6 +1408,7 @@ def CommandLine(args):
         error='"%s" is unrecognised argument.' % arg
         break
 
+    #check we have all needed arguments
     if(error==None and mode==None):
         error='No command (list, extract, delete, or help) specified.'
 
@@ -1153,8 +1437,8 @@ def CommandLine(args):
 
     #get disc image
     if(fromstandardinput==False):
-        #if we're deleteing or copying then we need to work with a copy of the input file
-        if(mode=='delete' or mode=='copy'):
+        #if we're deleteing then we need to work with a copy of the input file
+        if(mode=='delete'):
             with open(inputfile,'rb') as infile:
                 di=DiscipleImage()
                 di.setBytes(infile.read())
@@ -1168,34 +1452,44 @@ def CommandLine(args):
     
     #now do command
     if(mode=='list'):
+        retdata='' if wantdetails else "  pos   filename  sectors   type\n"
+        sectorsused=0
         for df in di.IterateDiscipleFiles():
-            retdata='' if wantdetails else "  pos   filename  sectors   type\n"
-            for df in di.IterateDiscipleFiles():
-                if(specifiedfiles!=None and not df.filenumber in specifiedfiles):
-                    continue
+            if(specifiedfiles!=None and not df.filenumber in specifiedfiles):
+                continue
+            
+            if(listempty==False and df.IsEmpty()):
+                continue
                 
-                if(listempty==False and df.IsEmpty()):
-                    continue
-                    
-                if(wantdetails):
-                    d=df.GetFileDetails()
+            if(wantdetails):
+                d=df.GetFileDetails()
+    
+                retdata+="%i\t%s\t%i\t%s\t%i\t%i" % (d['filenumber'],d['filename'],d['filetype'],d['filetypelong'],d['sectors'],d['filelength'])
+                
+                if(d["filetype"]==1):
+                    retdata+="\t"+str(d["autostartline"])+"\t"+str(d["variableoffset"])
+    
+                if(d["filetype"]==4):
+                    retdata+="\t"+str(d["codeaddress"])
+    
+                if(d["filetype"]==2 or d["filetype"]==3):
+                    retdata+="\t"+str(d["variableletter"])+"\t"+str(d["variablename"])+"\t"+str(d["arraydescriptor"])
+                
+            else:
+                retdata+=df.GetFileDetailsString()
+    
+            sectorsused+=df.GetSectorsUsed()
+            
+            retdata+="\n"
         
-                    retdata+="%i\t%s\t%i\t%s\t%i\t%i" % (d['filenumber'],d['filename'],d['filetype'],d['filetypelong'],d['sectors'],d['filelength'])
-                    
-                    if(d["filetype"]==1):
-                        retdata+="\t"+str(d["autostartline"])+"\t"+str(d["variableoffset"])
-        
-                    if(d["filetype"]==4):
-                        retdata+="\t"+str(d["codeaddress"])
-        
-                    if(d["filetype"]==2 or d["filetype"]==3):
-                        retdata+="\t"+str(d["variableletter"])+"\t"+str(d["variablename"])+"\t"+str(d["arraydescriptor"])
-                    
-                else:
-                    retdata+=df.GetFileDetailsString()
-        
-                retdata+="\n"
-
+        if(wantdiskcapacity==True):
+            if(capacityformat=="Sector"):
+                retdata+=str(1560-sectorsused)+" sectors free.\n"
+            elif(capacityformat=="K"):
+                retdata+=str(((1560-sectorsused)*510)/1024.0)+"K free.\n"
+            else:
+                retdata+=str((1560-sectorsused)*510)+" bytes free.\n"
+            
     if(mode=='extract'):
         df=DiscipleFile(di,entrywanted)
         if(entrywanted>80 or entrywanted<1):
@@ -1220,6 +1514,38 @@ def CommandLine(args):
         #now set disk image as output
         retdata=di.bytedata
 
+    if(mode=='copy'):
+        #create output image to copy into
+        diout=DiscipleImage()
+        #if we're writing to an existing file then load it into our image
+        if(tostandardoutput==False and os.path.isfile(outputfile)):
+            with open(outputfile,'rb') as outfile:
+                diout.setBytes(outfile.read())
+        else:
+            diout.setBytes('\x00'*819200)
+
+        if(specifiedfiles==None):
+            specifiedfiles=[entrywanted]
+
+        copypositionindex=0
+        
+        for i in specifiedfiles:
+            if(i>80 or i<1):
+                sys.stderr.write(str(i)+" is not a valid entry number (should be 1 to 80).\n")
+                sys.stdout.write("Use 'python disciplefile.py' to see full list of options.\n")
+                sys.exit(2)
+
+            #get file and it's details
+            df=DiscipleFile(di,i)
+            headder=df.GetHeadder()
+            filedata=df.GetFileData(wantheadder=True,headderdata=headder)
+            #write file
+            diout.WriteFile(headder,filedata,-1 if copypositionindex>=len(copyposition) else copyposition[copypositionindex])
+            
+            copypositionindex+=1
+
+        #now set disk image as output
+        retdata=diout.bytedata
 
     #output data
     if(tostandardoutput==False):
