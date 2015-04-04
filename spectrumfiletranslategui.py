@@ -1870,7 +1870,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 if(outputformat=="Basic Program"):
                     auto=self.getNumber(self.leBasicAutoLine)
                     variableoffset=self.getNumber(self.leBasicVariableOffset)
-                    output=spectrumtapblock.CreateProgramHeadder(filename,variableoffset,len(data),auto).getPackagedForFile()
+                    output=spectrumtapblock.CreateBASICHeadder(filename,variableoffset,len(data),auto).getPackagedForFile()
                     
                 elif(outputformat=="Machine Code"):
                     origin=self.getNumber(self.leCodeOrigin)
@@ -1942,38 +1942,40 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             
         #handle raw data
         if(outputformat=="Raw Data"):
-            #create dialog
-            dContainer=QtGui.QDialog(self)
-            dContainer.setWindowTitle("View Raw Data")
-            dContainer.setModal(True)
-            
-            lay=QtGui.QVBoxLayout()
-            
-            lay2=QtGui.QHBoxLayout()
-            lay2.addStretch(1)
-            ok=QtGui.QPushButton("Ok",self)
-            lay2.addWidget(ok)
-            ok.clicked.connect(dContainer.accept)
-            lay2.addStretch(1)
-            
-            lay3=QtGui.QHBoxLayout()
-            scroll=QtGui.QScrollBar(QtCore.Qt.Vertical)
-            hexview=SpectrumFileTranslateGUI.StartStopDisplayPanel(data,0,len(data),None,scroll)
-            lay3.addWidget(hexview)
-            hexview.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
-            hexview.sizePolicy().setHorizontalStretch(1)
-            lay3.addWidget(scroll)
-            
-            lay.addLayout(lay3)
-            lay.addLayout(lay2)
-            
-            dContainer.setLayout(lay)
-            
-            #set to same size as parent
-            dContainer.setGeometry(self.geometry())
-            
-            #run dialog
-            dContainer.exec_()
+            #display raw data if required
+            if(self.cbViewOutput.isChecked()):
+                #create dialog
+                dContainer=QtGui.QDialog(self)
+                dContainer.setWindowTitle("View Raw Data")
+                dContainer.setModal(True)
+                
+                lay=QtGui.QVBoxLayout()
+                
+                lay2=QtGui.QHBoxLayout()
+                lay2.addStretch(1)
+                ok=QtGui.QPushButton("Ok",self)
+                lay2.addWidget(ok)
+                ok.clicked.connect(dContainer.accept)
+                lay2.addStretch(1)
+                
+                lay3=QtGui.QHBoxLayout()
+                scroll=QtGui.QScrollBar(QtCore.Qt.Vertical)
+                hexview=SpectrumFileTranslateGUI.StartStopDisplayPanel(data,0,len(data),None,scroll)
+                lay3.addWidget(hexview)
+                hexview.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
+                hexview.sizePolicy().setHorizontalStretch(1)
+                lay3.addWidget(scroll)
+                
+                lay.addLayout(lay3)
+                lay.addLayout(lay2)
+                
+                dContainer.setLayout(lay)
+                
+                #set to same size as parent
+                dContainer.setGeometry(self.geometry())
+                
+                #run dialog
+                dContainer.exec_()
             
             #save data if required
             if(self.cbSaveOutput.isChecked()):
@@ -2024,7 +2026,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                     data=spectrumtranslate.snap_to_z80(data,registers,version=snapformat)
 
             #was there a problem?
-            except spectrumtranslate.SpectrumTranslateException, ste:
+            except spectrumtranslate.SpectrumTranslateException as ste:
                 QtGui.QMessageBox.warning(self,"Error!",'Unable to convert snapshot. Error:\n%s' % ste.value)
                 return
 
@@ -2104,7 +2106,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 
                 #default to simple text
                 return spectrumtranslate.convert_program_to_text(data,auto,variable)
-            except spectrumtranslate.SpectrumTranslateException, ste:
+            except spectrumtranslate.SpectrumTranslateException as ste:
                 QtGui.QMessageBox.warning(self,"Error!",ste.value)
                 return None
 
@@ -2143,7 +2145,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
             try:
                 return spectrumtranslate.disassemble(data,0,origin,len(data),self.diInstructions)
-            except spectrumtranslate.SpectrumTranslateException, ste:
+            except spectrumtranslate.SpectrumTranslateException as ste:
                 QtGui.QMessageBox.warning(self,"Error!",ste.value)
                 return None
             

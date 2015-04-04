@@ -220,7 +220,7 @@ class SpectrumTapBlock:
         if(not self.is_headder() or (self.getbyte(0)!=1 and self.getbyte(0)!=2)):
             return None
         
-        return self.get_headder_variable_letter()+(self.getbyte(0)==2 and "$" or"")
+        return self.get_headder_variable_letter()+("$" if self.getbyte(0)==2 else "")
 
     def get_headder_array_descriptor(self):
         """
@@ -406,7 +406,7 @@ def TapBlock_from_bytestring(bytestring,position=0):
             else:
                 break
 
-def CreateProgramHeadder(filename,VariableOffset,ProgLength,AutoStart=0):
+def CreateBASICHeadder(filename,VariableOffset,ProgLength,AutoStart=0):
     """
     Create a headder for a program SpectrumTapBlock.
     """

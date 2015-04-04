@@ -1186,7 +1186,7 @@ def extract_array(data,descriptor):
     #convert data from string to list of numbers if needed
     if(isinstance(data,str)):
         data=[ord(x) for x in data]
-
+    
     #number array or character array
     if(descriptor&128==128):
         #get dimension lengths
@@ -1327,6 +1327,8 @@ def get_spectrum_char(c):
         return u"\u00A3"
     if(c==94):
         return u"\u2191"
+    if(c>=128 and c<=143):
+        return (u'\u2003',u'\u259D',u'\u2598',u'\u2580',u'\u2597',u'\u2590',u'\u259A',u'\u259C',u'\u2596',u'\u259E',u'\u258C',u'\u259B',u'\u2584',u'\u259F',u'\u2599',u'\u2580')[c-128]
     if(c<32 or c>127):
         return "^%02X" % (c)
 
@@ -5262,7 +5264,7 @@ if __name__=="__main__":
                     retdata='\n'.join("%X\n%X\n%X\n%s" % (x.instruction,x.start,x.end,'' if x.data==None else x.data) for x in di)
 
     #handle any exceptions while translating
-    except SpectrumTranslateException, ste:
+    except SpectrumTranslateException as ste:
         sys.stderr.write(ste.value+"\n")
         sys.exit(1)
     

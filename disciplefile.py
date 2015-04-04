@@ -33,6 +33,7 @@
 import spectrumtranslate
 import mmap
 import os
+#sys and codecs are imported if run from the command line 
 
 class DiscipleFile:
     """A class that holds information about a file from a +D/Disciple disk image."""
@@ -315,6 +316,7 @@ class DiscipleFile:
             #code
             details["codeaddress"]=self.GetCodeStart(headderdata)
             details["catextradata"]="%5d,%d" % (self.GetCodeStart(headderdata),self.GetFileLength(headderdata))
+            details["coderunaddress"]=ord(headderdata[218])+256*ord(headderdata[219])
             
         if(details["filetype"]==1):
             #basic
@@ -418,7 +420,7 @@ class DiscipleFile:
         if(headderdata==None):
             headderdata=self.GetHeadder()
 
-        if(ord(headderdata[0])==2 or ord(headderdata[0])==3):
+        if(ord(headderdata[0])!=2 and ord(headderdata[0])!=3):
             return None
         
         return chr((ord(headderdata[216])&127)|64)
@@ -437,8 +439,8 @@ class DiscipleFile:
 
         if(ord(headderdata[0])!=2 and ord(headderdata[0])!=3):
             return None
-            
-        return self.GetVariableLetter(headderdata)+("$" if ord(headderdata[0])==2 else "")
+        
+        return self.GetVariableLetter(headderdata)+("$" if ord(headderdata[0])==3 else "")
 
     def GetArrayDescriptor(self,headderdata=None):
         """
@@ -461,7 +463,7 @@ class DiscipleFile:
         if(ord(headderdata[0])!=2 and ord(headderdata[0])!=3):
             return -1
 
-        return ord(headderdata[217])
+        return ord(headderdata[216])
 
     def GetSnapshotRegisters(self,headderdata=None):
         """
@@ -1027,7 +1029,7 @@ class DiscipleImage:
         
         headder[13]=t
         headder[14]=s
-        
+
         #make note of number of sectors
         headder[12]=sectorsused&0xFF
         headder[11]=sectorsused//0x100
@@ -1103,6 +1105,9 @@ class DiscipleImage:
         if(not isinstance(filename,str) or len(filename)>10):
             raise spectrumtranslate.SpectrumTranslateException("Filename must be a string, or list of ints or strings of no more than 10 characters.")
 
+        if(len(filedata)>65535-23755):
+            raise spectrumtranslate.SpectrumTranslateException("Data too big to fit in spectrum memory.")
+
         #create headder
         headder=[0,32,32,32,32,32,32,32,32,32,32]+([0]*245)
         #set filename
@@ -1166,9 +1171,216 @@ class DiscipleImage:
         #NB basic, code, and variable files have 9 byte extra headder saved before the filedata
         self.WriteFile(headder,headder[211:220]+filedata,position)
 
+    def WriteCodeFile(self,filedata,filename,position=-1,codestartaddress=0,overwritename=True,coderunaddress=0):
+        """This method writes a code file to the disk image. filedata is a byte string of the code.
+        filename is the name to save the code file as on the disk image. Normaly this method would
+        overwrite an existing file with the same name. If overwritename is False then it will not
+        overwrite the existing file. Haveing two files with the same name on a disk is not
+        impossible but is confusing. position can be used to specify which directory entry to save
+        the file details at. If -1 it will use the first available empty slot (assuming that we're
+        not overwriting a file with the same name), otherwise it will save the file in this slot
+        even if a file with the same name exists in another directory slot. codestartaddress
+        specifies the address to which the code should be loaded.coderunaddress specifies the
+        address which should be called after the code is loaded. If 0 it is ignored.
+        Filenames consist of up to 10 characters as either a string, or a list of strings or list of
+        numbers for the character values. The method will raise an exception if the filename is invalid.
+        """
+        
+        #validate input
+        #check filename is valid
+        if(isinstance(filename,list)):
+            #if is list of numbers convert to list of strings
+            if(False not in [isinstance(x,(int,long)) for x in filename]):
+                filename=[chr(x) for x in filename]
+            
+            #if there are only strings in the list then convert list to a string
+            if(False not in [isinstance(x,str) for x in filename]):
+                filename="".join(filename)
+                
+        if(not isinstance(filename,str) or len(filename)>10):
+            raise spectrumtranslate.SpectrumTranslateException("Filename must be a string, or list of ints or strings of no more than 10 characters.")
+
+        if(len(filedata)>65535):
+            raise spectrumtranslate.SpectrumTranslateException("Data too big to fit in spectrum memory.")
+
+        #create headder
+        headder=[0,32,32,32,32,32,32,32,32,32,32]+([0]*245)
+        #set filename
+        for i in range(len(filename)):
+            headder[i+1]=ord(filename[i])
+        
+        #set code file
+        headder[0]=4
+        headder[211]=3
+        #set length
+        headder[212]=len(filedata)&255
+        headder[213]=len(filedata)//256
+        #set codestartaddress
+        headder[214]=codestartaddress&255
+        headder[215]=codestartaddress//256
+        #set coderunaddress
+        headder[218]=coderunaddress&255
+        headder[219]=coderunaddress//256
+        
+        #convert back to string
+        headder="".join([chr(x) for x in headder])
+        
+        #outputfile
+        #first work out if we're overwriting existing filename
+        if(overwritename):
+            #if so search to see if file exists
+            i=1
+            while(i<=80 and position==-1):
+                sector=self.GetSector((i-1)/20,(((i-1)/2)%10)+1)
+                for headderoffset in (0,256):
+                    #if exists and is the file we're after then use it
+                    if(ord(sector[headderoffset])!=0 and sector[headderoffset+1:headderoffset+12]==headder[1:12]):
+                        position=i
+                        break
+                    
+                    i+=1
+                
+        #NB basic, code, and variable files have 9 byte extra headder saved before the filedata
+        self.WriteFile(headder,headder[211:220]+filedata,position)
+
+    def WriteArrayFile(self,filedata,filename,VariableDescriptor,position=-1,overwritename=True):
+        """This method writes an array file to the disk image. filedata is a byte string of the
+        array data. filename is the name to save the file as on the disk image. Normaly this method
+        would overwrite an existing file with the same name. If overwritename is False then it will
+        not overwrite the existing file. Haveing two files with the same name on a disk is not
+        impossible but is confusing. position can be used to specify which directory entry to save
+        the file details at. If -1 it will use the first available empty slot (assuming that we're
+        not overwriting a file with the same name), otherwise it will save the file in this slot
+        even if a file with the same name exists in another directory slot. The VariableDescriptor
+        is composed of the lower 6 bits of the variable name (a one letter name), and the upper 2
+        bits are 64 for a character array, 128 for a number array, and 192 for a string array.
+        Filenames consist of up to 10 characters as either a string, or a list of strings or list of
+        numbers for the character values. The method will raise an exception if the filename is invalid.
+        """
+        
+        #validate input
+        #check filename is valid
+        if(isinstance(filename,list)):
+            #if is list of numbers convert to list of strings
+            if(False not in [isinstance(x,(int,long)) for x in filename]):
+                filename=[chr(x) for x in filename]
+            
+            #if there are only strings in the list then convert list to a string
+            if(False not in [isinstance(x,str) for x in filename]):
+                filename="".join(filename)
+                
+        if(not isinstance(filename,str) or len(filename)>10):
+            raise spectrumtranslate.SpectrumTranslateException("Filename must be a string, or list of ints or strings of no more than 10 characters.")
+
+        if(len(filedata)>65535-23755):
+            raise spectrumtranslate.SpectrumTranslateException("Data too big to fit in spectrum memory.")
+
+        #create headder
+        headder=[0,32,32,32,32,32,32,32,32,32,32]+([0]*245)
+        #set filename
+        for i in range(len(filename)):
+            headder[i+1]=ord(filename[i])
+        
+        #set variable file
+        headder[211]=1 if VariableDescriptor&192==128 else 2
+        headder[0]=headder[211]+1
+        #set length
+        headder[212]=len(filedata)&255
+        headder[213]=len(filedata)//256
+        #set variabledescriptor
+        headder[216]=VariableDescriptor
+        
+        #convert back to string
+        headder="".join([chr(x) for x in headder])
+        
+        #outputfile
+        #first work out if we're overwriting existing filename
+        if(overwritename):
+            #if so search to see if file exists
+            i=1
+            while(i<=80 and position==-1):
+                sector=self.GetSector((i-1)/20,(((i-1)/2)%10)+1)
+                for headderoffset in (0,256):
+                    #if exists and is the file we're after then use it
+                    if(ord(sector[headderoffset])!=0 and sector[headderoffset+1:headderoffset+12]==headder[1:12]):
+                        position=i
+                        break
+                    
+                    i+=1
+
+        #NB basic, code, and variable files have 9 byte extra headder saved before the filedata
+        self.WriteFile(headder,headder[211:220]+filedata,position)
+
+    def WriteScreenFile(self,filedata,filename,position=-1,overwritename=True):
+        """This method writes a screen file to the disk image. filedata is a byte string of the
+        screen. filename is the name to save the file as on the disk image. Normaly this method
+        would overwrite an existing file with the same name. If overwritename is False then it will
+        not overwrite the existing file. Haveing two files with the same name on a disk is not
+        impossible but is confusing. position can be used to specify which directory entry to save
+        the file details at. If -1 it will use the first available empty slot (assuming that we're
+        not overwriting a file with the same name), otherwise it will save the file in this slot
+        even if a file with the same name exists in another directory slot.
+        Filenames consist of up to 10 characters as either a string, or a list of strings or list of
+        numbers for the character values. The method will raise an exception if the filename is invalid.
+        """
+        
+        #validate input
+        #check filename is valid
+        if(isinstance(filename,list)):
+            #if is list of numbers convert to list of strings
+            if(False not in [isinstance(x,(int,long)) for x in filename]):
+                filename=[chr(x) for x in filename]
+            
+            #if there are only strings in the list then convert list to a string
+            if(False not in [isinstance(x,str) for x in filename]):
+                filename="".join(filename)
+                
+        if(not isinstance(filename,str) or len(filename)>10):
+            raise spectrumtranslate.SpectrumTranslateException("Filename must be a string, or list of ints or strings of no more than 10 characters.")
+
+        if(len(filedata)!=6912):
+            raise spectrumtranslate.SpectrumTranslateException("filedata is wrong length for a spectrum screen file.")
+
+        #create headder
+        headder=[0,32,32,32,32,32,32,32,32,32,32]+([0]*245)
+        #set filename
+        for i in range(len(filename)):
+            headder[i+1]=ord(filename[i])
+        
+        #set screen file
+        headder[0]=7
+        headder[211]=3
+        #set length
+        headder[212]=0
+        headder[213]=0x1B
+        #set codestartaddress
+        headder[214]=0
+        headder[215]=0x40
+        
+        #convert back to string
+        headder="".join([chr(x) for x in headder])
+        
+        #outputfile
+        #first work out if we're overwriting existing filename
+        if(overwritename):
+            #if so search to see if file exists
+            i=1
+            while(i<=80 and position==-1):
+                sector=self.GetSector((i-1)/20,(((i-1)/2)%10)+1)
+                for headderoffset in (0,256):
+                    #if exists and is the file we're after then use it
+                    if(ord(sector[headderoffset])!=0 and sector[headderoffset+1:headderoffset+12]==headder[1:12]):
+                        position=i
+                        break
+                    
+                    i+=1
+                
+        #NB basic, code, and variable files have 9 byte extra headder saved before the filedata
+        self.WriteFile(headder,headder[211:220]+filedata,position)
+
     def IterateDiscipleFiles(self):
         """
-        This method allows a user to iterate through all the files in this image useing for.
+        This method allows a user to iterate through all the files in this image using for.
         eg: disciplefiles=[df for df in discipleimage.IterateDiscipleFiles()]
         """
 
@@ -1237,7 +1449,8 @@ def usage():
        and the offset in bytes to the atached variables (will be the same as the
        length if there are no variables) follow.
        For Code files there follows the address where the code was saved from
-       (and would automatically be loaded to).
+       (and would automatically be loaded to). Then is the autorun address (or 0
+       if no autorun).
        For array files there follows the the array letter, the array variable
        name, and the array descriptor specifying what sort of array it contains.
     --details is the same as -d.
@@ -1290,274 +1503,417 @@ def CommandLine(args):
             return None
 
 
-    i=0
-    mode=None
-    error=None
-    wantdetails=False
-    fromstandardinput=False
-    tostandardoutput=False
-    inputfile=None
-    outputfile=None
-    entrywanted=None
-    specifiedfiles=None
-    listempty=False
-    copyposition=[]
-    wantdiskcapacity=False
-    capacityformat="Bytes"
-
-    #handle no arguments
-    if(len(args)==1):
-        mode='help'    
+    try:    
+        i=0
+        mode=None
+        error=None
+        wantdetails=False
+        fromstandardinput=False
+        tostandardoutput=False
+        inputfile=None
+        outputfile=None
+        entrywanted=None
+        specifiedfiles=None
+        listempty=False
+        copyposition=[]
+        wantdiskcapacity=False
+        capacityformat="Bytes"
+        creating=None
+        creatingfilename=None
+        creatingautostart=0
+        creatingvariableoffset=-1
+        creatingoverwritename=True
+        creatingorigin=0
+        creatingarraytype=None
+        creatingarrayname=None
     
-    #go through arguments analysing them
-    while(i<len(args)-1):
-        i+=1
-
-        arg=args[i]
-        if(arg=='help' or arg=='extract' or arg=='list' or arg=='delete' or arg=='copy'):
-            if(mode!=None):
-                error="Can't have multiple commands."
-                break
-            
-            mode=arg
-            continue
+        #handle no arguments
+        if(len(args)==1):
+            mode='help'    
         
-        if(arg=='-i' or arg=='-fromstandardinput' or arg=='--i' or arg=='--fromstandardinput'):
-            fromstandardinput=True
-            continue
-
-        if(arg=='-o' or arg=='-tostandardoutput' or arg=='--o' or arg=='--tostandardoutput'):
-            tostandardoutput=True
-            continue
-
-        if(arg=='-d' or arg=='-details' or arg=='--d' or arg=='--details'):
-            wantdetails=True
-            continue
-        
-        if(arg=='-l' or arg=='-listempty' or arg=='--l' or arg=='--listempty'):
-            listempty=True
-            continue
-        
-        if(arg=='-c' or arg=='-capacity' or arg=='--c' or arg=='--capacity'):
-            wantdiskcapacity=True
-            continue
-        
-        if(arg=='-cs' or arg=='--cs'):
-            wantdiskcapacity=True
-            capacityformat="Sector"
-            continue
-
-        if(arg=='-ck' or arg=='--ck'):
-            wantdiskcapacity=True
-            capacityformat="K"
-            continue
-        
-        if(arg=='-s' or arg=='-specifyfiles' or arg=='-specificfiles' or arg=='--s' or arg=='--specifyfiles' or arg=='--specificfiles'):
+        #go through arguments analysing them
+        while(i<len(args)-1):
             i+=1
-            specifiedfiles=getindices(args[i])
-            if(specifiedfiles==None):
-                error='"'+args[i]+'" is invalid list of file indexes.'
-                break
-
-            continue
-
-        if(arg=='-p' or arg=='-position' or arg=='-pos' or arg=='--p' or arg=='--position' or arg=='--pos'):
-            i+=1
-            try:
-                copyposition=getindices(args[i])
+    
+            arg=args[i]
+            if(arg=='help' or arg=='extract' or arg=='list' or arg=='delete' or arg=='copy' or arg=='create'):
+                if(mode!=None):
+                    error="Can't have multiple commands."
+                    break
+                
+                mode=arg
                 continue
-
-            except:
-                error='%s is not a valid index for the output file.' % args[i]
+            
+            if(mode=='create' and creating==None):
+                if(arg!='basic' and arg!='code' and arg!='array' and arg!='screen'):
+                    error='Must specify what type of file to create. Valid options are basic, code, array, and screen.'
+                    break
+                    
+                creating=arg
+                continue
+            
+            if(arg=='-filename' or arg=='--filename'):
+                i+=1
+                creatingfilename=args[i]
+                continue
+    
+            if(arg=='-autostart' or arg=='--autostart'):
+                i+=1
+                try:
+                    creatingautostart=getint(args[i])
+                    continue
+                    
+                except:
+                    error='%s is not a valid autostart number.' % args[i]
+                    break
+                    
+            if(arg=='-variableoffset' or arg=='--variableoffset'):
+                i+=1
+                try:
+                    creatingvariableoffset=getint(args[i])
+                    continue
+                    
+                except:
+                    error='%s is not a valid variable offset.' % args[i]
+                    break
+    
+            if(arg=='-donotoverwriteexisting' or arg=='--donotoverwriteexisting'):
+                creatingoverwritename=False
+                continue
+    
+            if(arg=='-origin' or arg=='--origin'):
+                i+=1
+                try:
+                    creatingorigin=getint(args[i])
+                    if(creatingorigin<0 or creatingorigin>65535):
+                        error='code origin must be 0-65535 inclusive.'
+                        break
+                    
+                    continue
+                    
+                except:
+                    error='%s is not a valid code origin.' % args[i]
+                    break
+                
+            if(arg=='-arraytype' or arg=='--arraytype'):
+                i+=1
+                if(args[i]=='character' or args[i]=='c'):
+                    creatingarraytype=192
+                    continue
+                
+                elif(args[i]=='number' or args[i]=='n'):
+                    creatingarraytype=128
+                    continue
+                    
+                elif(args[i]=='string' or args[i]=='s'):
+                    creatingarraytype=64
+                    continue
+                
+                else:
+                    error='%s is not a valid array type (must be character, number or string).' % args[i]
+                    break
+    
+            if(arg=='-arrayname' or arg=='--arrayname'):
+                i+=1
+                creatingarrayname=args[i]
+                if(len(creatingarrayname)==1 and creatingarrayname.isalpha()):
+                    continue
+                    
+                error='%s is not a valid variable name.' % args[i]
                 break
-
-        #have unrecognised argument.
+            
+            if(arg=='-i' or arg=='-fromstandardinput' or arg=='--i' or arg=='--fromstandardinput'):
+                fromstandardinput=True
+                continue
+    
+            if(arg=='-o' or arg=='-tostandardoutput' or arg=='--o' or arg=='--tostandardoutput'):
+                tostandardoutput=True
+                continue
+    
+            if(arg=='-d' or arg=='-details' or arg=='--d' or arg=='--details'):
+                wantdetails=True
+                continue
+            
+            if(arg=='-l' or arg=='-listempty' or arg=='--l' or arg=='--listempty'):
+                listempty=True
+                continue
+            
+            if(arg=='-c' or arg=='-capacity' or arg=='--c' or arg=='--capacity'):
+                wantdiskcapacity=True
+                continue
+            
+            if(arg=='-cs' or arg=='--cs'):
+                wantdiskcapacity=True
+                capacityformat="Sector"
+                continue
+    
+            if(arg=='-ck' or arg=='--ck'):
+                wantdiskcapacity=True
+                capacityformat="K"
+                continue
+            
+            if(arg=='-s' or arg=='-specifyfiles' or arg=='-specificfiles' or arg=='--s' or arg=='--specifyfiles' or arg=='--specificfiles'):
+                i+=1
+                specifiedfiles=getindices(args[i])
+                if(specifiedfiles==None):
+                    error='"'+args[i]+'" is invalid list of file indexes.'
+                    break
+    
+                continue
+    
+            if(arg=='-p' or arg=='-position' or arg=='-pos' or arg=='--p' or arg=='--position' or arg=='--pos'):
+                i+=1
+                try:
+                    copyposition=getindices(args[i])
+                    continue
+    
+                except:
+                    error='%s is not a valid index for the output file.' % args[i]
+                    break
+    
+            #have unrecognised argument.
+            
+            #check if is what entry we want to extract
+            if(mode=='extract' and entrywanted==None):
+                try:
+                    entrywanted=getint(arg)
+                    continue
+                    
+                except:
+                    error='%s is not a valid index in the input file.' % arg
+                    break
+    
+            #check if is what entry we want to delete or copy
+            if((mode=='delete' or  mode=='copy') and entrywanted==None and specifiedfiles==None):
+                try:
+                    specifiedfiles=getindices(arg)
+                    continue
+                    
+                except:
+                    error='%s is not a valid index in the input file.' % arg
+                    break
+    
+            #check if is input or output file
+            #will be inputfile if not already defined, and fromstandardinput is False
+            if(inputfile==None and fromstandardinput==False):
+                inputfile=arg
+                continue
+    
+            #will be outputfile if not already defined, tostandardoutput is False, and is last
+            #argument
+            if(outputfile==None and tostandardoutput==False and i==len(args)-1):
+                outputfile=arg
+                continue
+    
+            error='"%s" is unrecognised argument.' % arg
+            break
+    
+        #check we have all needed arguments
+        if(error==None and mode==None):
+            error='No command (list, extract, delete, or help) specified.'
+    
+        if(error==None and inputfile==None and fromstandardinput==False and mode!='help'):
+            error='No input file specified.'
         
-        #check if is what entry we want to extract
-        if(mode=='extract' and entrywanted==None):
-            try:
-                entrywanted=getint(arg)
-                continue
-                
-            except:
-                error='%s is not a valid index in the input file.' % arg
-                break
-
-        #check if is what entry we want to delete or copy
-        if((mode=='delete' or  mode=='copy') and entrywanted==None and specifiedfiles==None):
-            try:
-                specifiedfiles=getindices(arg)
-                continue
-                
-            except:
-                error='%s is not a valid index in the input file.' % arg
-                break
-
-        #check if is input or output file
-        #will be inputfile if not already defined, and fromstandardinput is False
-        if(inputfile==None and fromstandardinput==False):
-            inputfile=arg
-            continue
-
-        #will be outputfile if not already defined, tostandardoutput is False, and is last
-        #argument
-        if(outputfile==None and tostandardoutput==False and i==len(args)-1):
-            outputfile=arg
-            continue
-
-        error='"%s" is unrecognised argument.' % arg
-        break
-
-    #check we have all needed arguments
-    if(error==None and mode==None):
-        error='No command (list, extract, delete, or help) specified.'
-
-    if(error==None and inputfile==None and fromstandardinput==False and mode!='help'):
-        error='No input file specified.'
+        if(error==None and outputfile==None and tostandardoutput==False and mode!='help'):
+            error='No output file specified.'
     
-    if(error==None and outputfile==None and tostandardoutput==False and mode!='help'):
-        error='No output file specified.'
-
-    if(error==None and entrywanted==None and mode=='extract'):
-        error='No file index specified to extract.'
-
-    if(error==None and specifiedfiles==None and entrywanted==None and mode=='delete'):
-        error='No file index(s) specified to delete.'
-
-    #handle error with arguments
-    if(error!=None):
-        sys.stderr.write(error+"\n")
-        sys.stdout.write("Use 'python disciplefile.py' to see full list of options.\n")
-        sys.exit(2)
+        if(error==None and entrywanted==None and mode=='extract'):
+            error='No file index specified to extract.'
     
-    #if help is needed display it
-    if(mode=='help'):
-        sys.stdout.write(usage())
-        sys.exit(0)
-
-    #get disc image
-    if(fromstandardinput==False):
-        #if we're deleteing then we need to work with a copy of the input file
-        if(mode=='delete'):
-            with open(inputfile,'rb') as infile:
-                di=DiscipleImage()
-                di.setBytes(infile.read())
-                
-        else:
-            di=DiscipleImage(inputfile)
+        if(error==None and specifiedfiles==None and entrywanted==None and mode=='delete'):
+            error='No file index(s) specified to delete.'
     
-    else:
-        di=DiscipleImage()
-        di.setBytes(sys.stdin.read())
+        if(error==None and mode=='create' and creating==None):
+            error='You have to specify file type to create.'
     
-    #now do command
-    if(mode=='list'):
-        retdata='' if wantdetails else "  pos   filename  sectors   type\n"
-        sectorsused=0
-        for df in di.IterateDiscipleFiles():
-            if(specifiedfiles!=None and not df.filenumber in specifiedfiles):
-                continue
-            
-            if(listempty==False and df.IsEmpty()):
-                continue
-                
-            if(wantdetails):
-                d=df.GetFileDetails()
+        if(error==None and mode=='create' and creatingfilename==None):
+            error='You have to specify file name to create.'
     
-                retdata+="%i\t%s\t%i\t%s\t%i\t%i" % (d['filenumber'],d['filename'],d['filetype'],d['filetypelong'],d['sectors'],d['filelength'])
-                
-                if(d["filetype"]==1):
-                    retdata+="\t"+str(d["autostartline"])+"\t"+str(d["variableoffset"])
+        if(error==None and mode=='create' and creating=='array' and (creatingarraytype==None or creatingarrayname==None)):
+            error='You have to specify array type and name.'
     
-                if(d["filetype"]==4):
-                    retdata+="\t"+str(d["codeaddress"])
-    
-                if(d["filetype"]==2 or d["filetype"]==3):
-                    retdata+="\t"+str(d["variableletter"])+"\t"+str(d["variablename"])+"\t"+str(d["arraydescriptor"])
-                
-            else:
-                retdata+=df.GetFileDetailsString()
-    
-            sectorsused+=df.GetSectorsUsed()
-            
-            retdata+="\n"
-        
-        if(wantdiskcapacity==True):
-            if(capacityformat=="Sector"):
-                retdata+=str(1560-sectorsused)+" sectors free.\n"
-            elif(capacityformat=="K"):
-                retdata+=str(((1560-sectorsused)*510)/1024.0)+"K free.\n"
-            else:
-                retdata+=str((1560-sectorsused)*510)+" bytes free.\n"
-            
-    if(mode=='extract'):
-        df=DiscipleFile(di,entrywanted)
-        if(entrywanted>80 or entrywanted<1):
-            sys.stderr.write(str(entrywanted)+" is not a valid entry number (should be 1 to 80).\n")
+        #handle error with arguments
+        if(error!=None):
+            sys.stderr.write(error+"\n")
             sys.stdout.write("Use 'python disciplefile.py' to see full list of options.\n")
             sys.exit(2)
-            
-        retdata=df.GetFileData()
-
-    if(mode=='delete'):
-        if(specifiedfiles==None):
-            specifiedfiles=[entrywanted]
         
-        for i in specifiedfiles:
-            if(i>80 or i<1):
-                sys.stderr.write(str(i)+" is not a valid entry number (should be 1 to 80).\n")
-                sys.stdout.write("Use 'python disciplefile.py' to see full list of options.\n")
-                sys.exit(2)
-            
-            di.DeleteEntry(i)
+        #if help is needed display it
+        if(mode=='help'):
+            sys.stdout.write(usage())
+            sys.exit(0)
+    
+        #get input data
+        if(mode=='create'):
+            if(fromstandardinput==False):
+                with open(inputfile,'rb') as infile:
+                    datain=infile.read()
+            else:
+                datain=sys.stdin.read()
         
-        #now set disk image as output
-        retdata=di.bytedata
-
-    if(mode=='copy'):
-        #create output image to copy into
-        diout=DiscipleImage()
-        #if we're writing to an existing file then load it into our image
-        if(tostandardoutput==False and os.path.isfile(outputfile)):
-            with open(outputfile,'rb') as outfile:
-                diout.setBytes(outfile.read())
         else:
-            diout.setBytes('\x00'*819200)
-
-        if(specifiedfiles==None):
-            specifiedfiles=[entrywanted]
-
-        copypositionindex=0
+            #get disc image
+            if(fromstandardinput==False):
+                #if we're deleteing then we need to work with a copy of the input file
+                if(mode=='delete'):
+                    with open(inputfile,'rb') as infile:
+                        di=DiscipleImage()
+                        di.setBytes(infile.read())
+                        
+                else:
+                    di=DiscipleImage(inputfile)
+            
+            else:
+                di=DiscipleImage()
+                di.setBytes(sys.stdin.read())
         
-        for i in specifiedfiles:
-            if(i>80 or i<1):
-                sys.stderr.write(str(i)+" is not a valid entry number (should be 1 to 80).\n")
+        #now do command
+        if(mode=='list'):
+            retdata='' if wantdetails else "  pos   filename  sectors   type\n"
+            sectorsused=0
+            for df in di.IterateDiscipleFiles():
+                if(specifiedfiles!=None and not df.filenumber in specifiedfiles):
+                    continue
+                
+                if(listempty==False and df.IsEmpty()):
+                    continue
+                    
+                if(wantdetails):
+                    d=df.GetFileDetails()
+        
+                    retdata+="%i\t%s\t%i\t%s\t%i\t%i" % (d['filenumber'],d['filename'],d['filetype'],d['filetypelong'],d['sectors'],d['filelength'])
+                    
+                    if(d["filetype"]==1):
+                        retdata+="\t"+str(d["autostartline"])+"\t"+str(d["variableoffset"])
+        
+                    if(d["filetype"]==4):
+                        retdata+="\t"+str(d["codeaddress"])+"\t"+str(d["coderunaddress"])
+        
+                    if(d["filetype"]==2 or d["filetype"]==3):
+                        retdata+="\t"+str(d["variableletter"])+"\t"+str(d["variablename"])+"\t"+str(d["arraydescriptor"])
+                    
+                else:
+                    retdata+=df.GetFileDetailsString()
+        
+                sectorsused+=df.GetSectorsUsed()
+                
+                retdata+="\n"
+            
+            if(wantdiskcapacity==True):
+                if(capacityformat=="Sector"):
+                    retdata+=str(1560-sectorsused)+" sectors free.\n"
+                elif(capacityformat=="K"):
+                    retdata+=str(((1560-sectorsused)*510)/1024.0)+"K free.\n"
+                else:
+                    retdata+=str((1560-sectorsused)*510)+" bytes free.\n"
+                
+        if(mode=='extract'):
+            df=DiscipleFile(di,entrywanted)
+            if(entrywanted>80 or entrywanted<1):
+                sys.stderr.write(str(entrywanted)+" is not a valid entry number (should be 1 to 80).\n")
                 sys.stdout.write("Use 'python disciplefile.py' to see full list of options.\n")
                 sys.exit(2)
-
-            #get file and it's details
-            df=DiscipleFile(di,i)
-            headder=df.GetHeadder()
-            filedata=df.GetFileData(wantheadder=True,headderdata=headder)
-            #write file
-            diout.WriteFile(headder,filedata,-1 if copypositionindex>=len(copyposition) else copyposition[copypositionindex])
+                
+            retdata=df.GetFileData()
+    
+        if(mode=='delete'):
+            if(specifiedfiles==None):
+                specifiedfiles=[entrywanted]
             
-            copypositionindex+=1
+            for i in specifiedfiles:
+                if(i>80 or i<1):
+                    sys.stderr.write(str(i)+" is not a valid entry number (should be 1 to 80).\n")
+                    sys.stdout.write("Use 'python disciplefile.py' to see full list of options.\n")
+                    sys.exit(2)
+                
+                di.DeleteEntry(i)
+            
+            #now set disk image as output
+            retdata=di.bytedata
+    
+        if(mode=='copy'):
+            #create output image to copy into
+            diout=DiscipleImage()
+            #if we're writing to an existing file then load it into our image
+            if(tostandardoutput==False and os.path.isfile(outputfile)):
+                with open(outputfile,'rb') as outfile:
+                    diout.setBytes(outfile.read())
+            else:
+                diout.setBytes('\x00'*819200)
+    
+            if(specifiedfiles==None):
+                specifiedfiles=[entrywanted]
+    
+            copypositionindex=0
+            
+            for i in specifiedfiles:
+                if(i>80 or i<1):
+                    sys.stderr.write(str(i)+" is not a valid entry number (should be 1 to 80).\n")
+                    sys.stdout.write("Use 'python disciplefile.py' to see full list of options.\n")
+                    sys.exit(2)
+    
+                #get file and it's details
+                df=DiscipleFile(di,i)
+                headder=df.GetHeadder()
+                filedata=df.GetFileData(wantheadder=True,headderdata=headder)
+                #write file
+                diout.WriteFile(headder,filedata,-1 if copypositionindex>=len(copyposition) else copyposition[copypositionindex])
+                
+                copypositionindex+=1
+    
+            #now set disk image as output
+            retdata=diout.bytedata
+    
+        if(mode=='create'):
+            #create output image to copy into
+            diout=DiscipleImage()
+            #if we're writing to an existing file then load it into our image
+            if(tostandardoutput==False and os.path.isfile(outputfile)):
+                with open(outputfile,'rb') as outfile:
+                    diout.setBytes(outfile.read())
+            else:
+                diout.setBytes('\x00'*819200)
+    
+            #get where to save to or go for first available slot
+            copyposition=-1 if len(copyposition)==0 else copyposition[0]
+    
+            if(creating=='basic'):
+                diout.WriteBasicFile(datain,creatingfilename,position=copyposition,autostartline=creatingautostart,varposition=creatingvariableoffset,overwritename=creatingoverwritename)
+            
+            elif(creating=='code'):
+                diout.WriteCodeFile(datain,creatingfilename,position=copyposition,codestartaddress=creatingorigin,overwritename=creatingoverwritename,coderunaddress=creatingautostart)
+            
+            elif(creating=='array'):
+                diout.WriteArrayFile(datain,creatingfilename,creatingarraytype+(ord(creatingarrayname)&0x3F),position=copyposition,overwritename=creatingoverwritename)
+                pass
+            
+            elif(creating=='screen'):
+                diout.WriteScreenFile(datain,creatingfilename,position=copyposition,overwritename=creatingoverwritename)
+    
+            #now set disk image as output
+            retdata=diout.bytedata
+    
+        #output data
+        if(tostandardoutput==False):
+            fo=open(outputfile,"wb")
+            fo.write(retdata)
+            fo.close()
+    
+        else:
+            sys.stdout.write(retdata)
 
-        #now set disk image as output
-        retdata=diout.bytedata
-
-    #output data
-    if(tostandardoutput==False):
-        fo=open(outputfile,"wb")
-        fo.write(retdata)
-        fo.close()
-
-    else:
-        sys.stdout.write(retdata)
-
+    #catch and handle expected exceptions nicely
+    except spectrumtranslate.SpectrumTranslateException as se:
+        print se.value
 
 if __name__=="__main__":
+    #import here as only needed for command line    
     import sys
 
+    #set encodeing so can handle non ascii characters
+    import codecs
+    sys.stdout=codecs.getwriter('utf8')(sys.stdout)
+    sys.stderr=codecs.getwriter('utf8')(sys.stderr)
+    
     CommandLine(sys.argv)
