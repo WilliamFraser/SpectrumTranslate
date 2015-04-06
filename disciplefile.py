@@ -1396,15 +1396,17 @@ def usage():
 
     return"""usage: python disciplefile.py instruction [args] infile outfile
 
-    moves data from infile which should be a disciple disc image file and
-    outputs it to outfile.
+    moves data from infile which should be a disciple disc image file or file
+    data and outputs it to outfile.
     
     instruction is required and specifies what you want to do. It must be 'list'
-    'delete', 'copy' or 'extract'. 'list' will list the contents of the
-    specified image file. 'delete' will output a copy of the input with the
-    specified file(s) deleted.'extract' extracts the data from an image file
-    entry to wherever you want. 'copy; copies the specified file(s) from one
-    image to another (a new image will be generated if none is specified).
+    'delete', 'copy', 'extract', or 'create'. 'list' will list the contents of
+    the specified image file. 'delete' will output a copy of the input with the
+    specified file(s) deleted. 'extract' extracts the data from an image file
+    entry to wherever you want. 'copy' copies the specified file(s) from one
+    image to another. 'create' creates a new file in outfile useing the supplied
+    file data. With copy, create, and delete a new disk image will be created if
+    outfile is not an image file.
     
     infile and outfile are required unless reading from the standard input or
     outputting to the standard output. Usually arguments are ignored if they
@@ -1419,6 +1421,12 @@ def usage():
     from the image. The syntax is the same as for the -s flag. You can use the
     -s flag in the instruction in which case you should not specify a file index
     before the input or output files.
+    
+    If using the create instruction, you must specify what you are creating
+    imediatly after the create instruction. Valid options are 'basic', 'code',
+    'array', and 'screen'. You must also specify the filnename for the file with
+    the -filename flag. If creating an array, you must also specify the name and
+    type of array with the -arraytype and -arrayname flags.
     
     general flags:    
     -o specifies that the output from this program is to be directed to the
@@ -1478,10 +1486,40 @@ def usage():
        saved to the first empty directry entries in the disk image.
     --pos same as -p.
     --position same as -p.
+
+    create flags:
+    --autostart This is used when creating a BASIC file to specify the autostart
+                line, or with code files when you are specifying the autostart
+                address to run when loaded.
+    --variableoffset This is used to specify the offset into a BASIC listing
+                     where the variables start. If not specified, the program
+                     will reliably work out where the variables are unless the
+                     BASIC file is very non-standard. So this flag whould not be
+                     used unless you have a very good reason.
+    --donotoverwriteexisting The default mode of opperation is to overwrite a
+                             file with the same name when saving or finding the
+                             first available slot if the filename has not been
+                             used before in the disk image, and if the directory
+                             slot has not been specified with the -p flag. This
+                             flag overrides this so you can save a file into the
+                             next avalable slot without overwriting an existing
+                             file. It is possible but confusing to have more
+                             than one file with the same name.
+    --origin This specifies the address for the origin of a code file.
+    --arraytype This specifies the type of array file to create. It must be
+                followed by the type of array to create. Valid options are:
+                character or c for a character array, number or n for a number
+                array, and string or s for a string.
+    --arrayname This specifies the name for a saved array or string. It must be
+                followed by a single letter of the alphabet.
+    -p This allows the user to specify where in the directory the file is saved.
+    --pos same as -p.
+    --position same as -p.
 """
 
 def CommandLine(args):
     getint=lambda x: int(x,16 if x.lower().startswith("0x") else 10)
+
 
     def getindices(arg):
         try:
