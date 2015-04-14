@@ -550,7 +550,7 @@ SPECTRUM_COMMANDS=(
     "GO SUB","INPUT","LOAD","LIST","LET","PAUSE","NEXT","POKE","PRINT","PLOT",
     "RUN","SAVE","RANDOMIZE","IF","CLS","DRAW","CLEAR","RETURN","COPY")
 
-def convert_program_to_text(data,iAutostart=0,ivariableOffset=-1):
+def convert_program_to_text(data,iAutostart=-1,ivariableOffset=-1):
     """
     This function returns a string representation of the list or byte string supplied of a basic program.
     Due to the way program data was stored, it is possible that non-printable characters were in the line.
@@ -560,7 +560,7 @@ def convert_program_to_text(data,iAutostart=0,ivariableOffset=-1):
     one, then the true value is displayed in brackets after the visible number.
    
     data is list or byte string of the data of the program. The program is assumed to begin at he start of the array to the end of the array.
-    iAutostart is the line number where the program auto starts (or less than 1 if no autostart).
+    iAutostart is the line number where the program auto starts (less than 0 or >9999 if no autostart).
     ivariableOffset is the offset from the start of the array to where variables are stored.
     """
     
@@ -574,7 +574,7 @@ def convert_program_to_text(data,iAutostart=0,ivariableOffset=-1):
         
     text=''
     
-    if(iAutostart>=0):
+    if(iAutostart>=0 and iAutostart<10000):
         text="Autostart at line:%i\n" % iAutostart
         
     i=0
@@ -814,7 +814,7 @@ def convert_program_to_text(data,iAutostart=0,ivariableOffset=-1):
     return text
 
 
-def convert_program_to_XML(data,iAutostart=0,ivariableOffset=-1):
+def convert_program_to_XML(data,iAutostart=-1,ivariableOffset=-1):
     """
     This function returns an XML representation as a string of the list or byte string supplied of a basic program.
     Due to the way program data was stored, it is possible that non-printable characters were in the line.
@@ -824,7 +824,7 @@ def convert_program_to_XML(data,iAutostart=0,ivariableOffset=-1):
     one, then the true value is also listed.
    
     data is list or byte string of the data of the program. The program is assumed to begin at he start of the array to the end of the array.
-    iAutostart is the line number where the program auto starts (or less than 1 if no autostart).
+    iAutostart is the line number where the program auto starts (less than 0 or >9999 if no autostart).
     ivariableOffset is the offset from the start of the array to where variables are stored.
     """
     
@@ -838,7 +838,7 @@ def convert_program_to_XML(data,iAutostart=0,ivariableOffset=-1):
         
     text='<?xml version="1.0" encoding="UTF-8" ?>\n<basiclisting>\n'
     
-    if(iAutostart>=0):
+    if(iAutostart>=0 and iAutostart<10000):
         text+="  <autostart>"+str(iAutostart)+"</autostart>\n"
         
     i=0
@@ -1306,13 +1306,15 @@ def _sn_to_string(data,message=-1):
 #also doesn't use standard ASCII
 def get_spectrum_char(c):
     """
-    This function converts the 8 bit integer value of a spectrum character to a string representation of the spectrum character.
-    The lower part is mostly in line with ASCII standard with a couple of exceptions: character decimal 96 is the
-    pound sign, character decimal 94 is an up arrow (there is no ^ in the spectrum character set), and character
-    decimal 127 is a copyright symbol. characters decimal 164 up to 255 (162 to 255 in the 128K versions) are not
-    simple characters but are the names of the spectrum commands with a space after them. From decimal 144 to 163
-    (or 161 on 128K machines) were used for the user defined characters. This function will return the spectrum
-    character of the character, the command, or the value in 2 digit hexadecimal preceded by a '^'.
+    This function converts the 8 bit integer value of a spectrum character to a string representation of the
+    spectrum character. The lower part is mostly in line with ASCII standard with a couple of exceptions:
+    character decimal 96 is the pound sign, character decimal 94 is an up arrow (there is no ^ in the spectrum
+    character set), and character decimal 127 is a copyright symbol. characters decimal 164 up to 255 (162 to
+    255 in the 128K versions) are not simple characters but are the names of the spectrum commands with a space
+    after them. From decimal 144 to 163 (or 161 on 128K machines) were used for the user defined characters.
+    From 128 to 143 inclusive are block characters.
+    This function will return the spectrum character of the character, the command, or the value in 2 digit
+    hexadecimal preceded by a '^'.
    
     Returns the Spectrum string representation of the byte supplied
     """
@@ -1329,6 +1331,8 @@ def get_spectrum_char(c):
         return u"\u2191"
     if(c>=128 and c<=143):
         return (u'\u2003',u'\u259D',u'\u2598',u'\u2580',u'\u2597',u'\u2590',u'\u259A',u'\u259C',u'\u2596',u'\u259E',u'\u258C',u'\u259B',u'\u2584',u'\u259F',u'\u2599',u'\u2580')[c-128]
+    if(c>=163):
+        return SPECTRUM_COMMANDS[c-163]+' '
     if(c<32 or c>127):
         return "^%02X" % (c)
 
@@ -1345,6 +1349,7 @@ def get_spectrum_string(s):
     simple characters but are the names of the spectrum commands with a space after them. From decimal 144 to 163
     (or 161 on 128K machines) were used for the user defined characters. This function will return the spectrum
     character of the character, the command, or the value in 2 digit hexadecimal preceded by a '^'.
+    From 128 to 143 inclusive are block characters.
    
     Returns the Spectrum string representation of the bytes supplied
     """
@@ -1354,6 +1359,85 @@ def get_spectrum_string(s):
         
     return ''.join([get_spectrum_char(c) for c in s])
 
+def CharToSpectrum(c):
+    """This function takes a string or character or number and returns the spectrum equivalent.
+    It converts commands (like LOAD, or PRINT), and non-ASCII characters like the copyright symbol,
+    uparrow (which is used instead of ^), the pound sign, and the graphical blocks and returns character
+    in the range 0 to 255. It also will convert coded values denoted by ^ followed by a 2 digit hexadecimal
+    number. It will raise a SpectrumTranslateException if the input is not a valid spectrum character."""
+    
+    #handle control codes
+    if(isinstance(c,(str,unicode)) and len(c)==3 and c[0]=='^'):
+        try:
+            return chr(int(c[1:],16))
+        except:
+            raise SpectrumTranslateException("code must be ^ followed by 2 digit hexadecimal number.")
+            
+    #If not a single character, check for command
+    if(isinstance(c,(str,unicode)) and len(c)!=1):
+        if(c in SPECTRUM_COMMANDS):
+            for i in range(len(SPECTRUM_COMMANDS)):
+                if(SPECTRUM_COMMANDS[i]==c):
+                    return chr(i+163)
+        raise SpectrumTranslateException("Not recognised spectrum command.")
+    
+    #convert to number
+    if(isinstance(c,(str,unicode))):
+        c=ord(c)
+
+    if(c==0x00A9):
+        return chr(127)
+    if(c==0x00A3):
+        return chr(96)
+    if(c==0x2191):
+        return chr(94)
+    blockcodes=(0x2003,0x259D,0x2598,0x2580,0x2597,0x2590,0x259A,0x259C,0x2596,0x259E,0x258C,0x259B,0x2584,0x259F,0x2599,0x2580)
+    if(c in blockcodes):
+        for i in range(len(blockcodes)):
+            if(c==blockcodes[i]):
+                return chr(i+128)
+
+    if(c<0 or c>255):
+        raise SpectrumTranslateException(chr(c)+" is invalid spectrum character.")
+
+    return chr(c)
+
+def StringToSpectrum(s,wantcommands=True):
+    """This function takes a string and returns the spectrum equivalent.
+    It converts commands (like LOAD, or PRINT, and remembering that they must have a space after them),
+    and non-ASCII characters like the copyright symbol, uparrow (which is used instead of ^), the pound sign,
+    and the graphical blocks and returns character in the range 0 to 255. It also will convert coded values
+    denoted by ^ followed by a 2 digit hexadecimal number. It will raise a SpectrumTranslateException if the
+    input contains a non-valid spectrum character."""
+
+    ret=[]
+    i=0
+    while(i<len(s)):
+        #deal with escape codes
+        if(s[i]=='^'):
+            ret+=CharToSpectrum(s[i:i+3])
+            i+=3
+            continue
+        
+        #now check for commands if needed
+        if(wantcommands):
+            foundcommand=False
+            for c in range(len(SPECTRUM_COMMANDS)):
+                if(s[i:].startswith(SPECTRUM_COMMANDS[c]+' ')):
+                    ret+=chr(c+163)
+                    #move past command and terminating space
+                    i+=len(SPECTRUM_COMMANDS[c])+1
+                    foundcommand=True
+                    break
+            
+            if(foundcommand):
+                continue
+        
+        #otherwise just treat as one character
+        ret+=CharToSpectrum(s[i])
+        i+=1
+    
+    return "".join(ret)
 
 #array to map from colours to colour data so that bright black & not bright black both map to 0x000000
 _colour_map=(0,1,2,3,4,5,6,7,0,9,10,11,12,13,14,15)
@@ -4933,13 +5017,13 @@ def usage():
     --namewanted same as -n.
 """
 
-if __name__=="__main__":
+def CommandLine(args):
     #analyse args
     i=0
     mode=None
     error=None
     xml=False
-    start=0
+    start=-1
     varoff=-1
     descriptor=None
     fromstandardinput=False
@@ -4958,14 +5042,14 @@ if __name__=="__main__":
     getint=lambda x: int(x,16 if x.lower().startswith("0x") else 10)
 
     #handle no arguments
-    if(len(sys.argv)==1):
+    if(len(args)==1):
         mode='help'    
     
     #go through arguments analysing them
-    while(i<len(sys.argv)-1):
+    while(i<len(args)-1):
         i+=1
 
-        arg=sys.argv[i]
+        arg=args[i]
         if(arg=='basic' or arg=='array' or arg=='text' or arg=='screen' or arg=='code' or arg=='instruction' or arg=='help'):
             if(mode!=None):
                 error="Can't have multiple formats to convert into."
@@ -4981,7 +5065,7 @@ if __name__=="__main__":
         if(arg=='-s' or arg=='-start' or arg=='--s' or arg=='--start'):
             try:
                 i+=1
-                start=getint(sys.argv[i])
+                start=getint(args[i])
                 continue
             except:
                 error="Missing or invalid autostart line number."
@@ -4990,7 +5074,7 @@ if __name__=="__main__":
         if(arg=='-v' or arg=='-variableoffset' or arg=='--v' or arg=='--variableoffset'):
             try:
                 i+=1
-                varoff=getint(sys.argv[i])
+                varoff=getint(args[i])
                 continue
             except:
                 error="Missing or invalid offset to variables."
@@ -4999,7 +5083,7 @@ if __name__=="__main__":
         if(arg=='-t' or arg=='-type' or arg=='--t' or arg=='--type'):
             try:
                 i+=1
-                opt=sys.argv[i]
+                opt=args[i]
                 
                 if(opt=='number' or opt=='numberarray'):
                     descriptor=128
@@ -5041,7 +5125,7 @@ if __name__=="__main__":
         if(arg=='-f' or arg=='-flashrate' or arg=='--f' or arg=='--flashrate'):
             try:
                 i+=1
-                flashrate=getint(sys.argv[i])
+                flashrate=getint(args[i])
                 continue
             except:
                 error="Missing or invalid image flash rate."
@@ -5054,7 +5138,7 @@ if __name__=="__main__":
         if(arg=='-b' or arg=='-baseaddress' or arg=='-base' or arg=='--b' or arg=='--baseaddress' or arg=='--base'):
             try:
                 i+=1
-                baseaddress=getint(sys.argv[i])
+                baseaddress=getint(args[i])
                 continue
             except:
                 error="Missing or invalid base code address."
@@ -5063,15 +5147,15 @@ if __name__=="__main__":
         if(arg=='-c' or arg=='-commands' or arg=='--c' or arg=='--commands'):
             try:
                 i+=1
-                if(sys.argv[i]!='f' and sys.argv[i]!='s' and sys.argv[i]!='si'):
+                if(args[i]!='f' and args[i]!='s' and args[i]!='si'):
                     error="Missing or invalid input source descriptor for special instructions."
                     break
 
-                commandsource='f' if sys.argv[i]=='f' else 's'
+                commandsource='f' if args[i]=='f' else 's'
                 
                 if(commandsource=='f'):
                     i+=1
-                    commandsourcefile=sys.argv[i]
+                    commandsourcefile=args[i]
                 
                 continue
             except:
@@ -5104,7 +5188,7 @@ if __name__=="__main__":
             
         #will be outputfile if not already defined, tostandardoutput is False, and is last
         #argument
-        if(outputfile==None and tostandardoutput==False and i==len(sys.argv)-1):
+        if(outputfile==None and tostandardoutput==False and i==len(args)-1):
             outputfile=arg
             continue
 
@@ -5276,3 +5360,7 @@ if __name__=="__main__":
 
     else:
         sys.stdout.write(retdata)
+
+
+if __name__=="__main__":
+    CommandLine(sys.argv)

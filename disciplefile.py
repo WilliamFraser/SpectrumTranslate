@@ -372,7 +372,7 @@ class DiscipleFile:
         
         val=ord(headderdata[218])+256*ord(headderdata[219])
         
-        if(val>=32768):
+        if(val>9999):
             return -1
             
         return val
@@ -1073,7 +1073,7 @@ class DiscipleImage:
         sectordata=sectordata[:headderstart]+headder+sectordata[headderstart+256:]
         self.WriteSector(sectordata,track,sector)
         
-    def WriteBasicFile(self,filedata,filename,position=-1,autostartline=0,varposition=-1,overwritename=True):
+    def WriteBasicFile(self,filedata,filename,position=-1,autostartline=-1,varposition=-1,overwritename=True):
         """This method writes a BASIC file to the disk image. filedata is a byte string of the BASIC
         file (with or without extra variables). filename is the name to save the BASIC file as on the
         disk image. Normaly this method would overwrite an existing file with the same name. If
@@ -1147,6 +1147,9 @@ class DiscipleImage:
         headder[217]=varposition//256
         
         #setautostart
+        if(autostartline<0 or autostartline>9999):
+            autostartline=0x8000
+            
         headder[218]=autostartline&255
         headder[219]=autostartline//256
         
@@ -1453,7 +1456,7 @@ def usage():
        file has been deleted), the file type number, the filetype string, the
        number of sectors used on the disk, and the file length. Further data
        depends on the file type.
-       For Program files, The autostart line number (or 0 if there isn't one),
+       For Program files, The autostart line number (or -1 if there isn't one),
        and the offset in bytes to the atached variables (will be the same as the
        length if there are no variables) follow.
        For Code files there follows the address where the code was saved from
@@ -1558,7 +1561,7 @@ def CommandLine(args):
         capacityformat="Bytes"
         creating=None
         creatingfilename=None
-        creatingautostart=0
+        creatingautostart=-1
         creatingvariableoffset=-1
         creatingoverwritename=True
         creatingorigin=0
@@ -1592,7 +1595,7 @@ def CommandLine(args):
             
             if(arg=='-filename' or arg=='--filename'):
                 i+=1
-                creatingfilename=args[i]
+                creatingfilename=spectrumtranslate.StringToSpectrum(args[i])
                 continue
     
             if(arg=='-autostart' or arg=='--autostart'):
@@ -1748,7 +1751,7 @@ def CommandLine(args):
     
         #check we have all needed arguments
         if(error==None and mode==None):
-            error='No command (list, extract, delete, or help) specified.'
+            error='No command (list, extract, delete, copy, create, or help) specified.'
     
         if(error==None and inputfile==None and fromstandardinput==False and mode!='help'):
             error='No input file specified.'
@@ -1924,7 +1927,6 @@ def CommandLine(args):
             
             elif(creating=='array'):
                 diout.WriteArrayFile(datain,creatingfilename,creatingarraytype+(ord(creatingarrayname)&0x3F),position=copyposition,overwritename=creatingoverwritename)
-                pass
             
             elif(creating=='screen'):
                 diout.WriteScreenFile(datain,creatingfilename,position=copyposition,overwritename=creatingoverwritename)
@@ -1943,7 +1945,7 @@ def CommandLine(args):
 
     #catch and handle expected exceptions nicely
     except spectrumtranslate.SpectrumTranslateException as se:
-        print se.value
+        sys.stderr.write(se.value+"\n")
 
 if __name__=="__main__":
     #import here as only needed for command line    

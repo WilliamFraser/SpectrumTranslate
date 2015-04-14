@@ -132,7 +132,7 @@ class SpectrumTapBlock:
             extra=" "+str(x)+","+str(_get_word(self.getbytes(11,13)))
         
         #program
-        if(filetype==0 and x<32768):
+        if(filetype==0 and x<10000):
             extra=" Line:"+str(x)
         
         #array
@@ -154,7 +154,7 @@ class SpectrumTapBlock:
 
         start=_get_word(self.getbytes(13,15))
         
-        if(start>=32768):
+        if(start>9999):
             return -1
             
         return start
@@ -406,7 +406,7 @@ def TapBlock_from_bytestring(bytestring,position=0):
             else:
                 break
 
-def CreateBASICHeadder(filename,VariableOffset,ProgLength,AutoStart=0):
+def CreateBASICHeadder(filename,VariableOffset,ProgLength,AutoStart=-1):
     """
     Create a headder for a program SpectrumTapBlock.
     """
@@ -423,6 +423,9 @@ def CreateBASICHeadder(filename,VariableOffset,ProgLength,AutoStart=0):
     tb.data[11]=ProgLength&0xFF
     tb.data[12]=(ProgLength>>8)&0xFF
     #set autostart
+    if(AutoStart<0 or AutoStart>9999):
+        AutoStart=0x8000
+        
     tb.data[13]=AutoStart&0xFF
     tb.data[14]=(AutoStart>>8)&0xFF
     #set variable offset
@@ -565,7 +568,7 @@ def usage():
        entries, the flag value and then the data length is listed. For Headders
        the data following this depends on the file type.
        For Program headders, the data given is filename, 'Program', length of
-       data in the coresponding data file, the autostart line number or 0 if
+       data in the coresponding data file, the autostart line number or -1 if
        there isn't one, and the offset in bytes to the atached variables (will
        be the same as the length if there are no variables).
        For Byte headders there follows the file name, 'Bytes', the address where
@@ -613,218 +616,368 @@ def CommandLine(args):
         except:
             return None
 
+    try:
+        i=0
+        mode=None
+        error=None
+        wantdetails=False
+        fromstandardinput=False
+        tostandardoutput=False
+        inputfile=None
+        outputfile=None
+        entrywanted=None
+        specifiedfiles=None
+        append=False
+        copyposition=False
+        creating=None
+        creatingfilename=None
+        creatingautostart=-1
+        creatingvariableoffset=-1
+        creatingorigin=0
+        creatingarraytype=None
+        creatingarrayname=None
+        creatingblockflag=0xFF
+        
+        #handle no arguments
+        if(len(args)==1):
+            mode='help'    
+        
+        #go through arguments analysing them
+        while(i<len(args)-1):
+            i+=1
+        
+            arg=args[i]
+            if(arg=='help' or arg=='extract' or arg=='list' or arg=='copy' or arg=='delete' or arg=='create'):
+                if(mode!=None):
+                    error="Can't have multiple commands."
+                    break
+                
+                mode=arg
+                continue
 
-    i=0
-    mode=None
-    error=None
-    wantdetails=False
-    fromstandardinput=False
-    tostandardoutput=False
-    inputfile=None
-    outputfile=None
-    entrywanted=None
-    specifiedfiles=None
-    append=False
-    copyposition=False
-
-    #handle no arguments
-    if(len(args)==1):
-        mode='help'    
+            if(mode=='create' and creating==None):
+                if(arg!='basic' and arg!='code' and arg!='array' and arg!='screen' and arg!='block'):
+                    error='Must specify what type of file to create. Valid options are basic, code, array, screen, and block.'
+                    break
+                    
+                creating=arg
+                continue
+            
+            if(arg=='-filename' or arg=='--filename'):
+                i+=1
+                creatingfilename=spectrumtranslate.StringToSpectrum(args[i])
+                continue
     
-    #go through arguments analysing them
-    while(i<len(args)-1):
-        i+=1
-
-        arg=args[i]
-        if(arg=='help' or arg=='extract' or arg=='list' or arg=='copy' or arg=='delete'):
-            if(mode!=None):
-                error="Can't have multiple commands."
+            if(arg=='-autostart' or arg=='--autostart'):
+                i+=1
+                try:
+                    creatingautostart=getint(args[i])
+                    continue
+                    
+                except:
+                    error='%s is not a valid autostart number.' % args[i]
+                    break
+                    
+            if(arg=='-variableoffset' or arg=='--variableoffset'):
+                i+=1
+                try:
+                    creatingvariableoffset=getint(args[i])
+                    continue
+                    
+                except:
+                    error='%s is not a valid variable offset.' % args[i]
+                    break
+    
+            if(arg=='-origin' or arg=='--origin'):
+                i+=1
+                try:
+                    creatingorigin=getint(args[i])
+                    if(creatingorigin<0 or creatingorigin>65535):
+                        error='code origin must be 0-65535 inclusive.'
+                        break
+                    
+                    continue
+                    
+                except:
+                    error='%s is not a valid code origin.' % args[i]
+                    break
+                
+            if(arg=='-flag' or arg=='--flag'):
+                i+=1
+                try:
+                    creatingblockflag=getint(args[i])
+                    if(creatingblockflag<0 or creatingblockflag>255):
+                        error='flag value must be 0-255 inclusive.'
+                        break
+                    
+                    continue
+                    
+                except:
+                    error='%s is not a valid flag value.' % args[i]
+                    break
+                
+            if(arg=='-arraytype' or arg=='--arraytype'):
+                i+=1
+                if(args[i]=='character' or args[i]=='c'):
+                    creatingarraytype=192
+                    continue
+                
+                elif(args[i]=='number' or args[i]=='n'):
+                    creatingarraytype=128
+                    continue
+                    
+                elif(args[i]=='string' or args[i]=='s'):
+                    creatingarraytype=64
+                    continue
+                
+                else:
+                    error='%s is not a valid array type (must be character, number or string).' % args[i]
+                    break
+    
+            if(arg=='-arrayname' or arg=='--arrayname'):
+                i+=1
+                creatingarrayname=args[i]
+                if(len(creatingarrayname)==1 and creatingarrayname.isalpha()):
+                    continue
+                    
+                error='%s is not a valid variable name.' % args[i]
                 break
             
-            mode=arg
-            continue
-        
-        if(arg=='-i' or arg=='-fromstandardinput' or arg=='--i' or arg=='--fromstandardinput'):
-            fromstandardinput=True
-            continue
-
-        if(arg=='-o' or arg=='-tostandardoutput' or arg=='--o' or arg=='--tostandardoutput'):
-            tostandardoutput=True
-            continue
-
-        if(arg=='-d' or arg=='-details' or arg=='--d' or arg=='--details'):
-            wantdetails=True
-            continue
-        
-        if(arg=='-s' or arg=='-specifyfiles' or arg=='-specificfiles' or arg=='--s' or arg=='--specifyfiles' or arg=='--specificfiles'):
-            i+=1
-            specifiedfiles=getindices(args[i])
-            if(specifiedfiles==None):
-                error='"'+args[i]+'" is invalid list of file indexes.'
-                break
-
-            continue
-
-        if(arg=='-a' or arg=='-append' or arg=='--a' or arg=='--append'):
-            append=True
-            continue
-
-        if(arg=='-p' or arg=='-position' or arg=='-pos' or arg=='--p' or arg=='--position' or arg=='--pos'):
-            i+=1
-            try:
-                copyposition=getint(args[i])
+            if(arg=='-i' or arg=='-fromstandardinput' or arg=='--i' or arg=='--fromstandardinput'):
+                fromstandardinput=True
                 continue
-
-            except:
-                error='%s is not a valid index for the output file.' % args[i]
-                break
-
-        #have unrecognised argument.
         
-        #check if is what entry we want to extract
-        if(mode=='extract' and entrywanted==None):
-            try:
-                entrywanted=getint(arg)
+            if(arg=='-o' or arg=='-tostandardoutput' or arg=='--o' or arg=='--tostandardoutput'):
+                tostandardoutput=True
                 continue
-                
-            except:
-                error='%s is not a valid index in the input file.' % arg
-                break
-
-        #if it is what entries we want to copy
-        if((mode=='copy' or mode=='delete') and specifiedfiles==None):
-            specifiedfiles=getindices(arg)
-            if(specifiedfiles==None):
-                error='"'+arg+'" is invalid list of file indexes.'
-                break
-
-            continue
-       
-        #check if is input or output file
-        #will be inputfile if not already defined, and fromstandardinput is False
-        if(inputfile==None and fromstandardinput==False):
-            inputfile=arg
-            continue
-
-        #will be outputfile if not already defined, tostandardoutput is False, and is last
-        #argument
-        if(outputfile==None and tostandardoutput==False and i==len(args)-1):
-            outputfile=arg
-            continue
-
-        error='"%s" is unrecognised argument.' % arg
-        break
-
-    if(error==None and mode==None):
-        error='No command (list, extract, copy, delete, or help) specified.'
-
-    if(error==None and inputfile==None and fromstandardinput==False and mode!='help'):
-        error='No input file specified.'
-    
-    if(error==None and outputfile==None and tostandardoutput==False and mode!='help'):
-        error='No output file specified.'
-
-    if(error==None and (mode=='copy' or mode=='delete') and specifiedfiles==None):
-        error='No entries specified to '+mode+'.'
         
-    #handle error with arguments
-    if(error!=None):
-        sys.stderr.write(error+"\n")
-        sys.stdout.write("Use 'python spectrumtapblock.py' to see full list of options.\n")
-        sys.exit(2)
-    
-    #if help is needed display it
-    if(mode=='help'):
-        sys.stdout.write(usage())
-        sys.exit(0)
-
-    #get data
-    if(fromstandardinput==False):
-        with open(inputfile,'rb') as infile:
-            data=infile.read()
-    
-    else:
-        data=sys.stdin.read()
-    
-    #now do command
-    if(mode=='list'):
-        pos=0
-        retdata='' if wantdetails else 'position type    information\n'
-        for tb in TapBlock_from_bytestring(data):
-            if(specifiedfiles!=None and not pos in specifiedfiles):
-                pos+=1
+            if(arg=='-d' or arg=='-details' or arg=='--d' or arg=='--details'):
+                wantdetails=True
                 continue
-                
-            if(wantdetails):
-                if(not tb.is_headder()):
-                    retdata+="%i\tData\t%i\t%i\n" % (pos,tb.flag,len(tb.data))
+            
+            if(arg=='-s' or arg=='-specifyfiles' or arg=='-specificfiles' or arg=='--s' or arg=='--specifyfiles' or arg=='--specificfiles'):
+                i+=1
+                specifiedfiles=getindices(args[i])
+                if(specifiedfiles==None):
+                    error='"'+args[i]+'" is invalid list of file indexes.'
+                    break
+        
+                continue
+        
+            if(arg=='-a' or arg=='-append' or arg=='--a' or arg=='--append'):
+                append=True
+                continue
+        
+            if(arg=='-p' or arg=='-position' or arg=='-pos' or arg=='--p' or arg=='--position' or arg=='--pos'):
+                i+=1
+                try:
+                    copyposition=getint(args[i])
+                    continue
+        
+                except:
+                    error='%s is not a valid index for the output file.' % args[i]
+                    break
+        
+            #have unrecognised argument.
+            
+            #check if is what entry we want to extract
+            if(mode=='extract' and entrywanted==None):
+                try:
+                    entrywanted=getint(arg)
+                    continue
                     
-                else:
-                    filetype=tb.get_file_type_string()
-                    if(filetype=="Program"):
-                        retdata+="%i\tHeadder\t%s\tProgram\t%i\t%i\t%i\n" % (pos,tb.get_file_name(),tb.get_headder_described_data_length(),0 if tb.get_headder_autostart_line()<0 else tb.get_headder_autostart_line(),tb.get_headder_variable_offset())
-                    elif(filetype=="Bytes"):
-                        retdata+="%i\tHeadder\t%s\tBytes\t%i\t%i\n" % (pos,tb.get_file_name(),tb.get_headder_code_start(),tb.get_headder_described_data_length())
-                    elif(filetype=="Number array" or filetype=="Character array"):
-                        retdata+="%i\tHeadder\t%s\t%s\t%i\t%s\t%s\t%i\n" % (pos,tb.get_file_name(),filetype,tb.get_headder_described_data_length(),tb.get_headder_variable_letter(),tb.get_headder_variable_name(),tb.get_headder_array_descriptor()&192)
-                    else:
-                        retdata+="%i\tHeadder\t%s\tUnknown\t%i\t%i\n" % (pos,tb.get_file_name(),tb.getbyte(0),tb.get_headder_described_data_length())
-                
-            else:
-                retdata+="%3i      %s %s\n" % (pos,"Headder" if tb.is_headder() else "Data   ",tb.get_file_details_string() if tb.is_headder() else str(tb))
+                except:
+                    error='%s is not a valid index in the input file.' % arg
+                    break
+        
+            #if it is what entries we want to copy
+            if((mode=='copy' or mode=='delete') and specifiedfiles==None):
+                specifiedfiles=getindices(arg)
+                if(specifiedfiles==None):
+                    error='"'+arg+'" is invalid list of file indexes.'
+                    break
+        
+                continue
+           
+            #check if is input or output file
+            #will be inputfile if not already defined, and fromstandardinput is False
+            if(inputfile==None and fromstandardinput==False):
+                inputfile=arg
+                continue
+        
+            #will be outputfile if not already defined, tostandardoutput is False, and is last
+            #argument
+            if(outputfile==None and tostandardoutput==False and i==len(args)-1):
+                outputfile=arg
+                continue
+        
+            error='"%s" is unrecognised argument.' % arg
+            break
+        
+        if(error==None and mode==None):
+            error='No command (list, extract, copy, delete, create, or help) specified.'
+        
+        if(error==None and inputfile==None and fromstandardinput==False and mode!='help'):
+            error='No input file specified.'
+        
+        if(error==None and outputfile==None and tostandardoutput==False and mode!='help'):
+            error='No output file specified.'
+        
+        if(error==None and (mode=='copy' or mode=='delete') and specifiedfiles==None):
+            error='No entries specified to '+mode+'.'
+            
+        if(error==None and mode=='create' and creating==None):
+            error='You have to specify file type to create.'
+    
+        if(error==None and mode=='create' and creatingfilename==None):
+            error='You have to specify file name to create.'
+    
+        if(error==None and mode=='create' and creating=='array' and (creatingarraytype==None or creatingarrayname==None)):
+            error='You have to specify array type and name.'
 
-            pos+=1
-
-    if(mode=='extract'):
-        tbs=[tb for tb in TapBlock_from_bytestring(data)]
-        if(entrywanted>len(tbs)):
-            sys.stderr.write(str(entrywanted)+" is greater than the number of entries in the source data.\n")
+        #handle error with arguments
+        if(error!=None):
+            sys.stderr.write(error+"\n")
             sys.stdout.write("Use 'python spectrumtapblock.py' to see full list of options.\n")
             sys.exit(2)
-            
-        retdata=tbs[entrywanted].data
-
-    if(mode=='copy'):
-        tbs=[tb for tb in TapBlock_from_bytestring(data)]
-        retdata=''
-        for x in specifiedfiles:
-            if(x>len(tbs)):
-                sys.stderr.write(str(x)+" is greater than the number of entries in the source data.\n")
+        
+        #if help is needed display it
+        if(mode=='help'):
+            sys.stdout.write(usage())
+            sys.exit(0)
+        
+        #get data
+        if(fromstandardinput==False):
+            with open(inputfile,'rb') as infile:
+                data=infile.read()
+        
+        else:
+            data=sys.stdin.read()
+        
+        #now do command
+        if(mode=='list'):
+            pos=0
+            retdata='' if wantdetails else 'position type    information\n'
+            for tb in TapBlock_from_bytestring(data):
+                if(specifiedfiles!=None and not pos in specifiedfiles):
+                    pos+=1
+                    continue
+                    
+                if(wantdetails):
+                    if(not tb.is_headder()):
+                        retdata+="%i\tData\t%i\t%i\n" % (pos,tb.flag,len(tb.data))
+                        
+                    else:
+                        filetype=tb.get_file_type_string()
+                        if(filetype=="Program"):
+                            retdata+="%i\tHeadder\t%s\tProgram\t%i\t%i\t%i\n" % (pos,tb.get_file_name(),tb.get_headder_described_data_length(),0 if tb.get_headder_autostart_line()<0 else tb.get_headder_autostart_line(),tb.get_headder_variable_offset())
+                        elif(filetype=="Bytes"):
+                            retdata+="%i\tHeadder\t%s\tBytes\t%i\t%i\n" % (pos,tb.get_file_name(),tb.get_headder_code_start(),tb.get_headder_described_data_length())
+                        elif(filetype=="Number array" or filetype=="Character array"):
+                            retdata+="%i\tHeadder\t%s\t%s\t%i\t%s\t%s\t%i\n" % (pos,tb.get_file_name(),filetype,tb.get_headder_described_data_length(),tb.get_headder_variable_letter(),tb.get_headder_variable_name(),tb.get_headder_array_descriptor()&192)
+                        else:
+                            retdata+="%i\tHeadder\t%s\tUnknown\t%i\t%i\n" % (pos,tb.get_file_name(),tb.getbyte(0),tb.get_headder_described_data_length())
+                    
+                else:
+                    retdata+="%3i      %s %s\n" % (pos,"Headder" if tb.is_headder() else "Data   ",tb.get_file_details_string() if tb.is_headder() else str(tb))
+        
+                pos+=1
+        
+        if(mode=='extract'):
+            tbs=[tb for tb in TapBlock_from_bytestring(data)]
+            if(entrywanted>len(tbs)):
+                sys.stderr.write(str(entrywanted)+" is greater than the number of entries in the source data.\n")
                 sys.stdout.write("Use 'python spectrumtapblock.py' to see full list of options.\n")
                 sys.exit(2)
-            
-            retdata+=tbs[x].getPackagedForFile()
+                
+            retdata=tbs[entrywanted].data
+        
+        if(mode=='copy'):
+            tbs=[tb for tb in TapBlock_from_bytestring(data)]
+            retdata=''
+            for x in specifiedfiles:
+                if(x>len(tbs)):
+                    sys.stderr.write(str(x)+" is greater than the number of entries in the source data.\n")
+                    sys.stdout.write("Use 'python spectrumtapblock.py' to see full list of options.\n")
+                    sys.exit(2)
+                
+                retdata+=tbs[x].getPackagedForFile()
+        
+        if(mode=='delete'):
+            tbs=[tb for tb in TapBlock_from_bytestring(data)]
+            retdata=''
+            for x in range(len(tbs)):
+                if(not x in specifiedfiles):
+                    retdata+=tbs[x].getPackagedForFile()
+        
+        if(mode=='create'):
+            retdata=''
 
-        #handle copy inserting at position
-        if(copyposition!=False):
+            if(creating=='basic'):
+                if(creatingvariableoffset==-1):
+                    #work out position of variables
+                    offset=0
+                    while(offset<len(data)):
+                        linenumber=(ord(data[offset])*256)+ord(data[offset+1])
+                        #bits 5,6,7 of variable code will be 16384 or more
+                        #max line number is 9999
+                        if(linenumber>9999):
+                            #too big for line number: is 1st variable
+                            break
+                        
+                        #otherwise move to next line
+                        linelength=ord(data[offset+2])+(ord(data[offset+3])*256)
+                        offset+=linelength+4
+                    
+                    creatingvariableoffset=min(offset,len(data))
+
+                retdata=CreateBASICHeadder(creatingfilename,creatingvariableoffset,len(data),creatingautostart).getPackagedForFile()
+            
+            elif(creating=='code'):
+                retdata=CreateCodeHeadder(creatingfilename,creatingorigin,len(data)).getPackagedForFile()
+            
+            elif(creating=='array'):
+                retdata=CreateArrayHeadder(creatingfilename,creatingarraytype+(ord(creatingarrayname)&0x3F),len(data)).getPackagedForFile()
+            
+            elif(creating=='screen'):
+                retdata=CreateScreenHeadder(creatingfilename).getPackagedForFile()
+            
+            retdata+=CreateDataBlock(data,flag=creatingblockflag if creating=='block' else 0xFF).getPackagedForFile()
+
+        #handle copy or create inserting at position
+        if(copyposition!=False and (mode=='create' or mode=='copy')):
             import os.path
             if(tostandardoutput==False and os.path.isfile(outputfile)):
                 #get tapblocks (if any in destination file)
                 with open(outputfile,'rb') as infile:
                     destinationtbs=[tb for tb in TapBlock_from_bytestring(infile.read())]
-    
+        
                 if(copyposition<len(destinationtbs)):
                     retdata="".join([tb.getPackagedForFile() for tb in destinationtbs[:copyposition]]) + retdata + "".join([tb.getPackagedForFile() for tb in destinationtbs[copyposition:]])
                 
                 else:
                     retdata=destinationtbs+retdata
-            
-    if(mode=='delete'):
-        tbs=[tb for tb in TapBlock_from_bytestring(data)]
-        retdata=''
-        for x in range(len(tbs)):
-            if(not x in specifiedfiles):
-                retdata+=tbs[x].getPackagedForFile()
+                
+        #output data
+        if(tostandardoutput==False):
+            fo=open(outputfile,"ab" if mode=='copy' and append else "wb")
+            fo.write(retdata)
+            fo.close()
+        
+        else:
+            sys.stdout.write(retdata)
 
-    #output data
-    if(tostandardoutput==False):
-        fo=open(outputfile,"ab" if mode=='copy' and append else "wb")
-        fo.write(retdata)
-        fo.close()
-
-    else:
-        sys.stdout.write(retdata)
+    #catch and handle expected exceptions nicely
+    except spectrumtranslate.SpectrumTranslateException as se:
+        sys.stderr.write(se.value+"\n")
     
 if __name__=="__main__":
+    #import here as only needed for command line    
     import sys
+
+    #set encodeing so can handle non ascii characters
+    import codecs
+    sys.stdout=codecs.getwriter('utf8')(sys.stdout)
+    sys.stderr=codecs.getwriter('utf8')(sys.stderr)
+    
     CommandLine(sys.argv)
