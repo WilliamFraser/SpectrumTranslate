@@ -829,7 +829,7 @@ def CommandLine(args):
         if(error==None and mode=='create' and creating==None):
             error='You have to specify file type to create.'
     
-        if(error==None and mode=='create' and creatingfilename==None):
+        if(error==None and mode=='create' and creatingfilename==None and creating!='block'):
             error='You have to specify file name to create.'
     
         if(error==None and mode=='create' and creating=='array' and (creatingarraytype==None or creatingarrayname==None)):
