@@ -450,7 +450,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         
         #panel to hold Basic program variables
         gbBasic=QtGui.QGroupBox("Basic Program",self)
-
+        gbBasic.setStyleSheet("""QGroupBox { border: 1px solid gray; border-radius: 3px; margin-top: 0.5em; font-weight: bold; }
+                                 QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px 0 3px; }""")
         grid2=QtGui.QGridLayout()
         grid2.setSpacing(10)
 
@@ -496,6 +497,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
         #panel to hold machine code variables
         gbCode=QtGui.QGroupBox("Machine Code",self)
+        gbCode.setStyleSheet("""QGroupBox { border: 1px solid gray; border-radius: 3px; margin-top: 0.5em; font-weight: bold; }
+                                QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px 0 3px; }""")
 
         grid2=QtGui.QGridLayout()
         grid2.setSpacing(5)
@@ -585,6 +588,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
         #panel to hold array variables
         gbVars=QtGui.QGroupBox("Variable Array",self)
+        gbVars.setStyleSheet("""QGroupBox { border: 1px solid gray; border-radius: 3px; margin-top: 0.5em; font-weight: bold; }
+                                QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px 0 3px; }""")
 
         grid2=QtGui.QGridLayout()
         grid2.setSpacing(10)
@@ -635,6 +640,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
         #panel to hold image variables
         gbImage=QtGui.QGroupBox("Screen",self)
+        gbImage.setStyleSheet("""QGroupBox { border: 1px solid gray; border-radius: 3px; margin-top: 0.5em; font-weight: bold; }
+                                 QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px 0 3px; }""")
 
         grid2=QtGui.QGridLayout()
         grid2.setSpacing(10)
@@ -667,10 +674,14 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
         #panel to indicate raw data
         gbRaw=QtGui.QGroupBox("Raw Data",self)
+        gbRaw.setStyleSheet("""QGroupBox { border: 1px solid gray; border-radius: 3px; margin-top: 0.5em; font-weight: bold; }
+                               QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px 0 3px; }""")
         stack.addWidget(gbRaw)
 
         #panel to hold snapshot variables
         gbSnap=QtGui.QGroupBox("Snapshot",self)
+        gbSnap.setStyleSheet("""QGroupBox { border: 1px solid gray; border-radius: 3px; margin-top: 0.5em; font-weight: bold; }
+                                QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px 0 3px; }""")
         self.gbSnap=gbSnap
 
         grid2=QtGui.QGridLayout()
@@ -1767,8 +1778,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         vbox=QtGui.QVBoxLayout()
 
         cbOverOrAppend=QtGui.QComboBox(self)
-        cbOverOrAppend.addItem("Overwrite existing file",0)
-        cbOverOrAppend.addItem("Append to Existing file",1)
+        cbOverOrAppend.addItem("Overwrite if file exists",0)
+        cbOverOrAppend.addItem("Append if file exists",1)
         cbOverOrAppend.setToolTip("Do you want to append or overwrite an existing file?")
         cbOverOrAppend.setCurrentIndex(self.ExportSettings["AppendOrOver"])
         vbox.addWidget(cbOverOrAppend)
