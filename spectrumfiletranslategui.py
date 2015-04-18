@@ -273,8 +273,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         
         self.diInstructions=[None]
         
-        self.ExportSettings={"Filename":"Export    ","AppendOrOver":1,"SaveWithHeadder":1,"Flag":0xFF}
-        
+        self.ExportSettings={"Filename":"Export","AppendOrOver":1,"SaveWithHeadder":1,"Flag":0xFF,"+DPos":1,"FilePosition":0,"ContainerType":2}
+
         self.initUI(defaultFile)
         
     def initUI(self,defaultFile=None):
@@ -1775,6 +1775,17 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         dContainer.setWindowTitle("Edit Export Settings")
         dContainer.setModal(True)
 
+        box=QtGui.QVBoxLayout()
+        cbContainerType=QtGui.QComboBox(self)
+        cbContainerType.addItem("Tap file container",0)
+        cbContainerType.addItem("+D/Disciple file container",1)
+        cbContainerType.addItem("container format from destination file",2)
+        cbContainerType.setToolTip("Select the type of containter file to export to.")
+        cbContainerType.setCurrentIndex(self.ExportSettings["ContainerType"])
+        box.addWidget(cbContainerType)
+
+        tab=QtGui.QTabWidget()
+
         vbox=QtGui.QVBoxLayout()
 
         cbOverOrAppend=QtGui.QComboBox(self)
@@ -1789,22 +1800,26 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         cbSaveWithHeadder.addItem("Save with headder",1)
         cbSaveWithHeadder.setToolTip("Do you want to save as headderless block or file with headder?")
         cbSaveWithHeadder.setCurrentIndex(self.ExportSettings["SaveWithHeadder"])
+        cbSaveWithHeadder.activated.connect(self.ExportSettingsControlUpdate)
         vbox.addWidget(cbSaveWithHeadder)
 
         hbox=QtGui.QHBoxLayout()
         hbox.setSpacing(2)
-        hbox.addWidget(QtGui.QLabel("File Name:"))
+        lFileName=QtGui.QLabel("File Name:")
+        hbox.addWidget(lFileName)
         leFileName=QtGui.QLineEdit(self)
         leFileName.setToolTip("Filename to export as.")
         leFileName.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
         leFileName.sizePolicy().setHorizontalStretch(1)
         leFileName.setText(self.ExportSettings["Filename"])
+        leFileName.textEdited.connect(self.setleFileNameD)
         hbox.addWidget(leFileName)
         vbox.addLayout(hbox)
 
         hbox=QtGui.QHBoxLayout()
         hbox.setSpacing(2)
-        hbox.addWidget(QtGui.QLabel("Block Flag:"))
+        lFlag=QtGui.QLabel("Block Flag:")
+        hbox.addWidget(lFlag)
         leFlag=QtGui.QLineEdit(self)
         leFlag.setToolTip("Flag value for the data block.\nIgnored if saveing with headder.")
         leFlag.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
@@ -1812,6 +1827,51 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         leFlag.setText(str(self.ExportSettings["Flag"]))
         hbox.addWidget(leFlag)
         vbox.addLayout(hbox)
+
+        w=QtGui.QWidget()
+        w.setLayout(vbox)
+        tab.addTab(w,"Tap options")
+
+        vbox=QtGui.QVBoxLayout()
+
+        cbFilePosition=QtGui.QComboBox(self)
+        cbFilePosition.addItem("Overwrite if file exists or first empty",0)
+        cbFilePosition.addItem("Save at specified position",1)
+        cbFilePosition.addItem("Save in first empty slot",2)
+        cbFilePosition.setToolTip("Which Directory slot do you want to save into?")
+        cbFilePosition.setCurrentIndex(self.ExportSettings["FilePosition"])
+        cbFilePosition.activated.connect(self.ExportSettingsControlUpdate)
+        vbox.addWidget(cbFilePosition)
+
+        hbox=QtGui.QHBoxLayout()
+        hbox.setSpacing(2)
+        hbox.addWidget(QtGui.QLabel("File Name:"))
+        leFileNameD=QtGui.QLineEdit(self)
+        leFileNameD.setToolTip("Filename to export as.")
+        leFileNameD.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
+        leFileNameD.sizePolicy().setHorizontalStretch(1)
+        leFileNameD.setText(self.ExportSettings["Filename"])
+        leFileNameD.textEdited.connect(self.setleFileName)
+        hbox.addWidget(leFileNameD)
+        vbox.addLayout(hbox)
+
+        hbox=QtGui.QHBoxLayout()
+        hbox.setSpacing(2)
+        lSlot=QtGui.QLabel("Target Slot:")
+        hbox.addWidget(lSlot)
+        leSlot=QtGui.QLineEdit(self)
+        leSlot.setToolTip("Which headder slot do you want this file saved into.\nValid options are 1 to 80 inclusive.")
+        leSlot.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
+        leSlot.sizePolicy().setHorizontalStretch(1)
+        leSlot.setText(str(self.ExportSettings["+DPos"]))
+        hbox.addWidget(leSlot)
+        vbox.addLayout(hbox)
+
+        w=QtGui.QWidget()
+        w.setLayout(vbox)
+        tab.addTab(w,"+D/Disciple options")
+
+        box.addWidget(tab)
 
         hbox=QtGui.QHBoxLayout()
         hbox.addStretch(1)
@@ -1823,29 +1883,65 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         close.clicked.connect(dContainer.reject)
         hbox.addStretch(1)
 
-        vbox.addLayout(hbox)
+        box.addLayout(hbox)
 
-        dContainer.setLayout(vbox)
+        dContainer.setLayout(box)
 
+        dContainer.cbSaveWithHeadder=cbSaveWithHeadder
+        dContainer.lFileName=lFileName
         dContainer.leFileName=leFileName
+        dContainer.lFlag=lFlag
         dContainer.leFlag=leFlag
+        dContainer.cbFilePosition=cbFilePosition
+        dContainer.lSlot=lSlot
+        dContainer.leSlot=leSlot
+        dContainer.leFileNameD=leFileNameD
         self.Ddialog=dContainer
 
+        self.ExportSettingsControlUpdate()
+
         if(dContainer.exec_()==QtGui.QDialog.Accepted):
+            self.ExportSettings["ContainerType"]=cbContainerType.currentIndex()
             self.ExportSettings["Flag"]=int(str(leFlag.text()))
             self.ExportSettings["Filename"]=str(leFileName.text())
             self.ExportSettings["AppendOrOver"]=cbOverOrAppend.currentIndex()
             self.ExportSettings["SaveWithHeadder"]=cbSaveWithHeadder.currentIndex()
+            self.ExportSettings["+DPos"]=int(str(leSlot.text()))
+            self.ExportSettings["FilePosition"]=cbFilePosition.currentIndex()
 
         del self.Ddialog
+
+    def setleFileNameD(self,text):
+        self.Ddialog.leFileNameD.setText(text)
+
+    def setleFileName(self,text):
+        self.Ddialog.leFileName.setText(text)
+
+    def ExportSettingsControlUpdate(self):
+        i=self.Ddialog.cbSaveWithHeadder.currentIndex()
+        self.Ddialog.lFileName.setEnabled(i==1)
+        self.Ddialog.leFileName.setEnabled(i==1)
+        self.Ddialog.lFlag.setEnabled(i==0)
+        self.Ddialog.leFlag.setEnabled(i==0)
+
+        i=self.Ddialog.cbFilePosition.currentIndex()
+        self.Ddialog.lSlot.setEnabled(i==1)
+        self.Ddialog.leSlot.setEnabled(i==1)
+
     
     def CheckValidFileName(self):
-        if(len(self.Ddialog.leFileName.text())>10):
-            QtGui.QMessageBox.warning(self,"Error!","Specrum file names have to be 10 characters or less.")
+        try:
+            s=spectrumtranslate.get_spectrum_string(str(self.Ddialog.leFileName.text()))
+            if(len(s)>10):
+                QtGui.QMessageBox.warning(self,"Error!","Specrum file names have to be 10 characters or less.")
+                return
+
+        except:
+            QtGui.QMessageBox.warning(self,"Error!","Not valid spectrum string.")
             return
         
         try:
-            f=int(self.Ddialog.leFlag.text())
+            f=int(str(self.Ddialog.leFlag.text()))
             if(f<0 or f>0xFF):
                 QtGui.QMessageBox.warning(self,"Error!","Flag must be from 0 to 255 inclusive.")
                 return
@@ -1854,6 +1950,16 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             QtGui.QMessageBox.warning(self,"Error!","Flag must be a number from 0 to 255 inclusive.")
             return
             
+        try:
+            p=int(str(self.Ddialog.leSlot.text()))
+            if(p<1 or p>80):
+                QtGui.QMessageBox.warning(self,"Error!","Save position must be 1 to 80 inclusive.")
+                return
+        
+        except:
+            QtGui.QMessageBox.warning(self,"Error!","Save position must be 1 to 80 inclusive.")
+            return
+
         self.Ddialog.accept()
 
     def ExportToContainerChanged(self,state):
@@ -1870,59 +1976,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
         #do exporting
         if(self.cbExportToContainer.isChecked()):
-            #check if file is greater than 0xFFFF: won't fit in tap file if is.
-            if(len(data)>0xFFFF):
-                QtGui.QMessageBox.warning(self,"Error!","Data is bigger than 65535 bytes and can't be saved in a .TAP file.")
-                return None
-
-            output=''
-            if(self.ExportSettings["SaveWithHeadder"]==1):
-                filename=self.ExportSettings["Filename"]
-                if(outputformat=="Basic Program"):
-                    auto=self.getNumber(self.leBasicAutoLine)
-                    variableoffset=self.getNumber(self.leBasicVariableOffset)
-                    output=spectrumtapblock.CreateBASICHeadder(filename,variableoffset,len(data),auto).getPackagedForFile()
-                    
-                elif(outputformat=="Machine Code"):
-                    origin=self.getNumber(self.leCodeOrigin)
-                    if(origin<0 or origin>0xFFFF):
-                        QtGui.QMessageBox.warning(self,"Error!","Code Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
-                        return None
-                        
-                    output=spectrumtapblock.CreateCodeHeadder(filename,origin,len(data)).getPackagedForFile()
-                    
-                elif(outputformat=="Variable Array"):
-                    idescriptor=self.cbArrayVarType.currentIndex()
-                    idescriptor+=2
-                    idescriptor-=(idescriptor>>2)*3
-                    idescriptor*=64
-                    
-                    sVarName=str(self.leArrayVarName.text()).lower()
-                    if(len(sVarName)!=1 or ord(sVarName)<97 or ord(sVarName)>122):
-                        QtGui.QMessageBox.warning(self,"Error!","Variable Name must be single letter.")
-                        return None
-
-                    output=spectrumtapblock.CreateArrayHeadder(filename,idescriptor|(ord(sVarName)&0x3F),len(data)).getPackagedForFile()
-                    
-                elif(outputformat=="Screen"):
-                    output=spectrumtapblock.CreateScreenHeadder(filename).getPackagedForFile()
-
-            output+=spectrumtapblock.CreateDataBlock(data,0xFF if self.ExportSettings["SaveWithHeadder"]==1 else self.ExportSettings["Flag"]).getPackagedForFile()
-            
-            fileout=self.leFileNameOut.text()
-            if(not fileout or fileout==""):
-                QtGui.QMessageBox.warning(self,"Error!",'No output file selected.')
-                return
-            
-            try:
-                fo=open(fileout,"ab" if self.ExportSettings["AppendOrOver"]==1 else "wb")
-                fo.write(output)
-                fo.close()
-            except:
-                QtGui.QMessageBox.warning(self,"Error!",'Failed to save data to "%s"' % fileout)
-            
+            self.DoExport(data,outputformat)
             return
-
             
         #handle images
         if(outputformat=="Screen"):
@@ -2065,6 +2120,158 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             
         if(self.cbSaveOutput.isChecked()):
             self.PutFileData(s)
+
+    def DoExport(self,data,outputformat):
+        #check we have output filename
+        fileout=self.leFileNameOut.text()
+        if(not fileout or fileout==""):
+            QtGui.QMessageBox.warning(self,"Error!",'No output file selected.')
+            return
+        
+        #work out what container format to use
+        containertype=self.ExportSettings["ContainerType"]
+        #handle working out container type
+        if(containertype==2):
+            if(os.path.isfile(fileout)):
+                #try to see if is disciple/+D image file
+                try:
+                    di=disciplefile.DiscipleImage(fileout)
+                    di.GuessImageFormat()
+                    
+                    #if it's a valid +D file then use this format
+                    if(di.CheckImageIsValid(True)):
+                        containertype=1
+                        
+                except:
+                    #ignore errors, and fall through into tap check
+                    pass
+                    
+                #try to see if is tap file
+                try:
+                    if(containertype==2):
+                        tbs=spectrumtapblock.get_TapBlocks(fileout)
+                        if(len(tbs)>0):
+                            containertype=0
+                except:
+                    #ignore errors, and fall through into next part of routine
+                    pass
+                
+                #see if we've not worked out the format and handle this
+                if(containertype==2):
+                    QtGui.QMessageBox.warning(self,"Error!",'"%s" is not either a .tap file or a disciple/+D disk image.' % fileout)
+                    return
+                
+            #what to do if no container file existing to guess format
+            else:
+                QtGui.QMessageBox.warning(self,"Error!",'"%s" is not a file, so cannot guess container format.' % fileout)
+                return
+
+        #get spectrum file filename
+        filename=spectrumtranslate.StringToSpectrum(self.ExportSettings["Filename"])
+
+        #todo remove when have support for snap files, opentype files etc that are bigger than 64K
+        #check if file is greater than 0xFFFF: won't fit in file if is.
+        if(len(data)>0xFFFF):
+            QtGui.QMessageBox.warning(self,"Error!","Data is bigger than 65535 bytes and can't be saved.")
+            return None
+
+        #handle tap file
+        if(containertype==0):
+            output=''
+            if(self.ExportSettings["SaveWithHeadder"]==1):
+                if(outputformat=="Basic Program"):
+                    auto=self.getNumber(self.leBasicAutoLine)
+                    variableoffset=self.getNumber(self.leBasicVariableOffset)
+                    output=spectrumtapblock.CreateBASICHeadder(filename,variableoffset,len(data),auto).getPackagedForFile()
+                    
+                elif(outputformat=="Machine Code"):
+                    origin=self.getNumber(self.leCodeOrigin)
+                    if(origin<0 or origin>0xFFFF):
+                        QtGui.QMessageBox.warning(self,"Error!","Code Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
+                        return None
+                        
+                    output=spectrumtapblock.CreateCodeHeadder(filename,origin,len(data)).getPackagedForFile()
+                    
+                elif(outputformat=="Variable Array"):
+                    idescriptor=self.cbArrayVarType.currentIndex()
+                    idescriptor+=2
+                    idescriptor-=(idescriptor>>2)*3
+                    idescriptor*=64
+                    
+                    sVarName=str(self.leArrayVarName.text()).lower()
+                    if(len(sVarName)!=1 or ord(sVarName)<97 or ord(sVarName)>122):
+                        QtGui.QMessageBox.warning(self,"Error!","Variable Name must be single letter.")
+                        return None
+    
+                    output=spectrumtapblock.CreateArrayHeadder(filename,idescriptor|(ord(sVarName)&0x3F),len(data)).getPackagedForFile()
+                    
+                elif(outputformat=="Screen"):
+                    output=spectrumtapblock.CreateScreenHeadder(filename).getPackagedForFile()
+    
+            output+=spectrumtapblock.CreateDataBlock(data,0xFF if self.ExportSettings["SaveWithHeadder"]==1 else self.ExportSettings["Flag"]).getPackagedForFile()
+            
+            try:
+                fo=open(fileout,"ab" if self.ExportSettings["AppendOrOver"]==1 else "wb")
+                fo.write(output)
+                fo.close()
+            except:
+                QtGui.QMessageBox.warning(self,"Error!",'Failed to save data to "%s"' % fileout)
+            
+            return
+        
+        #otherwise handle +D/disciple
+
+        #create output image to copy into
+        diout=disciplefile.DiscipleImage()
+        #if we're writing to an existing file then load it into our image
+        if(os.path.isfile(fileout)):
+            with open(fileout,'rb') as outfile:
+                diout.setBytes(outfile.read())
+        #otherwise create blank image
+        else:
+            diout.setBytes('\x00'*819200)
+
+        #get where to save directory entry and whether to overwrite or not
+        copyposition=self.ExportSettings["+DPos"] if self.ExportSettings["FilePosition"]==1 else -1
+        overwritename=self.ExportSettings["FilePosition"]==0
+
+        if(outputformat=="Basic Program"):
+            auto=self.getNumber(self.leBasicAutoLine)
+            variableoffset=self.getNumber(self.leBasicVariableOffset)
+            diout.WriteBasicFile(data,filename,position=copyposition,autostartline=auto,varposition=variableoffset,overwritename=overwritename)
+        
+        elif(outputformat=="Machine Code"):
+            origin=self.getNumber(self.leCodeOrigin)
+            if(origin<0 or origin>0xFFFF):
+                QtGui.QMessageBox.warning(self,"Error!","Code Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
+                return None
+                        
+            diout.WriteCodeFile(data,filename,position=copyposition,codestartaddress=origin,overwritename=overwritename)
+        
+        elif(outputformat=="Variable Array"):
+            idescriptor=self.cbArrayVarType.currentIndex()
+            idescriptor+=2
+            idescriptor-=(idescriptor>>2)*3
+            idescriptor*=64
+            
+            sVarName=str(self.leArrayVarName.text()).lower()
+            if(len(sVarName)!=1 or ord(sVarName)<97 or ord(sVarName)>122):
+                QtGui.QMessageBox.warning(self,"Error!","Variable Name must be single letter.")
+                return None
+
+            diout.WriteArrayFile(data,filename,idescriptor|(ord(sVarName)&0x3F),position=copyposition,overwritename=overwritename)
+        
+        elif(outputformat=="Screen"):
+            diout.WriteScreenFile(data,filename,position=copyposition,overwritename=overwritename)
+        
+        #not standard file so treat as code
+        else:
+            diout.WriteCodeFile(data,filename,position=copyposition,codestartaddress=0,overwritename=overwritename)
+
+        #output data
+        fo=open(fileout,"wb")
+        fo.write(diout.bytedata)
+        fo.close()
 
     def DisplayImageDialog(self,title,imagedata):
         #create dialog to display image
