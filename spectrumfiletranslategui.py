@@ -2149,7 +2149,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 #try to see if is tap file
                 try:
                     if(containertype==2):
-                        tbs=spectrumtapblock.get_TapBlocks(fileout)
+                        tbs=spectrumtapblock.gettapblocks(fileout)
                         if(len(tbs)>0):
                             containertype=0
                 except:
@@ -2182,7 +2182,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 if(outputformat=="Basic Program"):
                     auto=self.getNumber(self.leBasicAutoLine)
                     variableoffset=self.getNumber(self.leBasicVariableOffset)
-                    output=spectrumtapblock.CreateBASICHeadder(filename,variableoffset,len(data),auto).getPackagedForFile()
+                    output=spectrumtapblock.createbasicheadder(filename,variableoffset,len(data),auto).getpackagedforfile()
                     
                 elif(outputformat=="Machine Code"):
                     origin=self.getNumber(self.leCodeOrigin)
@@ -2190,7 +2190,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                         QtGui.QMessageBox.warning(self,"Error!","Code Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
                         return None
                         
-                    output=spectrumtapblock.CreateCodeHeadder(filename,origin,len(data)).getPackagedForFile()
+                    output=spectrumtapblock.createcodeheadder(filename,origin,len(data)).getpackagedforfile()
                     
                 elif(outputformat=="Variable Array"):
                     idescriptor=self.cbArrayVarType.currentIndex()
@@ -2203,12 +2203,12 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                         QtGui.QMessageBox.warning(self,"Error!","Variable Name must be single letter.")
                         return None
     
-                    output=spectrumtapblock.CreateArrayHeadder(filename,idescriptor|(ord(sVarName)&0x3F),len(data)).getPackagedForFile()
+                    output=spectrumtapblock.createarrayheadder(filename,idescriptor|(ord(sVarName)&0x3F),len(data)).getpackagedforfile()
                     
                 elif(outputformat=="Screen"):
-                    output=spectrumtapblock.CreateScreenHeadder(filename).getPackagedForFile()
+                    output=spectrumtapblock.createscreenheadder(filename).getpackagedforfile()
     
-            output+=spectrumtapblock.CreateDataBlock(data,0xFF if self.ExportSettings["SaveWithHeadder"]==1 else self.ExportSettings["Flag"]).getPackagedForFile()
+            output+=spectrumtapblock.createdatablock(data,0xFF if self.ExportSettings["SaveWithHeadder"]==1 else self.ExportSettings["Flag"]).getpackagedforfile()
             
             try:
                 fo=open(fileout,"ab" if self.ExportSettings["AppendOrOver"]==1 else "wb")
@@ -2685,12 +2685,12 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         tapmodel=QtGui.QStandardItemModel()
         tapmodel.setHorizontalHeaderLabels(['Tap Entries'])
         
-        tbs=spectrumtapblock.get_TapBlocks(self.leFileNameIn.text())
+        tbs=spectrumtapblock.gettapblocks(self.leFileNameIn.text())
         i=0
         while(i<len(tbs)):
             #do we have a headder that matches the following code block?
-            if(i<len(tbs)-1 and tbs[i].is_headder() and tbs[i+1].flag==255 and len(tbs[i+1].data)==tbs[i].get_headder_described_data_length()):
-                block=QtGui.QStandardItem(tbs[i].get_file_details_string())
+            if(i<len(tbs)-1 and tbs[i].isheadder() and tbs[i+1].flag==255 and len(tbs[i+1].data)==tbs[i].getheadderdescribeddatalength()):
+                block=QtGui.QStandardItem(tbs[i].getfiledetailsstring())
                 block.tapdata=tbs[i:i+2]
                 line=QtGui.QStandardItem(str(tbs[i]))
                 line.tapdata=tbs[i:i+1]
@@ -2835,32 +2835,32 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         #if only 1 tap block then is individual tapblock. treat as code
         if(len(tapdata)==1):
             #set values
-            self.SetSourceLimits(tapdata[0].get_data_start_offset(),len(tapdata[0].data))
+            self.SetSourceLimits(tapdata[0].getdatastartoffset(),len(tapdata[0].data))
             self.SetCodeDetails(0)
         
             return
         
         #if not then should contain 2 TapBlocks: headder & data block.
-        self.SetSourceLimits(tapdata[1].get_data_start_offset(),len(tapdata[1].data),-1)
+        self.SetSourceLimits(tapdata[1].getdatastartoffset(),len(tapdata[1].data),-1)
         
         #save off filename incase want to export it
-        self.ExportSettings["Filename"]=tapdata[0].get_raw_file_name()
+        self.ExportSettings["Filename"]=tapdata[0].getrawfilename()
         
         if(ord(tapdata[0].data[0])==0):
             #basic program
-            self.SetBasicDetails(tapdata[0].get_headder_autostart_line(),tapdata[0].get_headder_variable_offset())
+            self.SetBasicDetails(tapdata[0].getheadderautostartline(),tapdata[0].getheaddervariableoffset())
             
         elif(ord(tapdata[0].data[0])==1 or ord(tapdata[0].data[0])==2):
             #number or character array
-            self.SetVariableArrayDetails(tapdata[0].get_headder_variable_letter(),tapdata[0].get_headder_array_descriptor())
+            self.SetVariableArrayDetails(tapdata[0].getheaddervariableletter(),tapdata[0].getheadderarraydescriptor())
 
         elif(ord(tapdata[0].data[0])==3):
             #bytes: can be screen or data/machine code
             if(len(tapdata[1].data)==6912):
-                  self.SetScreenDetails(tapdata[0].get_headder_code_start())
+                  self.SetScreenDetails(tapdata[0].getheaddercodestart())
                   
             else:
-                  self.SetCodeDetails(tapdata[0].get_headder_code_start())
+                  self.SetCodeDetails(tapdata[0].getheaddercodestart())
 
         else:
             #default to code block
@@ -2959,7 +2959,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             
             #try extracting from tap file
             try:
-                tbs=spectrumtapblock.get_TapBlocks(self.leFileNameIn.text())
+                tbs=spectrumtapblock.gettapblocks(self.leFileNameIn.text())
                 if(len(tbs)>0):
                     self.bBrowseContainer.setText("Browse TAP")
                     self.bBrowseContainer.setEnabled(True)
