@@ -585,7 +585,7 @@ def convert_program_to_text(data,iAutostart=-1,ivariableOffset=-1):
         iLineNumber=data[i+1]+256*data[i] #line number is high byte first
         i+=2
         if(iLineNumber>9999):
-            raise SpectrumTranslateException("Line number cannot exceed 9999")
+            raise SpectrumTranslateError("Line number cannot exceed 9999")
             
         text+="%i " % iLineNumber
       
@@ -651,7 +651,7 @@ def convert_program_to_text(data,iAutostart=-1,ivariableOffset=-1):
                 elif(k==14): #number definition
                     #if not enough bytes before end of line or program then we have a problem
                     if(l+5>=iLineLen or i+5>=len(data)):
-                        raise SpectrumTranslateException("Error with number format")
+                        raise SpectrumTranslateError("Error with number format")
                         
                     sn=spectrumnumber.SpectrumNumber(data[i:i+5])
                     i+=5
@@ -809,7 +809,7 @@ def convert_program_to_text(data,iAutostart=-1,ivariableOffset=-1):
             i+=2+data[i]+256*data[i+1]
 
         else:
-            raise SpectrumTranslateException("Unrecognised variable type")
+            raise SpectrumTranslateError("Unrecognised variable type")
 
     return text
 
@@ -849,7 +849,7 @@ def convert_program_to_XML(data,iAutostart=-1,ivariableOffset=-1):
         iLineNumber=data[i+1]+256*data[i] #line number is high byte first
         i+=2
         if(iLineNumber>9999):
-            raise SpectrumTranslateException("Line number cannot exceed 9999")
+            raise SpectrumTranslateError("Line number cannot exceed 9999")
             
         text+="  <line>\n    <linenumber>"+str(iLineNumber)+"</linenumber>\n"
       
@@ -933,7 +933,7 @@ def convert_program_to_XML(data,iAutostart=-1,ivariableOffset=-1):
                 elif(k==14): #number definition
                     #if not enough bytes before end of line or program then we have a problem
                     if(l+5>=iLineLen or i+5>=len(data)):
-                        raise SpectrumTranslateException("Error with number format")
+                        raise SpectrumTranslateError("Error with number format")
                         
                     sn=spectrumnumber.SpectrumNumber(data[i:i+5])
                     i+=5
@@ -1109,7 +1109,7 @@ def convert_program_to_XML(data,iAutostart=-1,ivariableOffset=-1):
                 i+=2+data[i]+256*data[i+1]
 
             else:
-                raise SpectrumTranslateException("Unrecognised variable type")
+                raise SpectrumTranslateError("Unrecognised variable type")
 
         text+="  </variables>\n"
 
@@ -1364,14 +1364,14 @@ def CharToSpectrum(c):
     It converts commands (like LOAD, or PRINT), and non-ASCII characters like the copyright symbol,
     uparrow (which is used instead of ^), the pound sign, and the graphical blocks and returns character
     in the range 0 to 255. It also will convert coded values denoted by ^ followed by a 2 digit hexadecimal
-    number. It will raise a SpectrumTranslateException if the input is not a valid spectrum character."""
+    number. It will raise a SpectrumTranslateError if the input is not a valid spectrum character."""
     
     #handle control codes
     if(isinstance(c,(str,unicode)) and len(c)==3 and c[0]=='^'):
         try:
             return chr(int(c[1:],16))
         except:
-            raise SpectrumTranslateException("code must be ^ followed by 2 digit hexadecimal number.")
+            raise SpectrumTranslateError("code must be ^ followed by 2 digit hexadecimal number.")
             
     #If not a single character, check for command
     if(isinstance(c,(str,unicode)) and len(c)!=1):
@@ -1379,7 +1379,7 @@ def CharToSpectrum(c):
             for i in range(len(SPECTRUM_COMMANDS)):
                 if(SPECTRUM_COMMANDS[i]==c):
                     return chr(i+163)
-        raise SpectrumTranslateException("Not recognised spectrum command.")
+        raise SpectrumTranslateError("Not recognised spectrum command.")
     
     #convert to number
     if(isinstance(c,(str,unicode))):
@@ -1398,7 +1398,7 @@ def CharToSpectrum(c):
                 return chr(i+128)
 
     if(c<0 or c>255):
-        raise SpectrumTranslateException(chr(c)+" is invalid spectrum character.")
+        raise SpectrumTranslateError(chr(c)+" is invalid spectrum character.")
 
     return chr(c)
 
@@ -1407,7 +1407,7 @@ def StringToSpectrum(s,wantcommands=True):
     It converts commands (like LOAD, or PRINT, and remembering that they must have a space after them),
     and non-ASCII characters like the copyright symbol, uparrow (which is used instead of ^), the pound sign,
     and the graphical blocks and returns character in the range 0 to 255. It also will convert coded values
-    denoted by ^ followed by a 2 digit hexadecimal number. It will raise a SpectrumTranslateException if the
+    denoted by ^ followed by a 2 digit hexadecimal number. It will raise a SpectrumTranslateError if the
     input contains a non-valid spectrum character."""
 
     ret=[]
@@ -1839,7 +1839,7 @@ def snap_to_SNA(data,register,border=0):
     #first check have valid data
     #return if not 48k or 128K
     if(len(data)!=49152 and len(data)!=131072):
-        raise SpectrumTranslateException("Wrong size memory")
+        raise SpectrumTranslateError("Wrong size memory")
 
     #convert data to list of ints if needed
     if(isinstance(data,str)):
@@ -1877,7 +1877,7 @@ def snap_to_SNA(data,register,border=0):
     out+=data[2*16384:3*16384]
     #check if valid bank
     if(register["RAMbank"]<0 or register["RAMbank"]>7):
-        raise SpectrumTranslateException("RAMbank has to be 0 to 7 inclusive.")
+        raise SpectrumTranslateError("RAMbank has to be 0 to 7 inclusive.")
         
     #output currently paged ram bank
     out+=data[register["RAMbank"]*16384:(register["RAMbank"]+1)*16384]
@@ -1954,15 +1954,15 @@ def snap_to_z80(data,register,version=3,compressed=True,border=0):
     #first check have valid data
     #return if not 48k or 128K
     if(len(data)!=49152 and len(data)!=131072):
-        raise SpectrumTranslateException("Wrong size memory")
+        raise SpectrumTranslateError("Wrong size memory")
 
     #version 1 can only handle 48K snapshots
     if(version==1 and len(data)!=49152):
-        raise SpectrumTranslateException("version 1 of Z80 format can't handle 128K snapshots.")
+        raise SpectrumTranslateError("version 1 of Z80 format can't handle 128K snapshots.")
 
     #ensure we have valid version
     if(version!=1 and version!=2 and version!=3):
-        raise SpectrumTranslateException("Valid version numbers for Z80 files are 1, 2, and 3.")
+        raise SpectrumTranslateError("Valid version numbers for Z80 files are 1, 2, and 3.")
 
     #convert data to list of ints if needed
     if(isinstance(data,str)):
@@ -2262,11 +2262,11 @@ def disassemble(data,offset,origin,length,SpecialInstructions=None):
 
                 #first check is valid test block
                 if(TestBlock==None):
-                    raise NewSpectrumTranslateException(Vars[0x0A],0,di.data,"patern to search for must be inside brackets")
+                    raise NewSpectrumTranslateError(Vars[0x0A],0,di.data,"patern to search for must be inside brackets")
                     
                 #now check is valid preperation block
                 if(PrepBlock==None):
-                    raise NewSpectrumTranslateException(Vars[0x0A],0,di.data,"preperation block must be inside brackets")
+                    raise NewSpectrumTranslateError(Vars[0x0A],0,di.data,"preperation block must be inside brackets")
                 
                 #now should have valid pattern match we can work with
 
@@ -3980,7 +3980,7 @@ def MoveToEndBlock(instructions,Vars,Settings,commandstart):
         #otherwise skip command
 
     #should always find end of block with close brackets, error if block not closed
-    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"no closing brackets to  block")
+    raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"no closing brackets to  block")
 
 def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,ReferencedLineNumbers):
     """processes an instruction block.
@@ -4006,7 +4006,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
         s=GetNextCharacters(instructions,Settings,1)
 
         if(s==""):
-            raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Invalid variable or number definition")
+            raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"Invalid variable or number definition")
         
         #first check if is a number
         if(s[0]!="%"):
@@ -4017,7 +4017,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
             i=int(GetNextCharacters(instructions,Settings,4),16)
             #deal with error
             if(i<0):
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"number must be 4 digit hexadecimal number")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"number must be 4 digit hexadecimal number")
 
             return i
         
@@ -4029,14 +4029,14 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
             i=int(GetNextCharacters(instructions,Settings,2),16)
             #deal with invalid variable number
             if(i<0 or i>0x0F):
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid variable")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"invalid variable")
                 
             #return variable's content
             return Vars[0x0A]+Vars[0x0C] if (i==0x0F) else Vars[i]
         
         #should now be 'M', handle if not
         if(s[0]!="M"):
-            raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"argument must be number, variable, or memory content")
+            raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"argument must be number, variable, or memory content")
         
         pos=Settings["DATASTRINGPOS"]
         
@@ -4061,7 +4061,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
             i=int(GetNextCharacters(instructions,Settings,2),16)
             #deal with invalid variable number
             if(i<0 or i>0x0F):
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid variable number for memory address")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"invalid variable number for memory address")
                 
             #get number variable's content
             i=Vars[0x0A]+Vars[0x0C] if (i==0x0F) else Vars[i]
@@ -4075,17 +4075,17 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
             i=int(GetNextCharacters(instructions,Settings,4),16)
             #deal with error
             if(i<0):
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"should be 4 digit hexadecimal number for memory address")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"should be 4 digit hexadecimal number for memory address")
         
         #now have address we need to extract in i, and if we want byte or not in getByte
         #deal with byte
         if(getByte):
             return data[i-Settings["ORIGIN"]]
-            #throw NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"attempt to access memory address outside block to disassemble");
+            #throw NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"attempt to access memory address outside block to disassemble");
         
         #deal with word taking into account endedness of number we want
         return data[i-Settings["ORIGIN"]+Settings["NUMBERWORDORDER"]]+256*data[i-Settings["ORIGIN"]+1-Settings["NUMBERWORDORDER"]]
-          #throw NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"attempt to access memory address outside block to disassemble");
+          #throw NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"attempt to access memory address outside block to disassemble");
 
     def CombineResults(mode,a,b):
         if(mode==0):
@@ -4126,7 +4126,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
             i=int(GetNextCharacters(instructions,Settings,4),16)
             if((i>>8)==0): #format hex/decimal/octal/binary
                 if((i&0xFF)>6):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Number format argument must be 0 to 6")
+                    raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"Number format argument must be 0 to 6")
                     
                 if((i&0xFF)==4):
                     Settings["NUMBERFORMAT"]=Settings["ADDRESSOUTPUT"]
@@ -4142,26 +4142,26 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
 
             elif((i>>8)==1): #number unsigned/signed
                 if((i&0xFF)>1):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Number sign argument must be 0 or 1")
+                    raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"Number sign argument must be 0 or 1")
                 
                 Settings["NUMBERSIGNED"]=i&0xFF
 
             elif((i>>8)==2): #word mode little/big endian
                 if((i&0xFF)>1):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Word endedness argument must be 0 or 1")
+                    raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"Word endedness argument must be 0 or 1")
                 
                 Settings["NUMBERWORDORDER"]=i&0xFF
 
             elif((i>>8)==3): #display line address every X line
                 k=int(GetNextCharacters(instructions,Settings,2),16)
                 if(k<0 or k>255):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Display line address every X line argument must be 2 digit hexadecimal number")
+                    raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"Display line address every X line argument must be 2 digit hexadecimal number")
                     
                 Settings["DISPLAYEVERYXLINES"]=k+((i&0xFF)<<8)
 
             elif((i>>8)==4): #separator to space/tab/default
                 if((i&0xFF)>2):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Seperator setting argument must be 0 to 2")
+                    raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"Seperator setting argument must be 0 to 2")
                 
                 if(i==0):
                     Settings["SEPERATOR"]="  "
@@ -4173,7 +4173,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                     Settings["SEPERATOR"]=Settings["ORIGIONALSEPERATOR"]
                     
             else:
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"unrecognised format setting")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"unrecognised format setting")
       
         elif(s[0]=='B'): #ouput byte
             #get info
@@ -4194,7 +4194,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 inc_var_if_needed(i,Vars,1)
 
             else:
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid byte output argument")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"invalid byte output argument")
       
             #handle negative number if signed and not an address
             if(Settings["NUMBERSIGNED"]==1 and (i&0x80)==0x80):
@@ -4224,7 +4224,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 inc_var_if_needed(i,Vars,2)
 
             else:
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid number output argument")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"invalid number output argument")
       
             #handle negative number if signed and not an addrss
             if(Settings["NUMBERSIGNED"]==1 and (i&0x80)==0x80):
@@ -4256,7 +4256,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 inc_var_if_needed(i,Vars,2)
 
             else:
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid address output argument")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"invalid address output argument")
       
             #output address
             if(Settings["XMLOutput"]==1):
@@ -4287,7 +4287,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 inc_var_if_needed(i,Vars,1)
 
             else:
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid character output argument")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"invalid character output argument")
       
             #output character
             soutput+=get_spectrum_char(k)
@@ -4306,7 +4306,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 k=Vars[0x0A]+Vars[0x0C] if ((i&0x3F)==0x0F) else Vars[i&0x3F]
                 #has to be a memory address that holds 5 byte number
                 if((i&0x80)!=0):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid floating point number output argument")
+                    raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"invalid floating point number output argument")
               
                 #get and output floating point number
                 soutput+=str(SpectrumNumber(data[k-Settings["ORIGIN"]:k-Settings["ORIGIN"]+5]))
@@ -4314,7 +4314,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 inc_var_if_needed(i,Vars,5)
 
             else:
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid floating point number output argument")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"invalid floating point number output argument")
       
         elif(s[0]=='%'):  #output '%'
             soutput+='%'
@@ -4339,13 +4339,13 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
             i=int(GetNextCharacters(instructions,Settings,2),16)
             #check if valid command
             if(i<0 or i>9):
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid arithmetic operation. Must be 0 to 9")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"invalid arithmetic operation. Must be 0 to 9")
       
             #where to store result
             result=int(GetNextCharacters(instructions,Settings,2),16)
             #check is valid resultlocation
             if(result<0 or (result>9 and result!=0x0C and result!=0x0E and result!=0x0F)):
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"invalid arithmetic destination")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"invalid arithmetic destination")
       
             #get first argument
             arga=GetNumberVarOrMemory(instructions,Vars,Settings,data,commandstart)
@@ -4400,7 +4400,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
         elif(s[0]==')'):
             #if not in brackets  then error
             if(not inBrackets):
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"Closing brackets without opening brackets")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"Closing brackets without opening brackets")
       
             #otherwise ought to return from command
             return 1 if boolState else 0, soutput
@@ -4408,7 +4408,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
         elif(s[0]=='I'):  #if then block
             #should have brackets afterwards
             if(GetNextCharacters(instructions,Settings,2)!="%("):
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"bracket bound test must follow if statement")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"bracket bound test must follow if statement")
       
             #test if block
             result,txt=ProcessCommandBlock(instructions,Vars,Settings,data,True,True,ReferencedLineNumbers)
@@ -4417,7 +4417,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
       
             #should have brackets afterwards for instruction block
             if(GetNextCharacters(instructions,Settings,2)!="%("):
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"bracket bound action must follow if test")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"bracket bound action must follow if test")
       
             #signal no break or continue
             k=0
@@ -4436,7 +4436,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
             if(GetNextCharacters(instructions,Settings,2)=="%J"):
                 #should have brackets afterwards for instruction block
                 if(GetNextCharacters(instructions,Settings,2)!="%("):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"bracket bound action must follow else statement")
+                    raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"bracket bound action must follow else statement")
                 
                 #process block
                 k,txt=ProcessCommandBlock(instructions,Vars,Settings,data,True,InTest,ReferencedLineNumbers)
@@ -4456,7 +4456,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
         elif(s[0]=='L'):  #while do loop
             #should have brackets afterwards
             if(GetNextCharacters(instructions,Settings,2)!="%("):
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"bracket bound test must follow loop statement")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"bracket bound test must follow loop statement")
       
             #make note of where while do loop starts
             i=Settings["DATASTRINGPOS"]
@@ -4475,7 +4475,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
             
                 #should have brackets afterwards for instruction block
                 if(GetNextCharacters(instructions,Settings,2)!="%("):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"bracket bound action must follow loop test")
+                    raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"bracket bound action must follow loop test")
             
                 #if contition met then process block
                 if(bTest):
@@ -4532,7 +4532,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 elif(comp[1]=='X'): #xor
                     boolMode=2
                 else: #unrecognised mode command
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"unrecognised boolean combination mode")
+                    raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"unrecognised boolean combination mode")
       
                 continue
                 
@@ -4551,7 +4551,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
             #should now be tests
             #get which one
             i={"LT":0,"MT":1,"EQ":2,"LE":3,"ME":4,"NE":5}[comp]
-            #throw NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"unrecognised comparison")
+            #throw NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"unrecognised comparison")
       
             #get 2 arguments
             arga=GetNumberVarOrMemory(instructions,Vars,Settings,data,commandstart)
@@ -4622,7 +4622,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 
                 #handle no closeing bracket
                 if(closepos==-1):
-                    raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"no closeing bracket on XML tag")
+                    raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"no closeing bracket on XML tag")
 
                 #get tag name from between brackets
                 tag=instructions[Settings["DATASTRINGPOS"]:closepos]
@@ -4630,7 +4630,7 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 Settings["DATASTRINGPOS"]=closepos+1
             
             else:
-                raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"unrecognised predefined XML tag")
+                raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"unrecognised predefined XML tag")
 
             #if in xml mode then output tag
             if(Settings["XMLOutput"]==1):
@@ -4650,13 +4650,13 @@ def ProcessCommandBlock(instructions,Vars,Settings,data,inBrackets,InTest,Refere
                 soutput+='>'
 
         else: #unrecognised command
-            raise NewSpectrumTranslateException(Vars[0x0A],commandstart,instructions,"unrecognised command")
+            raise NewSpectrumTranslateError(Vars[0x0A],commandstart,instructions,"unrecognised command")
 
     return 1 if boolState else 0, soutput
 
 #generate exception 
-def NewSpectrumTranslateException(address,pos,instructions,details):
-    return SpectrumTranslateException('Data Format error processing "%s" near character number %d on line starting at %04X\n%s' % (instructions,pos,address,details))
+def NewSpectrumTranslateError(address,pos,instructions,details):
+    return SpectrumTranslateError('Data Format error processing "%s" near character number %d on line starting at %04X\n%s' % (instructions,pos,address,details))
 
 #custom format bits 0&1=address, 2&3=number, 4&5=command, 6&7=tstates, 8&9+=line after jump
 #A&B=linenumbers, C-13=lineeveryX, 14=emptylineafterdata, 15=referencedatanumbers
@@ -4711,7 +4711,7 @@ def get_custom_format_string(AddressOutput,NumberOutput,CommandOutput,OutputTSta
     
     #check for valid seperator
     else:
-        raise SpectrumTranslateException("invalid seperator")
+        raise SpectrumTranslateError("invalid seperator")
     
     return "%07X%s" % (i,sep)
 
@@ -4904,7 +4904,7 @@ def _logString(s):
     fo.close()
     
 
-class SpectrumTranslateException(Exception):
+class SpectrumTranslateError(Exception):
     """
     A class to flag up an Exception raised during woring with SpectrumTranslate objects
     """
@@ -5348,7 +5348,7 @@ def CommandLine(args):
                     retdata='\n'.join("%X\n%X\n%X\n%s" % (x.instruction,x.start,x.end,'' if x.data==None else x.data) for x in di)
 
     #handle any exceptions while translating
-    except SpectrumTranslateException as ste:
+    except SpectrumTranslateError as ste:
         sys.stderr.write(ste.value+"\n")
         sys.exit(1)
     

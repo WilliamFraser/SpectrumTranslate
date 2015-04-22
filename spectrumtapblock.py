@@ -968,7 +968,7 @@ def CommandLine(args):
             sys.stdout.write(retdata)
 
     #catch and handle expected exceptions nicely
-    except spectrumtranslate.SpectrumTranslateException as se:
+    except spectrumtranslate.SpectrumTranslateError as se:
         sys.stderr.write(se.value+"\n")
     
 if __name__=="__main__":

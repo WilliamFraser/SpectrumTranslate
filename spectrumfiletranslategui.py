@@ -2069,7 +2069,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             #get registers etc
             di=disciplefile.DiscipleImage(self.leFileNameIn.text())
             df=disciplefile.DiscipleFile(di,self.getNumber(self.leDataFile))
-            registers=df.GetSnapshotRegisters()
+            registers=df.getsnapshotregisters()
             
             #display waiting cursor while do translation
             QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
@@ -2092,7 +2092,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                     data=spectrumtranslate.snap_to_z80(data,registers,version=snapformat)
 
             #was there a problem?
-            except spectrumtranslate.SpectrumTranslateException as ste:
+            except spectrumtranslate.SpectrumTranslateError as ste:
                 QtGui.QMessageBox.warning(self,"Error!",'Unable to convert snapshot. Error:\n%s' % ste.value)
                 return
 
@@ -2136,10 +2136,10 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 #try to see if is disciple/+D image file
                 try:
                     di=disciplefile.DiscipleImage(fileout)
-                    di.GuessImageFormat()
+                    di.guessimageformat()
                     
                     #if it's a valid +D file then use this format
-                    if(di.CheckImageIsValid(True)):
+                    if(di.isimagevalid(True)):
                         containertype=1
                         
                 except:
@@ -2226,10 +2226,10 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         #if we're writing to an existing file then load it into our image
         if(os.path.isfile(fileout)):
             with open(fileout,'rb') as outfile:
-                diout.setBytes(outfile.read())
+                diout.setbytes(outfile.read())
         #otherwise create blank image
         else:
-            diout.setBytes('\x00'*819200)
+            diout.setbytes('\x00'*819200)
 
         #get where to save directory entry and whether to overwrite or not
         copyposition=self.ExportSettings["+DPos"] if self.ExportSettings["FilePosition"]==1 else -1
@@ -2238,7 +2238,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         if(outputformat=="Basic Program"):
             auto=self.getNumber(self.leBasicAutoLine)
             variableoffset=self.getNumber(self.leBasicVariableOffset)
-            diout.WriteBasicFile(data,filename,position=copyposition,autostartline=auto,varposition=variableoffset,overwritename=overwritename)
+            diout.writebasicfile(data,filename,position=copyposition,autostartline=auto,varposition=variableoffset,overwritename=overwritename)
         
         elif(outputformat=="Machine Code"):
             origin=self.getNumber(self.leCodeOrigin)
@@ -2246,7 +2246,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 QtGui.QMessageBox.warning(self,"Error!","Code Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
                 return None
                         
-            diout.WriteCodeFile(data,filename,position=copyposition,codestartaddress=origin,overwritename=overwritename)
+            diout.writecodefile(data,filename,position=copyposition,codestartaddress=origin,overwritename=overwritename)
         
         elif(outputformat=="Variable Array"):
             idescriptor=self.cbArrayVarType.currentIndex()
@@ -2259,14 +2259,14 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 QtGui.QMessageBox.warning(self,"Error!","Variable Name must be single letter.")
                 return None
 
-            diout.WriteArrayFile(data,filename,idescriptor|(ord(sVarName)&0x3F),position=copyposition,overwritename=overwritename)
+            diout.writearrayfile(data,filename,idescriptor|(ord(sVarName)&0x3F),position=copyposition,overwritename=overwritename)
         
         elif(outputformat=="Screen"):
-            diout.WriteScreenFile(data,filename,position=copyposition,overwritename=overwritename)
+            diout.writescreenfile(data,filename,position=copyposition,overwritename=overwritename)
         
         #not standard file so treat as code
         else:
-            diout.WriteCodeFile(data,filename,position=copyposition,codestartaddress=0,overwritename=overwritename)
+            diout.writecodefile(data,filename,position=copyposition,codestartaddress=0,overwritename=overwritename)
 
         #output data
         fo=open(fileout,"wb")
@@ -2324,7 +2324,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 
                 #default to simple text
                 return spectrumtranslate.convert_program_to_text(data,auto,variable)
-            except spectrumtranslate.SpectrumTranslateException as ste:
+            except spectrumtranslate.SpectrumTranslateError as ste:
                 QtGui.QMessageBox.warning(self,"Error!",ste.value)
                 return None
 
@@ -2363,7 +2363,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
             try:
                 return spectrumtranslate.disassemble(data,0,origin,len(data),self.diInstructions)
-            except spectrumtranslate.SpectrumTranslateException as ste:
+            except spectrumtranslate.SpectrumTranslateError as ste:
                 QtGui.QMessageBox.warning(self,"Error!",ste.value)
                 return None
             
@@ -2467,8 +2467,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 di=disciplefile.DiscipleImage(self.leFileNameIn.text())
                 df=disciplefile.DiscipleFile(di,i)
                 #return it's data, ignoreing any offset
-                return (df.GetFileData(True))[o:]
+                return (df.getfiledata(True))[o:]
             except:
+                raise
                 QtGui.QMessageBox.warning(self,"Error!",'Failed to extract file %d from "%s".' % (i,self.leFileNameIn.text()))
                 return None
 
@@ -2560,10 +2561,10 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         
         di=disciplefile.DiscipleImage(self.leFileNameIn.text())
         
-        for df in di.IterateDiscipleFiles():
+        for df in di.iteratedisciplefiles():
             #do we have a valid entry?
-            if(not df.IsEmpty()):
-                txt='%(filenumber)2d "%(filename)s"%(sectors)4d %(filetypeshort)s %(catextradata)s' % df.GetFileDetails()
+            if(not df.isempty()):
+                txt='%(filenumber)2d "%(filename)s"%(sectors)4d %(filetypeshort)s %(catextradata)s' % df.getfiledetails()
                 maxwidth=max(Dview.fontMetrics().width(txt),maxwidth)
                 line=QtGui.QStandardItem(txt)
                 line.Ddata=df
@@ -2627,31 +2628,31 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         index=Dview.selectedIndexes()[0]
         df=index.model().itemFromIndex(index).Ddata
 
-        headder=df.GetHeadder()
-        t=df.GetFileType(headder)
+        headder=df.getheadder()
+        t=df.getfiletype(headder)
 
         #set filenumber and offset (remmbering that basic, code, screen number and character array
         #have a 9 byte headder at the start of the file        
         self.SetSourceLimits(-1,-1,df.filenumber,9 if ((t>0 and t<5) or t==7) else 0)
 
         #save off filename incase want to export it
-        self.ExportSettings["Filename"]=df.GetRawFileName()
+        self.ExportSettings["Filename"]=df.getrawfilename()
 
         if(t==1):
             #basic program
-            self.SetBasicDetails(df.GetAutostartLine(headder),df.GetVariableOffset(headder))
+            self.SetBasicDetails(df.getautostartline(headder),df.getvariableoffset(headder))
 
         elif(t==2 or t==3):
             #number or character array
-            self.SetVariableArrayDetails(df.GetVariableLetter(headder),df.GetArrayDescriptor(headder))
+            self.SetVariableArrayDetails(df.getvariableletter(headder),df.getvariablename(headder))
 
         elif(t==4):
             #bytes: can be screen or data/machine code
-            if(df.GetFileLength(headder)==6912):
-                  self.SetScreenDetails(df.GetCodeStart(headder))
+            if(df.getfilelength(headder)==6912):
+                  self.SetScreenDetails(df.getcodestart(headder))
                   
             else:
-                  self.SetCodeDetails(df.GetCodeStart(headder))
+                  self.SetCodeDetails(df.getcodestart(headder))
 
         elif(t==5):
             #48K Snapshot
@@ -2659,11 +2660,11 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
         elif(t==7):
             #SCREEN$
-            self.SetScreenDetails(df.GetCodeStart(headder))
+            self.SetScreenDetails(df.getcodestart(headder))
             
         elif(t==7):
             #Execute
-            self.SetCodeDetails(df.GetCodeStart(headder))
+            self.SetCodeDetails(df.getcodestart(headder))
 
         elif(t==9):
             #128K Snapshot
@@ -2969,9 +2970,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             #try from disciple/+D image file
             try:
                 di=disciplefile.DiscipleImage(self.leFileNameIn.text())
-                di.GuessImageFormat()
+                di.guessimageformat()
                 
-                if(di.CheckImageIsValid(True)):
+                if(di.isimagevalid(True)):
                     self.bBrowseContainer.setText("Browse disk image")
                     self.bBrowseContainer.setEnabled(True)
                     return
