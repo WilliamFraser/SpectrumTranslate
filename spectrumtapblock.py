@@ -41,7 +41,7 @@
 
 import spectrumtranslate
 import io
-#sys and codecs imported elsewhere so only used for command line
+# sys and codecs imported elsewhere so only used for command line
 
 
 class SpectrumTapBlock:
@@ -58,7 +58,7 @@ class SpectrumTapBlock:
         You can safely put 0 here if this is of no use to you.
         """
 
-        #initialise data
+        # initialise data
 
         """An array of bytes holding the data for the block."""
         self.data = data[:]
@@ -144,20 +144,20 @@ class SpectrumTapBlock:
         if(not self.isheadder()):
             return None
 
-        #work out any extra details for file
+        # work out any extra details for file
         extra = self.getfiletypestring()
-        #get word at 13, and 14 in the data
+        # get word at 13, and 14 in the data
         x = _get_word(self.getbytes(13, 15))
         filetype = self.getbyte(0)
-        #code file
+        # code file
         if(filetype == 3):
             extra += " " + str(x) + "," + str(_get_word(self.getbytes(11, 13)))
 
-        #program
+        # program
         if(filetype == 0 and x < 10000):
             extra += " Line:" + str(x)
 
-        #array
+        # array
         if(filetype == 1 or filetype == 2):
             extra += " " + self.getheaddervariablename()
 
@@ -310,22 +310,22 @@ class SpectrumTapBlock:
         checksum ready for saveing to a file.
         """
 
-        #work out length of data+flag+checksum
+        # work out length of data+flag+checksum
         length = len(self.data) + 2
 
-        #get data to put in tapblock
+        # get data to put in tapblock
         data = self.getbytes()
 
-        #work out checksum
+        # work out checksum
         checksum = self.flag
         for i in data:
             checksum = checksum ^ i
 
-        #merge it into a list
+        # merge it into a list
         package = [length & 0xFF, (length >> 8) & 0xFF,
                    self.flag] + data + [checksum]
 
-        #return converted to bytes in string
+        # return converted to bytes in string
         return ''.join([chr(x) for x in package])
 
     def savetofile(self, filename, append=True):
@@ -339,7 +339,7 @@ class SpectrumTapBlock:
             f.write(self.getpackagedforfile())
 
 
-#utility function
+# utility function
 def _get_word(s):
     if(isinstance(s, str)):
         s = [ord(x) for x in s]
@@ -359,21 +359,21 @@ def gettapblockfromfile(tapfile, position=0):
 
     tb = SpectrumTapBlock(filePosition=position)
 
-    #read 2 byte tap block length
+    # read 2 byte tap block length
     lengthbytes = tapfile.read(2)
 
-    #if have hit end of file at start of new tapblock then end nicely
+    # if have hit end of file at start of new tapblock then end nicely
     if(len(lengthbytes) == 0):
         return None
 
     if(len(lengthbytes) != 2):
         raise IOError("Malformed .tap File")
 
-    #flag at beginning and checksum at end of data included in length,
-    #so actual data is 2 bytes shorter than block length
+    # flag at beginning and checksum at end of data included in length,
+    # so actual data is 2 bytes shorter than block length
     blocklength = _get_word([ord(x[0]) for x in lengthbytes]) - 2
 
-    #now process byte
+    # now process byte
     flagbyte = tapfile.read(1)
     if(len(flagbyte) != 1):
         raise IOError("Malformed .tap File")
@@ -384,12 +384,12 @@ def gettapblockfromfile(tapfile, position=0):
     if(len(tb.data) != blocklength):
         raise IOError("Malformed .tap File")
 
-    #now do checksum
+    # now do checksum
     checkbyte = tapfile.read(1)
     if(len(checkbyte) != 1):
         raise IOError("Malformed .tap File")
 
-    #ensure checksum is right
+    # ensure checksum is right
     k = tb.flag
     for i in tb.getbytes():
         k = k ^ i
@@ -421,8 +421,8 @@ def tapblockfromfile(filename, position=0):
         while True:
             tb = gettapblockfromfile(f, position)
             if(tb):
-                #2 bytes block length, 1 byte flag, 1 byte checksum, and
-                #the rest for the block data
+                # 2 bytes block length, 1 byte flag, 1 byte checksum, and
+                # the rest for the block data
                 position += 4 + len(tb.data)
 
                 yield tb
@@ -442,8 +442,8 @@ def tapblockfrombytestring(bytestring, position=0):
         while True:
             tb = gettapblockfromfile(f, position)
             if(tb):
-                #2 bytes block length, 1 byte flag, 1 byte checksum, and
-                #the rest for the block data
+                # 2 bytes block length, 1 byte flag, 1 byte checksum, and
+                # the rest for the block data
                 position += 4 + len(tb.data)
 
                 yield tb
@@ -457,28 +457,28 @@ def createbasicheadder(filename, VariableOffset, ProgLength, AutoStart=-1):
     Create a headder for a program SpectrumTapBlock.
     """
 
-    #create basic data block
+    # create basic data block
     tb = SpectrumTapBlock()
     tb.flag = 0
     tb.data = [0, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 0, 0, 0, 0, 0, 0]
-    #set filename
+    # set filename
     for i in range(min(len(filename), 10)):
         tb.data[i + 1] = ord(filename[i])
 
-    #set program
+    # set program
     tb.data[11] = ProgLength & 0xFF
     tb.data[12] = (ProgLength >> 8) & 0xFF
-    #set autostart
+    # set autostart
     if(AutoStart < 0 or AutoStart > 9999):
         AutoStart = 0x8000
 
     tb.data[13] = AutoStart & 0xFF
     tb.data[14] = (AutoStart >> 8) & 0xFF
-    #set variable offset
+    # set variable offset
     tb.data[15] = VariableOffset & 0xFF
     tb.data[16] = (VariableOffset >> 8) & 0xFF
 
-    #convert to bytes in string
+    # convert to bytes in string
     tb.data = ''.join([chr(x) for x in tb.data])
 
     return tb
@@ -489,22 +489,22 @@ def createcodeheadder(filename, Origin, Codelength):
     Create a headder for a code SpectrumTapBlock.
     """
 
-    #create basic data block
+    # create basic data block
     tb = SpectrumTapBlock()
     tb.flag = 0
     tb.data = [3, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 0, 0, 0, 0, 0, 0]
-    #set filename
+    # set filename
     for i in range(min(len(filename), 10)):
         tb.data[i + 1] = ord(filename[i])
 
-    #set code origin
+    # set code origin
     tb.data[13] = Origin & 0xFF
     tb.data[14] = (Origin >> 8) & 0xFF
-    #set code length
+    # set code length
     tb.data[11] = Codelength & 0xFF
     tb.data[12] = (Codelength >> 8) & 0xFF
 
-    #convert to bytes in string
+    # convert to bytes in string
     tb.data = ''.join([chr(x) for x in tb.data])
 
     return tb
@@ -521,21 +521,21 @@ def createarrayheadder(filename, VariableDescriptor, ArrayLength):
     tb = SpectrumTapBlock()
     tb.flag = 0
     tb.data = [0, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 0, 0, 0, 0, 0, 0]
-    #set filename
+    # set filename
     for i in range(min(len(filename), 10)):
         tb.data[i + 1] = ord(filename[i])
 
-    #set array file type
+    # set array file type
     tb.data[0] = 1 if VariableDescriptor & 192 == 128 else 2
 
-    #set array length
+    # set array length
     tb.data[11] = ArrayLength & 0xFF
     tb.data[12] = (ArrayLength >> 8) & 0xFF
 
-    #set array details
+    # set array details
     tb.data[14] = VariableDescriptor
 
-    #convert to bytes in string
+    # convert to bytes in string
     tb.data = ''.join([chr(x) for x in tb.data])
 
     return tb
@@ -546,7 +546,7 @@ def createscreenheadder(filename):
     Create a headder for a screen SpectrumTapBlock.
     """
 
-    #screen is just specialized code file
+    # screen is just specialized code file
     return createcodeheadder(filename, 16384, 6912)
 
 
@@ -557,7 +557,7 @@ def createdatablock(data, flag=0xFF):
 
     tb = SpectrumTapBlock()
     tb.flag = flag
-    #make copy of data, ensureing is bytes in string
+    # make copy of data, ensureing is bytes in string
     if(isinstance(data, str)):
         tb.data = data
 
@@ -655,7 +655,8 @@ def usage():
 
 def commandline(args):
 
-    getint = lambda x: int(x, 16 if x.lower().startswith("0x") else 10)
+    def getint(x):
+        return int(x, 16 if x.lower().startswith("0x") else 10)
 
     def getindices(arg):
         try:
@@ -698,11 +699,11 @@ def commandline(args):
         creatingarrayname = None
         creatingblockflag = 0xFF
 
-        #handle no arguments
+        # handle no arguments
         if(len(args) == 1):
             mode = 'help'
 
-        #go through arguments analysing them
+        # go through arguments analysing them
         while(i < len(args) - 1):
             i += 1
 
@@ -852,9 +853,9 @@ number or string).' % args[i]
 .' % args[i]
                     break
 
-            #have unrecognised argument.
+            # have unrecognised argument.
 
-            #check if is what entry we want to extract
+            # check if is what entry we want to extract
             if(mode == 'extract' and entrywanted is None):
                 try:
                     entrywanted = getint(arg)
@@ -864,7 +865,7 @@ number or string).' % args[i]
                     error = '%s is not a valid index in the input file.' % arg
                     break
 
-            #if it is what entries we want to copy
+            # if it is what entries we want to copy
             if((mode == 'copy' or mode == 'delete') and
                specifiedfiles is None):
                 specifiedfiles = getindices(arg)
@@ -874,15 +875,15 @@ number or string).' % args[i]
 
                 continue
 
-            #check if is input or output file
-            #will be inputfile if not already defined, and
-            #fromstandardinput is False
+            # check if is input or output file
+            # will be inputfile if not already defined, and
+            # fromstandardinput is False
             if(inputfile is None and not fromstandardinput):
                 inputfile = arg
                 continue
 
-            #will be outputfile if not already defined, tostandardoutput
-            #is False, and is last argument
+            # will be outputfile if not already defined, tostandardoutput
+            # is False, and is last argument
             if(outputfile is None and not tostandardoutput and
                i == len(args) - 1):
                 outputfile = arg
@@ -918,19 +919,19 @@ number or string).' % args[i]
            (creatingarraytype is None or creatingarrayname is None)):
             error = 'You have to specify array type and name.'
 
-        #handle error with arguments
+        # handle error with arguments
         if(error is not None):
             sys.stderr.write(error + "\n")
             sys.stdout.write("Use 'python spectrumtapblock.py' to see full \
 list of options.\n")
             sys.exit(2)
 
-        #if help is needed display it
+        # if help is needed display it
         if(mode == 'help'):
             sys.stdout.write(usage())
             sys.exit(0)
 
-        #get data
+        # get data
         if(not fromstandardinput):
             with open(inputfile, 'rb') as infile:
                 data = infile.read()
@@ -938,12 +939,12 @@ list of options.\n")
         else:
             data = sys.stdin.read()
 
-        #now do command
+        # now do command
         if(mode == 'list'):
             pos = 0
             retdata = '' if wantdetails else 'position type    information\n'
             for tb in tapblockfrombytestring(data):
-                if(specifiedfiles is not None and not pos in specifiedfiles):
+                if(specifiedfiles is not None and pos not in specifiedfiles):
                     pos += 1
                     continue
 
@@ -959,8 +960,8 @@ list of options.\n")
                                 "%i\tHeadder\t%s\tProgram\t%i\t%i\t%i\n" % \
                                 (pos, tb.getfilename(),
                                  tb.getheadderdescribeddatalength(),
-                                 0 if tb.getheadderautostartline() < 0 else \
-                                     tb.getheadderautostartline(),
+                                 0 if tb.getheadderautostartline() < 0 else
+                                 tb.getheadderautostartline(),
                                  tb.getheaddervariableoffset())
                         elif(filetype == "Bytes"):
                             retdata += "%i\tHeadder\t%s\tBytes\t%i\t%i\n" % \
@@ -982,9 +983,12 @@ list of options.\n")
 
                 else:
                     retdata += "%3i      %s %s\n" % (pos,
-                        "Headder" if tb.isheadder() else "Data   ",
-                        tb.getfiledetailsstring() if tb.isheadder() else str(
-                            tb))
+                                                     "Headder" if
+                                                     tb.isheadder() else
+                                                     "Data   ",
+                                                     tb.getfiledetailsstring()
+                                                     if tb.isheadder() else
+                                                     str(tb))
 
                 pos += 1
 
@@ -1016,7 +1020,7 @@ entries in the source data.\n")
             tbs = [tb for tb in tapblockfrombytestring(data)]
             retdata = ''
             for x in range(len(tbs)):
-                if(not x in specifiedfiles):
+                if(x not in specifiedfiles):
                     retdata += tbs[x].getpackagedforfile()
 
         if(mode == 'create'):
@@ -1024,18 +1028,18 @@ entries in the source data.\n")
 
             if(creating == 'basic'):
                 if(creatingvariableoffset == -1):
-                    #work out position of variables
+                    # work out position of variables
                     offset = 0
                     while(offset < len(data)):
                         linenumber = (ord(data[offset]) * 256) + ord(
                             data[offset + 1])
-                        #bits 5,6,7 of variable code will be 16384 or
-                        #more as the max line number is 9999
+                        # bits 5,6,7 of variable code will be 16384 or
+                        # more as the max line number is 9999
                         if(linenumber > 9999):
-                            #too big for line number: is 1st variable
+                            # too big for line number: is 1st variable
                             break
 
-                        #otherwise move to next line
+                        # otherwise move to next line
                         linelength = ord(data[offset + 2]) + (ord(
                             data[offset + 3]) * 256)
                         offset += linelength + 4
@@ -1043,31 +1047,35 @@ entries in the source data.\n")
                     creatingvariableoffset = min(offset, len(data))
 
                 retdata = createbasicheadder(creatingfilename,
-                    creatingvariableoffset, len(data),
-                    creatingautostart).getpackagedforfile()
+                                             creatingvariableoffset, len(data),
+                                             creatingautostart
+                                             ).getpackagedforfile()
 
             elif(creating == 'code'):
                 retdata = createcodeheadder(creatingfilename,
-                    creatingorigin, len(data)).getpackagedforfile()
+                                            creatingorigin, len(data)
+                                            ).getpackagedforfile()
 
             elif(creating == 'array'):
                 retdata = createarrayheadder(creatingfilename,
-                    creatingarraytype + (ord(creatingarrayname) & 0x3F),
-                    len(data)).getpackagedforfile()
+                                             creatingarraytype + (ord(
+                                               creatingarrayname) & 0x3F),
+                                             len(data)).getpackagedforfile()
 
             elif(creating == 'screen'):
                 retdata = createscreenheadder(
                     creatingfilename).getpackagedforfile()
 
             retdata += createdatablock(data,
-                flag=creatingblockflag if creating == 'block' else
-                    0xFF).getpackagedforfile()
+                                       flag=creatingblockflag if
+                                       creating == 'block' else 0xFF
+                                       ).getpackagedforfile()
 
-        #handle copy or create inserting at position
+        # handle copy or create inserting at position
         if(copyposition and (mode == 'create' or mode == 'copy')):
             import os.path
             if(not tostandardoutput and os.path.isfile(outputfile)):
-                #get tapblocks (if any in destination file)
+                # get tapblocks (if any in destination file)
                 with open(outputfile, 'rb') as infile:
                     destinationtbs = [tb for tb in tapblockfrombytestring(
                         infile.read())]
@@ -1077,12 +1085,12 @@ entries in the source data.\n")
                         [tb.getpackagedforfile() for tb in destinationtbs[
                             :copyposition]]) + retdata + "".join(
                             [tb.getpackagedforfile() for tb in destinationtbs[
-                            copyposition:]])
+                                copyposition:]])
 
                 else:
                     retdata = destinationtbs + retdata
 
-        #output data
+        # output data
         if(not tostandardoutput):
             fo = open(outputfile, "ab" if mode == 'copy' and append else "wb")
             fo.write(retdata)
@@ -1091,15 +1099,15 @@ entries in the source data.\n")
         else:
             sys.stdout.write(retdata)
 
-    #catch and handle expected exceptions nicely
+    # catch and handle expected exceptions nicely
     except spectrumtranslate.SpectrumTranslateError as se:
         sys.stderr.write(se.value + "\n")
 
 if __name__ == "__main__":
-    #import here as only needed for command line
+    # import here as only needed for command line
     import sys
 
-    #set encodeing so can handle non ascii characters
+    # set encodeing so can handle non ascii characters
     import codecs
     sys.stdout = codecs.getwriter('utf8')(sys.stdout)
     sys.stderr = codecs.getwriter('utf8')(sys.stderr)
