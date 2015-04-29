@@ -327,7 +327,7 @@ class DiscipleFile:
         if(headderdata is None):
             headderdata = self.getheadder()
 
-        return spectrumtranslate.get_spectrum_string(headderdata[1:11])
+        return spectrumtranslate.getspectrumstring(headderdata[1:11])
 
     def getrawfilename(self, headderdata=None):
         """This returns the 10 character file name as a byte string."""
@@ -1750,7 +1750,7 @@ def usage():
 
 def commandline(args):
     def getint(x):
-        int(x, 16 if x.lower().startswith("0x") else 10)
+        return int(x, 16 if x.lower().startswith("0x") else 10)
 
     def getindices(arg):
         try:
@@ -1825,7 +1825,7 @@ options are basic, code, array, and screen.'
 
             if(arg == '-filename' or arg == '--filename'):
                 i += 1
-                creatingfilename = spectrumtranslate.StringToSpectrum(args[i])
+                creatingfilename = spectrumtranslate.stringtospectrum(args[i])
                 continue
 
             if(arg == '-autostart' or arg == '--autostart'):

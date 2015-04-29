@@ -161,7 +161,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                     
                 x=(self.cWidth>>1)+(self.cWidth*10)
                 x+=self.cWidth*(3*self.columns+1)
-                qp.drawText(QtCore.QPointF(x,y),spectrumtranslate.get_spectrum_string(txt))
+                qp.drawText(QtCore.QPointF(x,y),spectrumtranslate.getspectrumstring(txt))
 
                 row+=1
                 y+=self.cHeight
@@ -880,7 +880,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         grid.addWidget(cbNumberFormat,6,0,1,2)
 
         cbDisassembleCommands=QtGui.QComboBox(self)
-        for key,value in sorted(spectrumtranslate.DisassembleInstruction.DisassembleCodes.items(),key=itemgetter(1)):
+        for key,value in sorted(spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES.items(),key=itemgetter(1)):
             cbDisassembleCommands.addItem(key,value)
             
         cbDisassembleCommands.setToolTip("Select what you want this instruction to do.")
@@ -1013,18 +1013,18 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         lwInstructions=self.Ddialog.lwInstructions
         di=lwInstructions.currentItem().di
         
-        if(di.instruction==spectrumtranslate.DisassembleInstruction.DisassembleCodes["Line Number Every X"]):
+        if(di.instruction==spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Line Number Every X"]):
             self.EditUnreferencedLineNumberFrequency(di)
             
-        if(di.instruction==spectrumtranslate.DisassembleInstruction.DisassembleCodes["Custom Format"]):
+        if(di.instruction==spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Custom Format"]):
             self.EditCustomFormatDialog(di)
             #don't need to set label text
             return
             
-        if(di.instruction==spectrumtranslate.DisassembleInstruction.DisassembleCodes["Data Block"]):
+        if(di.instruction==spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Data Block"]):
             self.EditDataBlock(di)
             
-        if(di.instruction==spectrumtranslate.DisassembleInstruction.DisassembleCodes["Pattern Data Block"]):
+        if(di.instruction==spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Pattern Data Block"]):
             self.EditPatternDataBlock(di)
 
         #ensure any data change is represented in list details
@@ -1041,12 +1041,12 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         lay2.addWidget(QtGui.QLabel("Pattern Data Block function:"))
 
         cbEditPatternDataBlock=QtGui.QComboBox(self)
-        for key in spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodeOrderedKeys:
+        for key in spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES_ORDERED:
             cbEditPatternDataBlock.addItem(key)
 
         cbEditPatternDataBlock.setToolTip("Select instructions for Pattern Data block")
-        for key in spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodeOrderedKeys:
-            if(spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodes[key]==di.data):
+        for key in spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES_ORDERED:
+            if(spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES[key]==di.data):
                 break
                 
         setCombo(cbEditPatternDataBlock,key)
@@ -1058,7 +1058,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         
         lay.addLayout(lay2)
 
-        testblock,prepblock,actionblock=spectrumtranslate.GetPartsOfPatternDataBlock(di.data)
+        testblock,prepblock,actionblock=spectrumtranslate.getpartsofpatterndatablock(di.data)
 
         lay.addWidget(QtGui.QLabel("Pattern Data Block search commands:"))
         
@@ -1122,7 +1122,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 di.data=str(self.tePatternDataBlockSearch.toPlainText()+"\n"+self.tePatternDataBlockSetup.toPlainText()+"\n"+self.tePatternDataBlockAction.toPlainText())
             
             else:
-                di.data=spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodes[pattern]
+                di.data=spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES[pattern]
         
         del self.cbEditPatternDataBlock
         del self.tePatternDataBlockSearch
@@ -1130,7 +1130,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         del self.tePatternDataBlockAction
 
     def ChangeEditPatternDataBlock(self,txt):
-        blocks=spectrumtranslate.GetPartsOfPatternDataBlock(spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodes[str(txt)])
+        blocks=spectrumtranslate.getpartsofpatterndatablock(spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES[str(txt)])
         
         if(blocks[0]!=None and blocks[1]!=None and blocks[2]!=None):
             self.tePatternDataBlockSearch.textChanged.disconnect(self.ChangePatternDataBlock)
@@ -1145,12 +1145,12 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
 
     def ChangePatternDataBlock(self):
-        blocks=spectrumtranslate.GetPartsOfPatternDataBlock(str(self.tePatternDataBlockSearch.toPlainText()+self.tePatternDataBlockSetup.toPlainText()+self.tePatternDataBlockAction.toPlainText()))
+        blocks=spectrumtranslate.getpartsofpatterndatablock(str(self.tePatternDataBlockSearch.toPlainText()+self.tePatternDataBlockSetup.toPlainText()+self.tePatternDataBlockAction.toPlainText()))
         if(blocks[0]!=None and blocks[1]!=None and blocks[2]!=None):
             blocks=[block.strip() for block in blocks]
 
-        for key in spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodeOrderedKeys:
-            testblocks=spectrumtranslate.GetPartsOfPatternDataBlock(spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodes[key])
+        for key in spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES_ORDERED:
+            testblocks=spectrumtranslate.getpartsofpatterndatablock(spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES[key])
             if(testblocks[0]==None or testblocks[1]==None or testblocks[2]==None):
                 continue
                 
@@ -1173,12 +1173,12 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         lay2.addWidget(QtGui.QLabel("Data Block function:"))
 
         cbEditDataBlock=QtGui.QComboBox(self)
-        for key in spectrumtranslate.DisassembleInstruction.DisassembleDataBlockCodeOrderedKeys:
+        for key in spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES_ORDERED:
             cbEditDataBlock.addItem(key)
 
         cbEditDataBlock.setToolTip("Select instructions for Data block")
-        for key in spectrumtranslate.DisassembleInstruction.DisassembleDataBlockCodeOrderedKeys:
-            if(spectrumtranslate.DisassembleInstruction.DisassembleDataBlockCodes[key]==di.data):
+        for key in spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES_ORDERED:
+            if(spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES[key]==di.data):
                 break
                 
         setCombo(cbEditDataBlock,key)
@@ -1228,8 +1228,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
     def ChangeDataBlock(self):
         blockText=self.teDataBlock.toPlainText()
-        for key in spectrumtranslate.DisassembleInstruction.DisassembleDataBlockCodeOrderedKeys:
-            if(spectrumtranslate.DisassembleInstruction.DisassembleDataBlockCodes[key]==blockText):
+        for key in spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES_ORDERED:
+            if(spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES[key]==blockText):
                 break
                 
         self.cbEditDataBlock.currentIndexChanged[str].disconnect(self.ChangeEditDataBlock)
@@ -1238,7 +1238,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
     def ChangeEditDataBlock(self,txt):
         self.teDataBlock.textChanged.disconnect(self.ChangeDataBlock)
-        self.teDataBlock.setPlainText(spectrumtranslate.DisassembleInstruction.DisassembleDataBlockCodes[str(txt)])
+        self.teDataBlock.setPlainText(spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES[str(txt)])
         self.teDataBlock.textChanged.connect(self.ChangeDataBlock)
     
     def EditUnreferencedLineNumberFrequency(self,instruction):
@@ -1685,7 +1685,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         if(selectpos!=-1):
             di=instructionlist.currentItem().di
             txt=str(txt)
-            newinstruction=spectrumtranslate.DisassembleInstruction.DisassembleCodes[txt]
+            newinstruction=spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES[txt]
             instructionchanged=(newinstruction!=di.instruction)
             di.instruction=newinstruction
 
@@ -1697,10 +1697,10 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 di.data="8"
 
             elif(instructionchanged and txt=="Data Block"):
-                di.data=spectrumtranslate.DisassembleInstruction.DisassembleDataBlockCodes["Define Byte Hex"]
+                di.data=spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES["Define Byte Hex"]
 
             elif(instructionchanged and txt=="Pattern Data Block"):
-                di.data=spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodes["RST#08 (Error)"]
+                di.data=spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES["RST#08 (Error)"]
             
             elif(instructionchanged):
                 di.data=None
@@ -1719,7 +1719,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         di=None if selectpos==-1 else instructionlist.currentItem().di
         
         if(di!=None):
-            key=spectrumtranslate.GetDisassembleCodeNameFromValue(di.instruction)
+            key=spectrumtranslate.get_disassemblecodename_from_value(di.instruction)
             if(key!=None):
                 setCombo(dialog.cbDisassembleCommands,key)
 
@@ -1736,33 +1736,33 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         dialog.bdelete.setEnabled(di!=None)
         dialog.bup.setEnabled(selectpos>0)
         dialog.bdown.setEnabled(selectpos<number-1 and di!=None)
-        dialog.bedit.setEnabled(di!=None and (di.instruction==spectrumtranslate.DisassembleInstruction.DisassembleCodes["Custom Format"] or
-                                              di.instruction==spectrumtranslate.DisassembleInstruction.DisassembleCodes["Line Number Every X"] or
-                                              di.instruction==spectrumtranslate.DisassembleInstruction.DisassembleCodes["Data Block"] or
-                                              di.instruction==spectrumtranslate.DisassembleInstruction.DisassembleCodes["Pattern Data Block"]))
+        dialog.bedit.setEnabled(di!=None and (di.instruction==spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Custom Format"] or
+                                              di.instruction==spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Line Number Every X"] or
+                                              di.instruction==spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Data Block"] or
+                                              di.instruction==spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Pattern Data Block"]))
         dialog.cbDisassembleCommands.setEnabled(di!=None)
         dialog.leStart.setEnabled(di!=None)
         dialog.leEnd.setEnabled(di!=None)
 
     def setLabelText(self,lwInstruction):
         #find code name
-        key=spectrumtranslate.GetDisassembleCodeNameFromValue(lwInstruction.di.instruction)
+        key=spectrumtranslate.get_disassemblecodename_from_value(lwInstruction.di.instruction)
         
         s=("<strong>%s</strong><br/>"+self.Ddialog.Format.format(lwInstruction.di.start)+"->"+self.Ddialog.Format.format(lwInstruction.di.end))% (key)
 
-        if(lwInstruction.di.instruction==spectrumtranslate.DisassembleInstruction.DisassembleCodes["Line Number Every X"]):
+        if(lwInstruction.di.instruction==spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Line Number Every X"]):
             s+=" address every "+self.Ddialog.Format.format(int(lwInstruction.di.data,16))+" lines."
             
-        elif(lwInstruction.di.instruction==spectrumtranslate.DisassembleInstruction.DisassembleCodes["Data Block"]):
-            for key in spectrumtranslate.DisassembleInstruction.DisassembleDataBlockCodeOrderedKeys:
-                if(spectrumtranslate.DisassembleInstruction.DisassembleDataBlockCodes[key]==lwInstruction.di.data):
+        elif(lwInstruction.di.instruction==spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Data Block"]):
+            for key in spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES_ORDERED:
+                if(spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES[key]==lwInstruction.di.data):
                     break
                     
             s+=" - "+key
         
-        elif(lwInstruction.di.instruction==spectrumtranslate.DisassembleInstruction.DisassembleCodes["Pattern Data Block"]):
-            for key in spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodeOrderedKeys:
-                if(spectrumtranslate.DisassembleInstruction.DisassemblePatternBlockCodes[key]==lwInstruction.di.data):
+        elif(lwInstruction.di.instruction==spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Pattern Data Block"]):
+            for key in spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES_ORDERED:
+                if(spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES[key]==lwInstruction.di.data):
                     break
 
             s+=" - "+key
@@ -1931,7 +1931,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
     
     def CheckValidFileName(self):
         try:
-            s=spectrumtranslate.get_spectrum_string(str(self.Ddialog.leFileName.text()))
+            s=spectrumtranslate.getspectrumstring(str(self.Ddialog.leFileName.text()))
             if(len(s)>10):
                 QtGui.QMessageBox.warning(self,"Error!","Specrum file names have to be 10 characters or less.")
                 return
@@ -1988,7 +1988,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             
             #display waiting cursor while do translation
             QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
-            data=spectrumtranslate.get_GIF_from_screen(data,delay)
+            data=spectrumtranslate.getgiffromscreen(data,delay)
             QtGui.QApplication.restoreOverrideCursor()
 
             #was there a problem?
@@ -2082,14 +2082,14 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             else:
                 picoffset=7*0x4000
             
-            picdata=spectrumtranslate.get_GIF_from_screen(data[picoffset:picoffset+6912],320)
+            picdata=spectrumtranslate.getgiffromscreen(data[picoffset:picoffset+6912],320)
             #convert snapshot to requested format
             try:
                 if(snapformat==0):
-                    data=spectrumtranslate.snap_to_SNA(data,registers)
+                    data=spectrumtranslate.snaptosna(data,registers)
                     
                 else:
-                    data=spectrumtranslate.snap_to_z80(data,registers,version=snapformat)
+                    data=spectrumtranslate.snaptoz80(data,registers,version=snapformat)
 
             #was there a problem?
             except spectrumtranslate.SpectrumTranslateError as ste:
@@ -2167,7 +2167,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 return
 
         #get spectrum file filename
-        filename=spectrumtranslate.StringToSpectrum(self.ExportSettings["Filename"])
+        filename=spectrumtranslate.stringtospectrum(self.ExportSettings["Filename"])
 
         #todo remove when have support for snap files, opentype files etc that are bigger than 64K
         #check if file is greater than 0xFFFF: won't fit in file if is.
@@ -2320,10 +2320,10 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             try:
                 #handle XML
                 if(self.cbXMLBasicOutput.isChecked()==True):
-                    return spectrumtranslate.convert_program_to_XML(data,auto,variable)
+                    return spectrumtranslate.basictoxml(data,auto,variable)
                 
                 #default to simple text
-                return spectrumtranslate.convert_program_to_text(data,auto,variable)
+                return spectrumtranslate.basictotext(data,auto,variable)
             except spectrumtranslate.SpectrumTranslateError as ste:
                 QtGui.QMessageBox.warning(self,"Error!",ste.value)
                 return None
@@ -2342,7 +2342,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             bListUndocumented=self.cbCodeUndocumented.isChecked()
             bXMLOutput=self.cbXMLOutput.isChecked()
             
-            self.diInstructions[0]=spectrumtranslate.DisassembleInstruction(spectrumtranslate.DisassembleInstruction.DisassembleCodes["Custom Format"],
+            self.diInstructions[0]=spectrumtranslate.DisassembleInstruction(spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Custom Format"],
                 0,
                 0xFFFF,
                 spectrumtranslate.get_custom_format_string(iFormat,
@@ -2350,16 +2350,16 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                     iFormat,
                     iOutputTimes,
                     iOutputJumpGap,
-                    spectrumtranslate.DisassembleInstruction.DisassembleCodes["Line Numbers Referenced"],
+                    spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Line Numbers Referenced"],
                     16,
-                    spectrumtranslate.DisassembleInstruction.DisassembleCodes["Empty Line After Data On"],
-                    spectrumtranslate.DisassembleInstruction.DisassembleCodes["Reference Data Numbers On"],
-                    spectrumtranslate.DisassembleInstruction.DisassembleCodes["List Command Bytes On"],
-                    spectrumtranslate.DisassembleInstruction.DisassembleCodes["Comments Off"],
-                    spectrumtranslate.DisassembleInstruction.DisassembleCodes["Seperators Space"],
-                    spectrumtranslate.DisassembleInstruction.DisassembleCodes["Display Flags On" if bListFlags else "Display Flags Off"],
-                    spectrumtranslate.DisassembleInstruction.DisassembleCodes["Mark Undocumented Command On" if bListUndocumented else "Mark Undocumented Command Off"],
-                    spectrumtranslate.DisassembleInstruction.DisassembleCodes["XML Output On" if bXMLOutput else "XML Output Off"]))
+                    spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Empty Line After Data On"],
+                    spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Reference Data Numbers On"],
+                    spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["List Command Bytes On"],
+                    spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Comments Off"],
+                    spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Seperators Space"],
+                    spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Display Flags On" if bListFlags else "Display Flags Off"],
+                    spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Mark Undocumented Command On" if bListUndocumented else "Mark Undocumented Command Off"],
+                    spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["XML Output On" if bXMLOutput else "XML Output Off"]))
 
             try:
                 return spectrumtranslate.disassemble(data,0,origin,len(data),self.diInstructions)
@@ -2394,13 +2394,13 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                     
                 soutput+='</name>\n  <type>'+vartype+'</type>\n'
                 soutput+='  <value>\n'
-                soutput+='\n'.join(['    '+x for x in spectrumtranslate.convert_array_to_XML(data,idescriptor).splitlines()])
+                soutput+='\n'.join(['    '+x for x in spectrumtranslate.arraytoxml(data,idescriptor).splitlines()])
                 soutput+='\n  </value>\n</variable>\n'
                 
                 return soutput
             
             #default to simple text
-            return sVarName+("" if idescriptor==128 else "$")+("" if idescriptor==64 else "[]")+"=\n"+spectrumtranslate.convert_array_to_text(data,idescriptor)
+            return sVarName+("" if idescriptor==128 else "$")+("" if idescriptor==64 else "[]")+"=\n"+spectrumtranslate.arraytotext(data,idescriptor)
 
         else:
             return "Error!"
@@ -2907,7 +2907,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
     def SetVariableArrayDetails(self,variableletter,arraydescriptor):
         self.leBasicAutoLine.setText("")
         self.leBasicVariableOffset.setText("")
-        self.leArrayVarName.setText(spectrumtranslate.get_spectrum_char(variableletter))
+        self.leArrayVarName.setText(spectrumtranslate.getspectrumchar(variableletter))
         i=arraydescriptor
         i/=64
         i+=1

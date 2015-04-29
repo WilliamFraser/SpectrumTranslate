@@ -102,7 +102,7 @@ class SpectrumTapBlock:
         if(not self.isheadder()):
             return None
 
-        return spectrumtranslate.get_spectrum_string(self.data[1:11])
+        return spectrumtranslate.getspectrumstring(self.data[1:11])
 
     def getrawfilename(self):
         """This returns the 10 character file name as a byte string."""
@@ -729,7 +729,7 @@ options are basic, code, array, screen, and block.'
 
             if(arg == '-filename' or arg == '--filename'):
                 i += 1
-                creatingfilename = spectrumtranslate.StringToSpectrum(args[i])
+                creatingfilename = spectrumtranslate.stringtospectrum(args[i])
                 continue
 
             if(arg == '-autostart' or arg == '--autostart'):
