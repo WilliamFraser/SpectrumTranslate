@@ -94,7 +94,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
             # if topleft not set do so now
             if(self.topleftaddress == -1):
-                self.topleftaddress = (self.selectStart / self.columns) *\
+                self.topleftaddress = (self.selectStart // self.columns) *\
                                         self.columns
                 # update scrollbar
                 self.resizeEvent(None)
@@ -119,11 +119,11 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 # work out first full row, and last row to be
                 # highlighted
                 rstart = (self.selectStart - self.topleftaddress +
-                          self.columns - 1) / self.columns
+                          self.columns - 1) // self.columns
                 rstart = max(rstart, 0)
 
                 rend = (self.selectEnd - self.topleftaddress + self.columns -
-                        1) / self.columns
+                        1) // self.columns
                 rend = min(rend, self.rows)
 
                 # do whole lines block
@@ -228,29 +228,29 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             # take away space for dividers & address
             i -= self.cWidth * 12
             # find out how many characters left
-            i /= self.cWidth
+            i //= self.cWidth
             # divide by 4 to see how many columns will fit
             i >>= 2
 
             bChanged = (i != self.columns)
             self.columns = i
 
-            i = self.height() / self.cHeight
+            i = self.height() // self.cHeight
             bChanged = bChanged or (self.rows != i)
             self.rows = i
 
             # if topleft not set do so now
             if(self.topleftaddress == -1):
-                self.topleftaddress = (self.selectStart / self.columns) * \
+                self.topleftaddress = (self.selectStart // self.columns) * \
                                       self.columns
 
             # if has changed then update ascociated scrollbar
             if(bChanged or event is None or not event):
                 self.scroll.setValue(max(self.topleftaddress,
-                                         0) / self.columns)
+                                         0) // self.columns)
                 self.scroll.setPageStep(self.rows)
                 self.scroll.setRange(0, ((len(self.data) + self.columns -
-                                         1) / self.columns) - self.rows)
+                                         1) // self.columns) - self.rows)
 
         def mouseReleaseEvent(self, event):
             # Are we selecting or just displaying. If just Displaying
@@ -258,7 +258,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             if(self.radiobutton is None):
                 return
 
-            row = event.y() / self.cHeight
+            row = event.y() // self.cHeight
             # if to below last row of bytes then invalid place to click
             if(row >= self.rows):
                 return
@@ -271,13 +271,13 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
             # see if not to right of bytes then should be valid click
             if(x < self.cWidth * (3 * self.columns - 1)):
-                col = (x + (self.cWidth >> 1)) / self.cWidth
-                col /= 3
+                col = (x + (self.cWidth >> 1)) // self.cWidth
+                col //= 3
 
             # move to start of character display
             x -= self.cWidth * (3 * self.columns + 1)
             if(x >= 0 and x < self.columns * self.cWidth):
-                col = x / self.cWidth
+                col = x // self.cWidth
 
             # if not clicked on valid area, end
             if(col == -1):
@@ -3312,7 +3312,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         self.leArrayVarName.setText(
             spectrumtranslate.getspectrumchar(variableletter))
         i = arraydescriptor
-        i /= 64
+        i //= 64
         i += 1
         i %= 3
         self.cbArrayVarType.setCurrentIndex(i)

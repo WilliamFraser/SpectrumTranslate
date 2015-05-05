@@ -1550,7 +1550,7 @@ def toString(sn):
             # binary coded decimal emulated
             for i in range(9, 0, -1):
                 digitBuffer[i] += digitBuffer[i] + c
-                c = digitBuffer[i] / 10
+                c = digitBuffer[i] // 10
                 digitBuffer[i] %= 10
 
             NumberOfBitsToPrint -= 1
@@ -1625,7 +1625,7 @@ def toString(sn):
         if(digitBuffer[i] != 0 and digitBuffer[i] != 10):
             break
 
-        rounding = digitBuffer[i] / 10
+        rounding = digitBuffer[i] // 10
         iDigitsPrintable -= 1
         if(iDigitsPrintable != 0):
             continue

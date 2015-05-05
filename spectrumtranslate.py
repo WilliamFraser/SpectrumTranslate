@@ -2128,7 +2128,7 @@ class _gif_encoder_stream():
         self.PutByte(4)     # data block size
         self.PutByte(0)     # no transparency
         # delay in 1/100 of seconds
-        self.PutWord(0 if (delay == -1) else delay/10)
+        self.PutWord(0 if (delay == -1) else delay//10)
         self.PutByte(0)     # transparent color index
         self.PutByte(0)     # block terminator
 
@@ -4836,7 +4836,7 @@ def _numbertostring(n, bits, form, typeindicator=True):
 
     elif(form == 2):
         # octal
-        return ("{0}{1:0" + str((bits + 2)/3) + "o}").format(
+        return ("{0}{1:0" + str((bits + 2)//3) + "o}").format(
             "o" if typeindicator else "", n)
 
     elif(form == 3):
@@ -5384,7 +5384,7 @@ digit hexadecimal number")
             elif(i == 4):  # multiply
                 k = arga * argb
             elif(i == 5):  # divide
-                k = arga / argb
+                k = arga // argb
             elif(i == 6):  # modulus
                 k = arga % argb
             elif(i == 7):  # binary and
