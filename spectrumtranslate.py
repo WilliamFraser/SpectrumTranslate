@@ -1259,7 +1259,7 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
 
             # for each dimension, print it's length
             for x in range(data[i+2]):
-                text += "[%i]" % (data[i+3+x*2] + 256 * data[i+4+x*2])
+                text += "[{0}]".format(data[i+3+x*2] + 256 * data[i+4+x*2])
 
             text += "=" + arraytotext(data[i+2:], 192) + "\n"
             i += 2 + data[i] + 256 * data[i+1]
@@ -1385,7 +1385,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
                     if(l != iLineLen-1):
                         text += '<hiddendata>'
                         while(l < iLineLen):
-                            text += '^%02X' % data[i]
+                            text += '^{0:02X}'.format(data[i])
                             i += 1
                             l += 1
 
@@ -1883,7 +1883,7 @@ def getspectrumchar(c):
     if(c >= 163):
         return SPECTRUM_COMMANDS[c-163] + ' '
     if(c < 32 or c > 127):
-        return "^%02X" % (c)
+        return '^{0:02X}'.format(c)
 
     return chr(c)
 
@@ -3307,7 +3307,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
 
             else:  # is DD or FD
                 dataOffset = 2
-                codehex = "%02X" % data[offset]
+                codehex = '{0:02X}'.format(data[offset])
                 s = Z80_OPCODES[codehex][data[offset + 1]]
                 instructionData = Z80_OPCODE_DATA[codehex][data[offset + 1]]
                 instructionTimes = Z80_OPCODE_TIMES[codehex][data[offset + 1]]
@@ -4735,13 +4735,13 @@ DEFB               %#output instuction (DEFB or Define Byte)
         """
 
         if(self.data is None):
-            return "%X#%X#%X#" % (self.instruction, self.start, self.end)
+            return "{0.instruction:X}#{0.start:X}#{0.end:X}#".format(self)
 
-        return "%X#%X#%X#%s#%s" % (self.instruction, self.start, self.end,
-                                   ','.join(["%X" % i for i, c in
-                                             enumerate(self.data) if c == '\n']
-                                            ),
-                                   self.data.replace('\n', ''))
+        return "{0.instruction:X}#{0.start:X}#{0.end:X}#{1}#{2}".format(
+            self,
+            ','.join(["{0}".format(i) for i, c in enumerate(self.data) if
+                      c == '\n']),
+            self.data.replace('\n', ''))
 
     def __cmp(self, other):
         # defined so can sort by starting address
@@ -4827,21 +4827,22 @@ def _numbertostring(n, bits, form, typeindicator=True):
     """
     if(form == 0):
         # hex
-        return ("%s%0" + str(bits >> 2) + "X") % ("#" if typeindicator else "",
-                                                  n)
+        return ("{0}{1:0" + str(bits >> 2) + "X}").format(
+            "#" if typeindicator else "", n)
 
     elif(form == 1):
         # decimal
-        return "%d" % n
+        return "{0}".format(n)
 
     elif(form == 2):
         # octal
-        return ("%s%0" + str((bits + 2)/3) + "o") % ("o" if typeindicator
-                                                     else "", n)
+        return ("{0}{1:0" + str((bits + 2)/3) + "o}").format(
+            "o" if typeindicator else "", n)
 
     elif(form == 3):
         # binary
-        return ("%s%0" + str(bits) + "b") % ("b" if typeindicator else "", n)
+        return ("{0}{1:0" + str(bits) + "b}").format(
+            "b" if typeindicator else "", n)
 
     else:
         return ""
@@ -5725,9 +5726,11 @@ digit hexadecimal number")
 
 def newSpectrumTranslateError(address, pos, instructions, details):
     # generate exception
-    return SpectrumTranslateError('Data Format error processing "%s" near \
-character number %d on line starting at %04X\n%s' % (instructions, pos,
-                                                     address, details))
+    return SpectrumTranslateError('Data Format error processing "{0}" near \
+character number {1} on line starting at {2:04X}\n{3}'.format(instructions,
+                                                              pos,
+                                                              address,
+                                                              details))
 
 
 def get_custom_format_string(AddressOutput, NumberOutput, CommandOutput,
@@ -5813,7 +5816,7 @@ def get_custom_format_string(AddressOutput, NumberOutput, CommandOutput,
     else:
         raise SpectrumTranslateError("invalid seperator")
 
-    return "%07X%s" % (i, sep)
+    return "{0:07X}{1}".format(i, sep)
 
 
 def get_custom_format_values(data, bWantInstructionCode=False):
@@ -6340,7 +6343,7 @@ special instructions."
             outputfile = arg
             continue
 
-        error = '"%s" is unrecognised argument.' % arg
+        error = '"{0}" is unrecognised argument.'.format(arg)
         break
 
     # finished processing arguments now.
@@ -6380,8 +6383,9 @@ of options.\n")
                     line.rstrip('\n')) for line in fo]
                 fo.close()
             except:
-                sys.stderr.write('Failed to read instructions from "%s".\n' %
-                                 commandsourcefile)
+                sys.stderr.write(
+                    'Failed to read instructions from "{0}".\n'.format(
+                        commandsourcefile))
                 sys.exit(2)
 
         else:
@@ -6512,7 +6516,7 @@ input.\n')
                 if(wantinstructionname):
                     def nameornumber(c):
                         if(get_disassemblecodename_from_value(c) is None):
-                            return ("%X" % c)
+                            return "{0:X}".format(c)
 
                         return get_disassemblecodename_from_value(c)
 
@@ -6522,15 +6526,17 @@ input.\n')
 
                         return get_disassembleblockname_from_value(c)
 
-                    retdata = '\n'.join("%s\n%X\n%X\n%s" % (
-                        nameornumber(x.instruction), x.start, x.end,
-                        '' if x.data is None else nameorcode(x.data)
-                        ) for x in di)
+                    retdata = '\n'.join(
+                        "{0}\n{1.start:X\n{1.end:X}\n{2}".format(
+                            nameornumber(x.instruction), x,
+                            '' if x.data is None else nameorcode(x.data)
+                            )
+                        for x in di)
 
                 else:
-                    retdata = '\n'.join("%X\n%X\n%X\n%s" % (
-                        x.instruction, x.start, x.end,
-                        '' if x.data is None else x.data) for x in di)
+                    retdata = '\n'.join(
+                      "{0.instruction:X}\n{0.start:X}\n{0.end:X}\n{1}".format(
+                        x, '' if x.data is None else x.data) for x in di)
 
     # handle any exceptions while translating
     except SpectrumTranslateError as ste:

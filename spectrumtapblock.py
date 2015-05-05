@@ -284,7 +284,7 @@ class SpectrumTapBlock:
     def __str__(self):
         """Returns a basic String summary of the TapBlock object."""
 
-        return "Flag:%i, block length:%i" % (self.flag, len(self.data))
+        return "Flag:{0}, block length:{1}".format(self.flag, len(self.data))
 
     def getbyte(self, pos):
         """
@@ -739,7 +739,8 @@ options are basic, code, array, screen, and block.'
                     continue
 
                 except:
-                    error = '%s is not a valid autostart number.' % args[i]
+                    error = '{0} is not a valid autostart number.'.format(
+                        args[i])
                     break
 
             if(arg == '-variableoffset' or arg == '--variableoffset'):
@@ -749,7 +750,8 @@ options are basic, code, array, screen, and block.'
                     continue
 
                 except:
-                    error = '%s is not a valid variable offset.' % args[i]
+                    error = '{0} is not a valid variable offset.'.format(
+                        args[i])
                     break
 
             if(arg == '-origin' or arg == '--origin'):
@@ -763,7 +765,7 @@ options are basic, code, array, screen, and block.'
                     continue
 
                 except:
-                    error = '%s is not a valid code origin.' % args[i]
+                    error = '{0} is not a valid code origin.'.format(args[i])
                     break
 
             if(arg == '-flag' or arg == '--flag'):
@@ -777,7 +779,7 @@ options are basic, code, array, screen, and block.'
                     continue
 
                 except:
-                    error = '%s is not a valid flag value.' % args[i]
+                    error = '{0} is not a valid flag value.'.format(args[i])
                     break
 
             if(arg == '-arraytype' or arg == '--arraytype'):
@@ -795,8 +797,8 @@ options are basic, code, array, screen, and block.'
                     continue
 
                 else:
-                    error = '%s is not a valid array type (must be character, \
-number or string).' % args[i]
+                    error = '{0} is not a valid array type (must be character\
+, number or string).'.format(args[i])
                     break
 
             if(arg == '-arrayname' or arg == '--arrayname'):
@@ -806,7 +808,7 @@ number or string).' % args[i]
                    creatingarrayname.isalpha()):
                     continue
 
-                error = '%s is not a valid variable name.' % args[i]
+                error = '{0} is not a valid variable name.'.format(args[i])
                 break
 
             if(arg == '-i' or arg == '-fromstandardinput' or arg == '--i' or
@@ -849,8 +851,8 @@ number or string).' % args[i]
                     continue
 
                 except:
-                    error = '%s is not a valid index for the output file\
-.' % args[i]
+                    error = '{0} is not a valid index for the output file.'.\
+                        format(args[i])
                     break
 
             # have unrecognised argument.
@@ -862,7 +864,8 @@ number or string).' % args[i]
                     continue
 
                 except:
-                    error = '%s is not a valid index in the input file.' % arg
+                    error = '{0} is not a valid index in the input file.'.\
+                        format(arg)
                     break
 
             # if it is what entries we want to copy
@@ -889,7 +892,7 @@ number or string).' % args[i]
                 outputfile = arg
                 continue
 
-            error = '"%s" is unrecognised argument.' % arg
+            error = '"{0}" is unrecognised argument.'.format(arg)
             break
 
         if(error is None and mode is None):
@@ -950,45 +953,47 @@ list of options.\n")
 
                 if(wantdetails):
                     if(not tb.isheadder()):
-                        retdata += "%i\tData\t%i\t%i\n" % (pos, tb.flag,
-                                                           len(tb.data))
+                        retdata += "{0}\tData\t{1}\t{2}\n".format(pos, tb.flag,
+                                                                  len(tb.data))
 
                     else:
                         filetype = tb.getfiletypestring()
                         if(filetype == "Program"):
                             retdata += \
-                                "%i\tHeadder\t%s\tProgram\t%i\t%i\t%i\n" % \
-                                (pos, tb.getfilename(),
+                                "{0}\tHeadder\t{1}\tProgram\t{2}\t{3}\t{4}\n".\
+                                format(
+                                 pos, tb.getfilename(),
                                  tb.getheadderdescribeddatalength(),
                                  0 if tb.getheadderautostartline() < 0 else
                                  tb.getheadderautostartline(),
                                  tb.getheaddervariableoffset())
                         elif(filetype == "Bytes"):
-                            retdata += "%i\tHeadder\t%s\tBytes\t%i\t%i\n" % \
-                                (pos, tb.getfilename(),
+                            retdata += "{0}\tHeadder\t{1}\tBytes\t{2}\t{3}\n".\
+                                format(
+                                 pos, tb.getfilename(),
                                  tb.getheaddercodestart(),
                                  tb.getheadderdescribeddatalength())
                         elif(filetype == "Number array" or
                              filetype == "Character array"):
-                            retdata += "%i\tHeadder\t%s\t%s\t%i\t%s\t%s\t%i\n"\
-                                % (pos, tb.getfilename(), filetype,
-                                   tb.getheadderdescribeddatalength(),
-                                   tb.getheaddervariableletter(),
-                                   tb.getheaddervariablename(),
-                                   tb.getheadderarraydescriptor() & 192)
+                            retdata += \
+                              "{0}\tHeadder\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\n".\
+                              format(pos, tb.getfilename(), filetype,
+                                     tb.getheadderdescribeddatalength(),
+                                     tb.getheaddervariableletter(),
+                                     tb.getheaddervariablename(),
+                                     tb.getheadderarraydescriptor() & 192)
                         else:
-                            retdata += "%i\tHeadder\t%s\tUnknown\t%i\t%i\n" % \
-                                (pos, tb.getfilename(), tb.getbyte(0),
-                                 tb.getheadderdescribeddatalength())
+                            retdata += \
+                                "{0}\tHeadder\t{1}\tUnknown\t{2}\t{3}\n".\
+                                format(pos, tb.getfilename(),
+                                       tb.getbyte(0),
+                                       tb.getheadderdescribeddatalength())
 
                 else:
-                    retdata += "%3i      %s %s\n" % (pos,
-                                                     "Headder" if
-                                                     tb.isheadder() else
-                                                     "Data   ",
-                                                     tb.getfiledetailsstring()
-                                                     if tb.isheadder() else
-                                                     str(tb))
+                    retdata += "{0:3}      {1} {2}\n".format(
+                        pos, "Headder" if tb.isheadder() else "Data   ",
+                        tb.getfiledetailsstring() if tb.isheadder() else
+                        str(tb))
 
                 pos += 1
 

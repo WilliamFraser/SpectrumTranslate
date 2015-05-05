@@ -363,7 +363,7 @@ class DiscipleFile:
         if(details["filetype"] == 4):
             # code
             details["codeaddress"] = self.getcodestart(headderdata)
-            details["catextradata"] = "%5d,%d" % (
+            details["catextradata"] = "{0:5},{1:5}".format(
                 self.getcodestart(headderdata),
                 self.getfilelength(headderdata))
             details["coderunaddress"] = ord(headderdata[218]) + 256 * ord(
@@ -373,8 +373,8 @@ class DiscipleFile:
             # basic
             details["autostartline"] = self.getautostartline(headderdata)
             details["variableoffset"] = self.getvariableoffset(headderdata)
-            details["catextradata"] = "%5d" % self.getautostartline(
-                headderdata)
+            details["catextradata"] = "{0:5}".format(self.getautostartline(
+                headderdata))
 
         if(details["filetype"] == 2 or details["filetype"] == 3):
             # number or character array
@@ -396,20 +396,20 @@ class DiscipleFile:
         if(headderdata is None):
             headderdata = self.getheadder()
 
-        s = "   %2d   %s%4d      %s" % (self.filenumber,
-                                        self.getfilename(headderdata),
-                                        self.getsectorsused(headderdata),
-                                        self.getfiletypecatstring(headderdata))
+        s = "   {0:2}   {1}{2:4}      {3}".format(
+            self.filenumber, self.getfilename(headderdata),
+            self.getsectorsused(headderdata),
+            self.getfiletypecatstring(headderdata))
 
         t = self.getfiletype(headderdata)
         if(t == 4):
             # code
-            s += "         %5d,%d" % (self.getcodestart(headderdata),
-                                      self.getfilelength(headderdata))
+            s += "         {0:5},{1}".format(self.getcodestart(headderdata),
+                                             self.getfilelength(headderdata))
 
         if(t == 1):
             # basic
-            s += "         %5d" % self.getautostartline(headderdata)
+            s += "         {0:5}".format(self.getautostartline(headderdata))
 
         return s
 
@@ -640,31 +640,33 @@ class DiscipleFile:
 
         t = self.getfiletype(headderdata)
 
-        s = 'filenumber: %d\nFile name: "%s"\n' % (self.filenumber,
-                                                   self.getfilename(
-                                                       headderdata))
-        s += "File type: %d = %s\n" % (t, self.getfiletypestring(headderdata))
-        s += "File length: %d(%X)\n" % (self.getfilelength(headderdata),
-                                        self.getfilelength(headderdata))
+        s = 'filenumber: {0}\nFile name: "{1}"\n'.format(
+            self.filenumber, self.getfilename(headderdata))
+        s += "File type: {0} = {1}\n".format(
+            t, self.getfiletypestring(headderdata))
+        s += "File length: {0}({0:X})\n".format(
+            self.getfilelength(headderdata))
 
         if(t == 1):  # basic
-            s += "Autostart: %d\n" % self.getautostartline(headderdata)
-            s += "Variable offfset: %d(%X)\n" % (
-                self.getvariableoffset(headderdata),
+            s += "Autostart: {0}\nVariable offfset: {1}({1:X})\n".format(
+                self.getautostartline(headderdata),
                 self.getvariableoffset(headderdata))
 
         elif(t == 2 or t == 3):  # number array, or string array
-            s += "variable name: %s\n" % self.getvariablename(headderdata)
+            s += "variable name: {0}\n".format(
+                self.getvariablename(headderdata))
 
         elif(t == 4 or t == 7):  # code or screen$
-            s += "code start address: %d(%X)\n" % (
-                self.getcodestart(headderdata), self.getcodestart(headderdata))
+            s += "code start address: {0}({0:X})\n".format(
+                self.getcodestart(headderdata))
 
-        s += "file details: %s\n" % self.getfiledetailsstring(headderdata)
-        s += "directory entry address: T=%d S=%d offset=%d\n" % (
-            GetDirectoryEntryPosition(self.filenumber) + (
-                ((self.filenumber - 1) & 1) * 256))
-        s += "Number of sectors used: %d\n" % self.getsectorsused(headderdata)
+        s += "file details: {0}\n".format(
+            self.getfiledetailsstring(headderdata))
+        s += "directory entry address: T={0[0]} S={0[1]} offset={1}\n".format(
+            GetDirectoryEntryPosition(self.filenumber),
+            ((self.filenumber - 1) & 1) * 256)
+        s += "Number of sectors used: {0}\n".format(
+            self.getsectorsused(headderdata))
 
         track = ord(headderdata[13])
         sector = ord(headderdata[14])
@@ -672,16 +674,15 @@ class DiscipleFile:
 
         s += "Sector chain: "
         while(i > 0):
-            s += " %d;%d(%X)" % (track, sector,
-                                 self.image.getsectorposition(track & 127,
-                                                              sector,
-                                                              track >> 7))
+            s += " {0};{1}({2:X})".format(
+                track, sector,
+                self.image.getsectorposition(track & 127, sector, track >> 7))
             sectordata = self.image.getsector(track & 127, sector, track >> 7)
             track = ord(sectordata[510])
             sector = ord(sectordata[511])
             i -= 1
 
-        s += " %d;%d" % (track, sector)
+        s += " {0};{1}".format(track, sector)
 
         return s
 
@@ -715,7 +716,7 @@ class DiscipleImage:
             self.filehandle = open(filename, accessmode)
         except:
             raise spectrumtranslate.SpectrumTranslateError(
-                'can not open "%s" for reading' % filename)
+                'can not open "{0}" for reading'.format(filename))
             return
 
         self.ImageSource = "FileName"
@@ -1749,6 +1750,7 @@ def usage():
 
 
 def commandline(args):
+
     def getint(x):
         return int(x, 16 if x.lower().startswith("0x") else 10)
 
@@ -1835,7 +1837,8 @@ options are basic, code, array, and screen.'
                     continue
 
                 except:
-                    error = '%s is not a valid autostart number.' % args[i]
+                    error = '{0} is not a valid autostart number.'.format(
+                        args[i])
                     break
 
             if(arg == '-variableoffset' or arg == '--variableoffset'):
@@ -1845,7 +1848,8 @@ options are basic, code, array, and screen.'
                     continue
 
                 except:
-                    error = '%s is not a valid variable offset.' % args[i]
+                    error = '{0} is not a valid variable offset.'.format(
+                        args[i])
                     break
 
             if(arg == '-donotoverwriteexisting' or
@@ -1864,7 +1868,8 @@ options are basic, code, array, and screen.'
                     continue
 
                 except:
-                    error = '%s is not a valid code origin.' % args[i]
+                    error = '{0} is not a valid code origin.'.format(
+                        args[i])
                     break
 
             if(arg == '-arraytype' or arg == '--arraytype'):
@@ -1882,8 +1887,8 @@ options are basic, code, array, and screen.'
                     continue
 
                 else:
-                    error = '%s is not a valid array type (must be character, \
-number or string).' % args[i]
+                    error = '{0} is not a valid array type (must be \
+character, number or string).'.format(args[i])
                     break
 
             if(arg == '-arrayname' or arg == '--arrayname'):
@@ -1893,7 +1898,7 @@ number or string).' % args[i]
                    creatingarrayname.isalpha()):
                     continue
 
-                error = '%s is not a valid variable name.' % args[i]
+                error = '{0} is not a valid variable name.'.format(args[i])
                 break
 
             if(arg == '-i' or arg == '-fromstandardinput' or arg == '--i' or
@@ -1951,8 +1956,8 @@ number or string).' % args[i]
                     continue
 
                 except:
-                    error = '%s is not a valid index for the output file\
-.' % args[i]
+                    error = '{0} is not a valid index for the output file\.'.\
+                        format(args[i])
                     break
 
             # have unrecognised argument.
@@ -1964,7 +1969,8 @@ number or string).' % args[i]
                     continue
 
                 except:
-                    error = '%s is not a valid index in the input file.' % arg
+                    error = '{0} is not a valid index in the input file.'.\
+                        format(arg)
                     break
 
             # check if is what entry we want to delete or copy
@@ -1975,7 +1981,8 @@ number or string).' % args[i]
                     continue
 
                 except:
-                    error = '%s is not a valid index in the input file.' % arg
+                    error = '{0} is not a valid index in the input file.'.\
+                        format(arg)
                     break
 
             # check if is input or output file
@@ -1993,7 +2000,7 @@ number or string).' % args[i]
                 outputfile = arg
                 continue
 
-            error = '"%s" is unrecognised argument.' % arg
+            error = '"{0}" is unrecognised argument.'.format(arg)
             break
 
         # check we have all needed arguments
@@ -2079,23 +2086,21 @@ type\n"
                 if(wantdetails):
                     d = df.getfiledetails()
 
-                    retdata += "%i\t%s\t%i\t%s\t%i\t%i" % (
-                        d['filenumber'], d['filename'], d['filetype'],
-                        d['filetypelong'], d['sectors'], d['filelength'])
+                    retdata += "{filenumber}\t{filename}\t{filetype}\t{\
+filetypelong}\t{sectors}\t{filelength}".format(**d)
 
                     if(d["filetype"] == 1):
-                        retdata += "\t" + str(d["autostartline"]) + "\t" + str(
-                            d["variableoffset"])
+                        retdata += "\t{autostartline}\t{variableoffset}".\
+                            format(**d)
 
                     if(d["filetype"] == 4):
-                        retdata += "\t" + str(d["codeaddress"]) + "\t" + str(
-                            d["coderunaddress"])
+                        retdata += "\t" + str(d["codeaddress"]) + "\t" + \
+                            str(d["coderunaddress"])
 
                     if(d["filetype"] == 2 or d["filetype"] == 3):
-                        retdata += "\t" + str(
-                            d["variableletter"]) + "\t" + str(
-                            d["variablename"]) + "\t" + str(
-                            d["arraydescriptor"])
+                        retdata += "\t" + str(d["variableletter"]) + "\t" + \
+                            str(d["variablename"]) + "\t" + \
+                            str(d["arraydescriptor"])
 
                 else:
                     retdata += df.getfiledetailsstring()
@@ -2120,9 +2125,8 @@ type\n"
                 sys.stderr.write(
                     str(entrywanted) + " is not a valid entry number (should \
 be 1 to 80).\n")
-                sys.stdout.write(
-                    "Use 'python disciplefile.py' to see full list of options.\
-\n")
+                sys.stdout.write("Use 'python disciplefile.py' to see full \
+list of options.\n")
                 sys.exit(2)
 
             retdata = df.getfiledata()
@@ -2176,8 +2180,8 @@ be 1 to 80).\n")
                 # write file
                 diout.writefile(headder, filedata,
                                 -1 if copypositionindex >= len(
-                                    copyposition) else copyposition[
-                                        copypositionindex])
+                                    copyposition) else
+                                copyposition[copypositionindex])
 
                 copypositionindex += 1
 

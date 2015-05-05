@@ -178,7 +178,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 x = self.cWidth >> 1
 
                 # print address
-                qp.drawText(QtCore.QPointF(x, y), "%08X" % a)
+                qp.drawText(QtCore.QPointF(x, y), "{0:08X}".format(a))
 
                 # move past address
                 x += self.cWidth * 10
@@ -190,7 +190,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 while(i < self.columns and a + i < len(self.data)):
                     # print value at address
                     qp.drawText(QtCore.QPointF(x, y),
-                                "%02X" % ord(self.data[a + i]))
+                                "{0:02X)".firmat(ord(self.data[a + i])))
                     x += self.cWidth * 3
                     # add character
                     d = ord(self.data[a + i])
@@ -1478,7 +1478,7 @@ lines do you want adresses displayed? Use 0 for none.")
             if(i < 0 or i > 0xFF):
                 i = 0
 
-            instruction.data = "%X" % i
+            instruction.data = "{0:X}".format(i)
 
         del self.leUnreferencedLineNumber
 

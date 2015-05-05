@@ -863,7 +863,7 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if bytes)")
     def _get_internals(self, printdetails=True):
         # if is int then display this
         if(self.data[0] == 0):
-            s = '%i %s' % (self.GetSmallInt(), self.data)
+            s = '{0} {1}'.format(self.GetSmallInt(), self.data)
             if(printdetails):
                 print s
             return s
@@ -879,7 +879,7 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if bytes)")
         f *= 2 ** (self.data[0] - 129)
         if(self.data[1] > 127):
             f *= -1
-        s = '%f %s' % (f, self.data)
+        s = '{0} {1}'.format(f, self.data)
         if(printdetails):
             print s
         return s
@@ -1798,9 +1798,9 @@ class SpectrumNumberComponents:
         f *= 2 ** (self.exponent - 129)
         if(self.negative):
             f *= -1
-        return '%f (%08Xe%s%s)' % (f, self.mantissa,
-                                   self.negative and '-' or '+',
-                                   str(self.exponent))
+        return '{0} ({1:08X}e{2}{3})'.format(f, self.mantissa,
+                                             self.negative and '-' or '+',
+                                             str(self.exponent))
 
 if __name__ == "__main__":
     pass
