@@ -42,6 +42,7 @@
 import spectrumtranslate
 import mmap
 import os
+from numbers import Integral as INT_OR_LONG
 # sys and codecs are imported if run from the command line
 
 
@@ -1249,7 +1250,7 @@ class DiscipleImage:
         # check filename is valid
         if(isinstance(filename, list)):
             # if is list of numbers convert to list of strings
-            if(False not in [isinstance(x, (int, long)) for x in filename]):
+            if(False not in [isinstance(x, INT_OR_LONG) for x in filename]):
                 filename = [chr(x) for x in filename]
 
             # if there are only strings in the list then convert list to
@@ -1365,7 +1366,7 @@ more than 10 characters.")
         # check filename is valid
         if(isinstance(filename, list)):
             # if is list of numbers convert to list of strings
-            if(False not in [isinstance(x, (int, long)) for x in filename]):
+            if(False not in [isinstance(x, INT_OR_LONG) for x in filename]):
                 filename = [chr(x) for x in filename]
 
             # if there are only strings in the list then convert list to
@@ -1452,7 +1453,7 @@ more than 10 characters.")
         # check filename is valid
         if(isinstance(filename, list)):
             # if is list of numbers convert to list of strings
-            if(False not in [isinstance(x, (int, long)) for x in filename]):
+            if(False not in [isinstance(x, INT_OR_LONG) for x in filename]):
                 filename = [chr(x) for x in filename]
 
             # if there are only strings in the list then convert list to
@@ -1532,7 +1533,7 @@ more than 10 characters.")
         # check filename is valid
         if(isinstance(filename, list)):
             # if is list of numbers convert to list of strings
-            if(False not in [isinstance(x, (int, long)) for x in filename]):
+            if(False not in [isinstance(x, INT_OR_LONG) for x in filename]):
                 filename = [chr(x) for x in filename]
 
             # if there are only strings in the list then convert list to
@@ -1760,7 +1761,8 @@ def commandline(args):
             for n in arg.split(','):
                 if('-' in n):
                     v = n.split('-', 1)
-                    specifiedfiles += range(getint(v[0]), getint(v[1]) + 1)
+                    specifiedfiles += list(range(getint(v[0]),
+                                                 getint(v[1]) + 1))
 
                 else:
                     specifiedfiles += [getint(n)]

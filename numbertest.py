@@ -62,11 +62,11 @@ class TestSpectrumNumberComponentsCreate(unittest.TestCase):
 
         # Check copy creation
         snc = spectrumnumber.SpectrumNumberComponents()
-        snc.mantissa = 20L
+        snc.mantissa = [0, 20]
         snc.negative = True
         snc.exponent = 4000
         testsnc = spectrumnumber.SpectrumNumberComponents(snc)
-        self.assertEqual(20L, testsnc.mantissa)
+        self.assertEqual([0, 20], testsnc.mantissa)
         self.assertEqual(True, testsnc.negative)
         self.assertEqual(4000, testsnc.exponent)
 
@@ -105,12 +105,12 @@ class TestSpectrumNumberComponentsMethods(unittest.TestCase):
         snc.mantissa = 0x80000000
         snc.negative = False
         snc.exponent = 129
-        self.assertEqual('1.000000 (80000000e+129)', str(snc))
+        self.assertEqual('1.0 (80000000e+129)', str(snc))
 
         snc.mantissa = 0x80000000
         snc.negative = False
         snc.exponent = 127
-        self.assertEqual('0.250000 (80000000e+127)', str(snc))
+        self.assertEqual('0.25 (80000000e+127)', str(snc))
 """
 Test SpectrumNumber
 """
@@ -139,7 +139,7 @@ class TestSpectrumNumberCreate(unittest.TestCase):
         result = spectrumnumber.SpectrumNumber([0, 0, 1, 0, 0])
         self.assertEqual([0, 0, 1, 0, 0], result.data)
         # check different valid data types, and length of argument
-        result = spectrumnumber.SpectrumNumber([float(0), 0, long(2)])
+        result = spectrumnumber.SpectrumNumber([float(0), 0, int(2)])
         self.assertEqual([0, 0, 2, 0, 0], result.data)
         # check byte handling
         self.assertRaises(spectrumnumber.SpectrumNumberError,

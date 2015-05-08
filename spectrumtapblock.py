@@ -664,7 +664,8 @@ def commandline(args):
             for n in arg.split(','):
                 if('-' in n):
                     v = n.split('-', 1)
-                    specifiedfiles += range(getint(v[0]), getint(v[1]) + 1)
+                    specifiedfiles += list(range(getint(v[0]),
+                                                 getint(v[1]) + 1))
 
                 else:
                     specifiedfiles += [getint(n)]

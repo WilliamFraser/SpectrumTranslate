@@ -42,6 +42,23 @@
 import spectrumnumber
 import sys
 
+# ensure this code runs on python 2 and 3
+if(sys.hexversion > 0x03000000):
+    unistr = str
+
+    def u(x):
+        return x
+
+else:
+    # 2to3 will complain about this line but this code is python 2 & 3
+    # compatible
+    unistr = unicode
+    from codecs import unicode_escape_decode as UED
+
+    def u(x):
+        return UED(x)[0]
+
+
 # tables of all the opcodes
 Z80_OPCODES = {
   "base": (
@@ -1866,20 +1883,20 @@ def getspectrumchar(c):
     """
 
     # convert to int if needed
-    if(isinstance(c, (str, unicode))):
+    if(isinstance(c, (str, unistr))):
         c = ord(c[0]) & 0xFF
 
     if(c == 127):
-        return u"\u00A9"
+        return u("\u00A9")
     if(c == 96):
-        return u"\u00A3"
+        return u("\u00A3")
     if(c == 94):
-        return u"\u2191"
+        return u("\u2191")
     if(c >= 128 and c <= 143):
-        return (u'\u2003', u'\u259D', u'\u2598', u'\u2580', u'\u2597',
-                u'\u2590', u'\u259A', u'\u259C', u'\u2596', u'\u259E',
-                u'\u258C', u'\u259B', u'\u2584', u'\u259F', u'\u2599',
-                u'\u2580')[c-128]
+        return (u('\u2003'), u('\u259D'), u('\u2598'), u('\u2580'),
+                u('\u2597'), u('\u2590'), u('\u259A'), u('\u259C'),
+                u('\u2596'), u('\u259E'), u('\u258C'), u('\u259B'),
+                u('\u2584'), u('\u259F'), u('\u2599'), u('\u2580'))[c-128]
     if(c >= 163):
         return SPECTRUM_COMMANDS[c-163] + ' '
     if(c < 32 or c > 127):
@@ -1924,7 +1941,7 @@ def chartospectrum(c):
     """
 
     # handle control codes
-    if(isinstance(c, (str, unicode)) and len(c) == 3 and c[0] == '^'):
+    if(isinstance(c, (str, unistr)) and len(c) == 3 and c[0] == '^'):
         try:
             return chr(int(c[1:], 16))
         except:
@@ -1932,7 +1949,7 @@ def chartospectrum(c):
                 "code must be ^ followed by 2 digit hexadecimal number.")
 
     # If not a single character, check for command
-    if(isinstance(c, (str, unicode)) and len(c) != 1):
+    if(isinstance(c, (str, unistr)) and len(c) != 1):
         if(c in SPECTRUM_COMMANDS):
             for i in range(len(SPECTRUM_COMMANDS)):
                 if(SPECTRUM_COMMANDS[i] == c):
@@ -1940,7 +1957,7 @@ def chartospectrum(c):
         raise SpectrumTranslateError("Not recognised spectrum command.")
 
     # convert to number
-    if(isinstance(c, (str, unicode))):
+    if(isinstance(c, (str, unistr))):
         c = ord(c)
 
     if(c == 0x00A9):
@@ -2740,8 +2757,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
 
         # if only overall T length known then extract this now
         if((instructionTimes & 0x1) != 0):
-            duration = [(instructionTimes >> 1) & 0x7FFFL,
-                        (instructionTimes >> 17) & 0x7FFFL]
+            duration = [(instructionTimes >> 1) & 0x7FFF,
+                        (instructionTimes >> 17) & 0x7FFF]
 
         # otherwise individual component parts of time known
         else:
@@ -6003,8 +6020,8 @@ def get_disassemblecodename_from_value(value):
     value.  Returns None if not a valid DisassembleCode.
     """
 
-    for instructionname, code in \
-            DisassembleInstruction.DISASSEMBLE_CODES.items():
+    for instructionname, code in list(DisassembleInstruction.
+                                      DISASSEMBLE_CODES.items()):
         if(code == value):
             return instructionname
 
@@ -6018,16 +6035,17 @@ def get_disassembleblockname_from_value(value):
     DisassemblePatternBlockCode.
     """
 
-    if(value in DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES.values()):
-        for blockname, code in DisassembleInstruction.\
-                DISASSEMBLE_DATABLOCK_CODES.items():
+    if(value in list(DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES.
+                     values())):
+        for blockname, code in list(DisassembleInstruction.
+                                    DISASSEMBLE_DATABLOCK_CODES.items()):
             if(code == value):
                 return blockname
 
-    if(value in
-       DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES.values()):
-        for blockname, code in DisassembleInstruction.\
-                DISASSEMBLE_PATTERNBLOCK_CODES.items():
+    if(value in list(DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES.
+                     values())):
+        for blockname, code in list(DisassembleInstruction.
+                                    DISASSEMBLE_PATTERNBLOCK_CODES.items()):
             if(code == value):
                 return blockname
 
@@ -6492,14 +6510,14 @@ input.\n')
                 di.start = getint(lines[1])
                 di.end = getint(lines[2])
                 lines = '\n'.join(lines[3:])
-                if(lines in
-                   DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES.keys()):
+                if(lines in list(
+                   DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES.keys())):
                     di.data = DisassembleInstruction.\
                                   DISASSEMBLE_DATABLOCK_CODES[lines]
 
                 elif(lines in
-                     DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES.
-                     keys()):
+                     list(DisassembleInstruction.
+                          DISASSEMBLE_PATTERNBLOCK_CODES.keys())):
                     di.data = DisassembleInstruction.\
                                   DISASSEMBLE_PATTERNBLOCK_CODES[lines]
 

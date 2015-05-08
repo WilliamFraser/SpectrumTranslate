@@ -1008,8 +1008,9 @@ display flashing colours, or simple GIF file.")
         grid.addWidget(cbNumberFormat, 6, 0, 1, 2)
 
         cbDisassembleCommands = QtGui.QComboBox(self)
-        for key, value in sorted(spectrumtranslate.DisassembleInstruction.
-                                 DISASSEMBLE_CODES.items(), key=itemgetter(1)):
+        for key, value in sorted(list(spectrumtranslate.DisassembleInstruction.
+                                 DISASSEMBLE_CODES.items()),
+                                 key=itemgetter(1)):
             cbDisassembleCommands.addItem(key, value)
 
         cbDisassembleCommands.setToolTip(
