@@ -40,9 +40,9 @@
 # Date: 14th January 2015
 
 import spectrumtranslate
-import mmap
-import os
-from numbers import Integral as INT_OR_LONG
+from mmap import mmap as __mmap
+from os.path import isfile as __isfile
+from numbers import Integral as __INT_OR_LONG
 # sys and codecs are imported if run from the command line
 
 
@@ -870,7 +870,7 @@ class DiscipleImage:
                     'DiscipleImage not opened with access mode rb+')
 
             # memory map the sector in the file
-            mm = mmap.mmap(self.filehandle.fileno(), 0)
+            mm = __mmap(self.filehandle.fileno(), 0)
             # write the data
             mm[pos:pos + 512] = data
             mm.flush()
@@ -1250,7 +1250,7 @@ class DiscipleImage:
         # check filename is valid
         if(isinstance(filename, list)):
             # if is list of numbers convert to list of strings
-            if(False not in [isinstance(x, INT_OR_LONG) for x in filename]):
+            if(False not in [isinstance(x, __INT_OR_LONG) for x in filename]):
                 filename = [chr(x) for x in filename]
 
             # if there are only strings in the list then convert list to
@@ -1366,7 +1366,7 @@ more than 10 characters.")
         # check filename is valid
         if(isinstance(filename, list)):
             # if is list of numbers convert to list of strings
-            if(False not in [isinstance(x, INT_OR_LONG) for x in filename]):
+            if(False not in [isinstance(x, __INT_OR_LONG) for x in filename]):
                 filename = [chr(x) for x in filename]
 
             # if there are only strings in the list then convert list to
@@ -1453,7 +1453,7 @@ more than 10 characters.")
         # check filename is valid
         if(isinstance(filename, list)):
             # if is list of numbers convert to list of strings
-            if(False not in [isinstance(x, INT_OR_LONG) for x in filename]):
+            if(False not in [isinstance(x, __INT_OR_LONG) for x in filename]):
                 filename = [chr(x) for x in filename]
 
             # if there are only strings in the list then convert list to
@@ -1533,7 +1533,7 @@ more than 10 characters.")
         # check filename is valid
         if(isinstance(filename, list)):
             # if is list of numbers convert to list of strings
-            if(False not in [isinstance(x, INT_OR_LONG) for x in filename]):
+            if(False not in [isinstance(x, __INT_OR_LONG) for x in filename]):
                 filename = [chr(x) for x in filename]
 
             # if there are only strings in the list then convert list to
@@ -1750,7 +1750,7 @@ def usage():
 """
 
 
-def commandline(args):
+def __commandline(args):
 
     def getint(x):
         return int(x, 16 if x.lower().startswith("0x") else 10)
@@ -2155,7 +2155,7 @@ list of options.\n")
             diout = DiscipleImage()
             # if we're writing to an existing file then load it into our
             # image
-            if(not tostandardoutput and os.path.isfile(outputfile)):
+            if(not tostandardoutput and __isfile(outputfile)):
                 with open(outputfile, 'rb') as outfile:
                     diout.setbytes(outfile.read())
             else:
@@ -2195,7 +2195,7 @@ list of options.\n")
             diout = DiscipleImage()
             # if we're writing to an existing file then load it into our
             # image
-            if(not tostandardoutput and os.path.isfile(outputfile)):
+            if(not tostandardoutput and __isfile(outputfile)):
                 with open(outputfile, 'rb') as outfile:
                     diout.setbytes(outfile.read())
             else:
@@ -2251,8 +2251,8 @@ if __name__ == "__main__":
     import sys
 
     # set encodeing so can handle non ascii characters
-    import codecs
-    sys.stdout = codecs.getwriter('utf8')(sys.stdout)
-    sys.stderr = codecs.getwriter('utf8')(sys.stderr)
+    from codecs import getwriter
+    sys.stdout = getwriter('utf8')(sys.stdout)
+    sys.stderr = getwriter('utf8')(sys.stderr)
 
-    commandline(sys.argv)
+    __commandline(sys.argv)

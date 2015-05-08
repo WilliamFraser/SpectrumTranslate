@@ -40,7 +40,7 @@
 # Date: 14th January 2015
 
 import spectrumtranslate
-import io
+from io import __BytesIO
 # sys and codecs imported elsewhere so only used for command line
 
 
@@ -147,11 +147,12 @@ class SpectrumTapBlock:
         # work out any extra details for file
         extra = self.getfiletypestring()
         # get word at 13, and 14 in the data
-        x = _get_word(self.getbytes(13, 15))
+        x = __get_word(self.getbytes(13, 15))
         filetype = self.getbyte(0)
         # code file
         if(filetype == 3):
-            extra += " " + str(x) + "," + str(_get_word(self.getbytes(11, 13)))
+            extra += " " + str(x) + "," + str(__get_word(self.getbytes(11,
+                                                                       13)))
 
         # program
         if(filetype == 0 and x < 10000):
@@ -174,7 +175,7 @@ class SpectrumTapBlock:
         if(not self.isheadder() or self.getbyte(0) != 0):
             return -2
 
-        start = _get_word(self.getbytes(13, 15))
+        start = __get_word(self.getbytes(13, 15))
 
         if(start > 9999):
             return -1
@@ -196,7 +197,7 @@ class SpectrumTapBlock:
         if(not self.isheadder() or self.getbyte(0) != 0):
             return -2
 
-        return _get_word(self.getbytes(15, 17))
+        return __get_word(self.getbytes(15, 17))
 
     def getheaddercodestart(self):
         """
@@ -209,7 +210,7 @@ class SpectrumTapBlock:
         if(not self.isheadder() or self.getbyte(0) != 3):
             return -2
 
-        return _get_word(self.getbytes(13, 15))
+        return __get_word(self.getbytes(13, 15))
 
     def getheadderdescribeddatalength(self):
         """
@@ -221,7 +222,7 @@ class SpectrumTapBlock:
         if(not self.isheadder()):
             return -2
 
-        return _get_word(self.getbytes(11, 13))
+        return __get_word(self.getbytes(11, 13))
 
     def getheaddervariableletter(self):
         """"
@@ -340,7 +341,7 @@ class SpectrumTapBlock:
 
 
 # utility function
-def _get_word(s):
+def __get_word(s):
     if(isinstance(s, str)):
         s = [ord(x) for x in s]
 
@@ -371,7 +372,7 @@ def gettapblockfromfile(tapfile, position=0):
 
     # flag at beginning and checksum at end of data included in length,
     # so actual data is 2 bytes shorter than block length
-    blocklength = _get_word([ord(x[0]) for x in lengthbytes]) - 2
+    blocklength = __get_word([ord(x[0]) for x in lengthbytes]) - 2
 
     # now process byte
     flagbyte = tapfile.read(1)
@@ -438,7 +439,7 @@ def tapblockfrombytestring(bytestring, position=0):
     for tb in tapblockfromfile(data):
         do_stuff_with(tb)
     """
-    with io.BytesIO(bytestring) as f:
+    with __BytesIO(bytestring) as f:
         while True:
             tb = gettapblockfromfile(f, position)
             if(tb):
@@ -653,7 +654,7 @@ def usage():
 """
 
 
-def commandline(args):
+def __commandline(args):
 
     def getint(x):
         return int(x, 16 if x.lower().startswith("0x") else 10)
@@ -1114,8 +1115,8 @@ if __name__ == "__main__":
     import sys
 
     # set encodeing so can handle non ascii characters
-    import codecs
-    sys.stdout = codecs.getwriter('utf8')(sys.stdout)
-    sys.stderr = codecs.getwriter('utf8')(sys.stderr)
+    from codecs import getwriter
+    sys.stdout = getwriter('utf8')(sys.stdout)
+    sys.stderr = getwriter('utf8')(sys.stderr)
 
-    commandline(sys.argv)
+    __commandline(sys.argv)
