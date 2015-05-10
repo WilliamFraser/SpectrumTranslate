@@ -49,6 +49,22 @@ if(sys.hexversion > 0x03000000):
     def __u(x):
         return x
 
+    def __checkisvalidbytes(x):
+        if(isinstance(x, (bytes, bytearray)) or
+           (isinstance(x, (list, tuple)) and
+           all(isinstance(val, int) for val in x))):
+            return
+
+        raise spectrumtranslate.SpectrumTranslateError("data needs to be a \
+list or tuple of ints, or of type 'bytes' or 'bytearray'")
+
+    def __validbytestointlist(x):
+        # function to convert any valid source to a list of ints
+        if(isinstance(x, (bytes, bytearray))):
+            return [b for b in x]
+
+        return x[:]
+
 else:
     # 2to3 will complain about this line but this code is python 2 & 3
     # compatible
@@ -57,6 +73,22 @@ else:
 
     def __u(x):
         return __UED(x)[0]
+
+    def __checkisvalidbytes(x):
+        if(isinstance(x, str) or
+           (isinstance(x, (list, tuple)) and
+           all(isinstance(val, __INT_OR_LONG) for val in x))):
+            return
+
+        raise spectrumtranslate.SpectrumTranslateError("data needs to be a \
+byte string, or a list or tuple of ints or longs")
+
+    def __validbytestointlist(x):
+        # function to convert any valid source to a list of ints
+        if(isinstance(x, str)):
+            return [ord(b) for b in x]
+
+        return x[:]
 
 
 # tables of all the opcodes
@@ -1007,20 +1039,23 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
     differs from the visible one, then the true value is displayed in
     brackets after the visible number.
 
-    data is list or byte string of the data of the program.  The program
-    is assumed to begin at he start of the array to the end of the
-    array.  iAutostart is the line number where the program auto starts
-    (less than 0 or >9999 if no autostart).  ivariableOffset is the
-    offset from the start of the array to where variables are stored.
+    data is list of numbers, or byte string in python 2, or of type
+    bytes or bytearray of the data of the program.  The program is
+    assumed to begin at he start of the array to the end of the array.
+    iAutostart is the line number where the program auto starts (less
+    than 0 or >9999 if no autostart).  ivariableOffset is the offset
+    from the start of the array to where variables are stored.
     """
+
+    # validate data
+    __checkisvalidbytes(data)
+
+    # convert data from string to list of numbers if needed
+    data = __validbytestointlist(data)
 
     # if no variable offset supplied then assume there are no variables
     if(ivariableOffset == -1):
         ivariableOffset = len(data)
-
-    # convert data from string to list of numbers if needed
-    if(isinstance(data, str)):
-        data = [ord(x) for x in data]
 
     text = ''
 
@@ -1299,20 +1334,23 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
     representation of a number differs from the visible one, then the
     true value is also listed.
 
-    data is list or byte string of the data of the program.  The program
-    is assumed to begin at he start of the array to the end of the
-    array.  iAutostart is the line number where the program auto starts
-    (less than 0 or >9999 if no autostart).  ivariableOffset is the
-    offset from the start of the array to where variables are stored.
+    data is list of numbers, or byte string in python 2, or of type
+    bytes or bytearray of the data of the program.  The program is
+    assumed to begin at he start of the array to the end of the array.
+    iAutostart is the line number where the program auto starts (less
+    than 0 or >9999 if no autostart).  ivariableOffset is the offset
+    from the start of the array to where variables are stored.
     """
+
+    # validate data
+    __checkisvalidbytes(data)
+
+    # convert data from string to list of numbers if needed
+    data = __validbytestointlist(data)
 
     # if no variable offset supplied then assume there are no variables
     if(ivariableOffset == -1):
         ivariableOffset = len(data)
-
-    # convert data from string to list of numbers if needed
-    if(isinstance(data, str)):
-        data = [ord(x) for x in data]
 
     text = '<?xml version="1.0" encoding="UTF-8" ?>\n<basiclisting>\n'
 
@@ -1644,13 +1682,14 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
 
 def getarraydepth(data, descriptor):
     """This function works out how many dimensions there are in a
-    spectrum file array.  data is the spectrum file array data as a byte
-    array string or list.  descriptor is the file descriptor for the
-    file array.  The lower 6 bits specify the array name (a single
-    character).  The top 2 specify the array type.  You don't have to
-    single out these bits as this function will only consider bits 6 and
-    7.  The top 2 bits are 128 for a number array, 192 for a character
-    array, and 64 for a string array.
+    spectrum file array.  data is the spectrum file array data as a list
+    or tuple of ints or longs (or a byte tring in python 2, or of type
+    'bytes' or 'bytearray' in python 3.  descriptor is the file
+    descriptor for the file array.  The lower 6 bits specify the array
+    name (a single character).  The top 2 specify the array type.  You
+    don't have to single out these bits as this function will only
+    consider bits 6 and 7.  The top 2 bits are 128 for a number array,
+    192 for a character array, and 64 for a string array.
     Returns the number of dimensions in the array, or -1 if not a
     recognised format.
 
@@ -1658,12 +1697,14 @@ def getarraydepth(data, descriptor):
     String[] would have depth of 2: array of array of characters.
     """
 
+    # validate data
+    __checkisvalidbytes(data)
+
+    # convert data from string to list of numbers if needed
+    data = __validbytestointlist(data)
+
     # number array or character array
     if((descriptor & 192) == 128 or (descriptor & 192) == 192):
-        # deal with string argument
-        if(isinstance(data, str)):
-            return ord(data[0])
-
         return data[0]
 
     # string
@@ -1676,8 +1717,10 @@ def getarraydepth(data, descriptor):
 
 def extractarray(data, descriptor):
     """This function extracts a spectrum array (number, character, or
-    string) from data as in a file.  Note that data if it's string is in
-    raw bytes in a string, and that it may need to be output through a
+    string) from data.  data must be a list or tuple of ints or longs,
+    or a byte string in python 2, or a bytes or bytearray object in
+    python 3.  Note that the data returned if it's string is in
+    raw sepectum bytes, and that it may need to be output through a
     function to code escape characters and commands (function such as
     getspectrumstring).  Also numbers are extracted into lists of
     SpectrumNumber objects.
@@ -1718,9 +1761,11 @@ def extractarray(data, descriptor):
         return [getSubArray(dims[1:], data, isnumber, offset + i*o) for i in
                 range(dims[0])]
 
+    # validate data
+    __checkisvalidbytes(data)
+
     # convert data from string to list of numbers if needed
-    if(isinstance(data, str)):
-        data = [ord(x) for x in data]
+    data = __validbytestointlist(data)
 
     # number array or character array
     if(descriptor & 128 == 128):
@@ -1744,8 +1789,8 @@ def arraytotext(data, descriptor):
     string) to text.  The elements returned are seperated by commas, and
     the individual dimensions are seperated by curly brackets.
 
-    data is the spectrum file array data supplied as a byte string or
-    list.
+    data must be a list or tuple of ints or longs, or a byte string in
+    python 2, or a bytes or bytearray object in python 3.
     descriptor is the file descriptor for the file array.
         The lower 6 bits specify the array name (a single character).
         The top 2 specify the array type.
@@ -1796,8 +1841,8 @@ def arraytoxml(data, descriptor):
     This function converts a spectrum array (number, character, or
     string) to XML.
 
-    data is the spectrum file array data supplied as a byte string or
-    list.
+    data must be a list or tuple of ints or longs, or a byte string in
+    python 2, or a bytes or bytearray object in python 3.
     descriptor is the file descriptor for the file array.
         The lower 6 bits specify the array name (a single character).
         The top 2 specify the array type.
@@ -2045,8 +2090,8 @@ def getgiffromscreen(data, delay=320):
     screen refresh equates to 320 milliseconds.  If there is no flash
     being used then it returns a normal static GIF image.
 
-    data is the data for the spectrum screen.  It can be a list, or byte
-    string array.
+    data must be a list or tuple of ints or longs, or a byte string in
+    python 2, or a bytes or bytearray object in python 3.
 
     delay is the delay between flashing images in milliseconds if the
     image has flashing colours.  If you don't want a flashing image then
@@ -2304,9 +2349,11 @@ def getgiffromscreen(data, delay=320):
     if(len(data) < 6912):
         return None
 
-    # convert data to list of ints if needed
-    if(isinstance(data, str)):
-        data = [ord(x[0]) for x in data]
+    # validate data
+    __checkisvalidbytes(data)
+
+    # convert data from string to list of numbers if needed
+    data = __validbytestointlist(data)
 
     # is there a flash atribute in the screen
     bFlash = False
@@ -2366,8 +2413,8 @@ def getgiffromscreen(data, delay=320):
 def getrgbfromscreen(data):
     """This function extracts an Image from spectrum screen format data.
 
-    data is the spectrum screen data supplied as a byte array string or
-    list.
+    data must be a list or tuple of ints or longs, or a byte string in
+    python 2, or a bytes or bytearray object in python 3.
 
     This returns a 2 element list.  Because of flashing colours in the
     spectrum, there are efectively 2 images: one for each of the 2
@@ -2382,6 +2429,12 @@ def getrgbfromscreen(data):
     pixels wide, and 192 pixels high, so any pixel can be extracted with
     by useing image[x+y*256].
     """
+
+    # validate data
+    __checkisvalidbytes(data)
+
+    # convert data from string to list of numbers if needed
+    data = __validbytestointlist(data)
 
     # calculate number of images needed: is there a flash flag set in
     # the colour area?
@@ -2470,6 +2523,9 @@ def snaptosna(data, register, border=0):
     131072 bytes (the 16K ram pages in order 0 to 7).
 
     border is the border colour.
+
+    data must be a list or tuple of ints or longs, or a byte string in
+    python 2, or a bytes or bytearray object in python 3.
     """
 
     # first check have valid data
@@ -2477,9 +2533,11 @@ def snaptosna(data, register, border=0):
     if(len(data) != 49152 and len(data) != 131072):
         raise SpectrumTranslateError("Wrong size memory")
 
-    # convert data to list of ints if needed
-    if(isinstance(data, str)):
-        data = [ord(x[0]) for x in data]
+    # validate data
+    __checkisvalidbytes(data)
+
+    # convert data from string to list of numbers if needed
+    data = __validbytestointlist(data)
 
     # output common headder registers
     out = [register["I"] & 0xFF,
@@ -2549,13 +2607,21 @@ def snaptosna(data, register, border=0):
         # otherwise output RAM bank
         out += data[i * 16384:(i + 1) * 16384]
 
-    # return snapshot as byte array string
-    return ''.join([chr(c) for c in out])
+    # prepare data for output
+    if(sys.hexversion > 0x03000000):
+        out = bytes(out)
+    else:
+        out = ''.join([chr(x) for x in out])
+
+    return out
 
 
 def snaptoz80(data, register, version=3, compressed=True, border=0):
     """Function to convert data of +D/Disciple format snapshot to .Z80
     format byte string that can be saved.
+
+    data must be a list or tuple of ints or longs, or a byte string in
+    python 2, or a bytes or bytearray object in python 3.
 
     Register is a dictionary of the various registers.  A,F,BC,DE,HL,I,
     R,IX,IY,SP,PC,A',F',BC',DE',HL',IFF2 (the interupt state), and IM
@@ -2629,9 +2695,11 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
         raise SpectrumTranslateError(
             "Valid version numbers for Z80 files are 1, 2, and 3.")
 
-    # convert data to list of ints if needed
-    if(isinstance(data, str)):
-        data = [ord(x[0]) for x in data]
+    # validate data
+    __checkisvalidbytes(data)
+
+    # convert data from string to list of numbers if needed
+    data = __validbytestointlist(data)
 
     # save off basic registers in 30 byte headder
     out = [register["A"],
@@ -2709,8 +2777,13 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
                 out += [0xFF, 0xFF, page + 3] + \
                        data[page*0x4000:page*0x4000 + 0x3FFF]
 
-    # return as byte array
-    return ''.join([chr(x) for x in out])
+    # prepare data for output
+    if(sys.hexversion > 0x03000000):
+        out = bytes(out)
+    else:
+        out = ''.join([chr(x) for x in out])
+
+    return out
 
 
 def disassemble(data, offset, origin, length, SpecialInstructions=None):
@@ -2718,7 +2791,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
     code.  You can specify instructions to alter the disassembled
     output.
 
-    data is a byte string or list holding the data to disassemble.
+    data must be a list or tuple of ints or longs, or a byte string in
+    python 2, or a bytes or bytearray object in python 3.
     offset is how far into the array to start disassembling.
     origin is the address of the first byte in the byte array.
     length is how many bytes to disassemble
@@ -2803,9 +2877,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
     # work out where we are
     currentAddress = origin + offset
 
-    # convert data to list of ints if needed
-    if(isinstance(data, str)):
-        data = [ord(x[0]) for x in data]
+    # validate data
+    __checkisvalidbytes(data)
+
+    # convert data from string to list of numbers if needed
+    data = __validbytestointlist(data)
 
     # get list of line numbers that are being referenced
     ReferencedLineNumbers = [currentAddress]
@@ -4761,7 +4837,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
 
         return "{0.instruction:X}#{0.start:X}#{0.end:X}#{1}#{2}".format(
             self,
-            ','.join(["{0}".format(i) for i, c in enumerate(self.data) if
+            ','.join(["{0:X}".format(i) for i, c in enumerate(self.data) if
                       c == '\n']),
             self.data.replace('\n', ''))
 
@@ -6566,6 +6642,12 @@ input.\n')
     except SpectrumTranslateError as ste:
         sys.stderr.write(ste.value + "\n")
         sys.exit(1)
+
+    # prepare data for output
+    if(sys.hexversion > 0x03000000):
+        retdata = bytes(retdata)
+    else:
+        retdata = ''.join([chr(x) for x in retdata])
 
     # output data
     if(not tostandardoutput):

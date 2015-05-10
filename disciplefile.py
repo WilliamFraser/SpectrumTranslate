@@ -43,7 +43,64 @@ import spectrumtranslate
 from mmap import mmap as __mmap
 from os.path import isfile as __isfile
 from numbers import Integral as __INT_OR_LONG
+from sys import hexversion as __PYTHON_VERSION_HEX
 # sys and codecs are imported if run from the command line
+
+
+if(__PYTHON_VERSION_HEX > 0x03000000):
+    def __checkisvalidbytes(x, m):
+        if(isinstance(x, (bytes, bytearray)) or
+           (isinstance(x, (list, tuple)) and
+           all(isinstance(val, int) for val in x))):
+            return
+
+        raise spectrumtranslate.SpectrumTranslateError("{0} needs to be a \
+list or tuple of ints, or of type 'bytes' or 'bytearray'".format(m))
+
+    def __validbytestointlist(x):
+        # function to convert any valid source to a list of ints
+        if(isinstance(x, (bytes, bytearray))):
+            return [b for b in x]
+
+        return x[:]
+
+else:
+    def __checkisvalidbytes(x, m):
+        if(isinstance(x, str) or
+           (isinstance(x, (list, tuple)) and
+           all(isinstance(val, __INT_OR_LONG) for val in x))):
+            return
+
+        raise spectrumtranslate.SpectrumTranslateError("{0} needs to be a \
+byte string, or a list or tuple of ints or longs".format(m))
+
+    def __validbytestointlist(x):
+        # function to convert any valid source to a list of ints
+        if(isinstance(x, str)):
+            return [ord(b) for b in x]
+
+        return x[:]
+
+
+def __validateandconvertfilename(filename):
+    # check filename is valid
+    if(isinstance(filename, list)):
+        # if is list of numbers convert to list of strings
+        if(False not in [isinstance(x, __INT_OR_LONG) for x in filename]):
+            filename = [chr(x) for x in filename]
+
+        # if there are only strings in the list then convert list to
+        # a string
+        if(False not in [isinstance(x, str) for x in filename]):
+            filename = "".join(filename)
+
+    if(not isinstance(filename, str) or len(filename) > 10):
+        raise spectrumtranslate.SpectrumTranslateError(
+            "Filename must be a string, or list of ints or strings of no \
+more than 10 characters.")
+
+    # return filename right padded with spaces
+    return [ord(x) for x in filename] + [32] * (10 - len(filename))
 
 
 def GetDirectoryEntryPosition(num):
@@ -110,15 +167,15 @@ class DiscipleFile:
         i = self.getsectorsused(headderdata)
 
         # get map of sectors used
-        sectorMap = [ord(x) for x in headderdata[15:210]]
+        sectorMap = headderdata[15:210]
 
         bytestocopy = self.getfilelength(headderdata)
 
         data = ""
 
         # get start track & sector
-        track = ord(headderdata[13])
-        sector = ord(headderdata[14])
+        track = headderdata[13]
+        sector = headderdata[14]
 
         # BASIC, code, number array, string array, or screen have extra
         # 9 bytes of file as copy of headder data.
@@ -170,8 +227,8 @@ class DiscipleFile:
                                readpos]
 
             # update track & sector
-            track = ord(sectordata[510])
-            sector = ord(sectordata[511])
+            track = sectordata[510]
+            sector = sectordata[511]
             # update number of bytes left to copy
             bytestocopy -= (510 - readpos)
             # decrement number of sectors left to fetch
@@ -218,7 +275,7 @@ class DiscipleFile:
 
         # is stored at offset 11 in motorola byte order (most significant
         # byte first)
-        return ord(headderdata[12]) + 256 * ord(headderdata[11])
+        return headderdata[12] + 256 * headderdata[11]
 
     def getfilelength(self, headderdata=None):
         """Returns the length of this file.
@@ -243,7 +300,7 @@ class DiscipleFile:
         elif(t == 1 or t == 2 or t == 3 or t == 4 or t == 7 or t == 13):
             # 1=basic,2=number array,3=string array,4=code,7=screen$,
             # 13=unidos create file
-            return ord(headderdata[212]) + 256 * ord(headderdata[213])
+            return headderdata[212] + 256 * headderdata[213]
 
         elif(t == 5):
             # 48K snapshot
@@ -255,8 +312,9 @@ class DiscipleFile:
 
         elif(t == 10):
             # opentype
-            return ord(headderdata[212]) + 256 * ord(
-                headderdata[213]) + 65536 * ord(headderdata[210])
+            return headderdata[212] +\
+                   256 * headderdata[213] +\
+                   65536 * headderdata[210]
 
         elif(t == 11):
             # execute
@@ -279,7 +337,7 @@ class DiscipleFile:
             headderdata = self.getheadder()
 
         # &31 to exclude hidden flags
-        return ord(headderdata[0]) & 31
+        return headderdata[0] & 31
 
     def getfiletypestring(self, headderdata=None):
         """
@@ -367,8 +425,8 @@ class DiscipleFile:
             details["catextradata"] = "{0:5},{1:5}".format(
                 self.getcodestart(headderdata),
                 self.getfilelength(headderdata))
-            details["coderunaddress"] = ord(headderdata[218]) + 256 * ord(
-                headderdata[219])
+            details["coderunaddress"] = headderdata[218] +\
+                256 * headderdata[219]
 
         if(details["filetype"] == 1):
             # basic
@@ -427,10 +485,10 @@ class DiscipleFile:
         if(headderdata is None):
             headderdata = self.getheadder()
 
-        if(ord(headderdata[0]) != 1):
+        if(headderdata[0] != 1):
             return -2
 
-        val = ord(headderdata[218]) + 256 * ord(headderdata[219])
+        val = headderdata[218] + 256 * headderdata[219]
 
         if(val > 9999):
             return -1
@@ -451,10 +509,10 @@ class DiscipleFile:
         if(headderdata is None):
             headderdata = self.getheadder()
 
-        if(ord(headderdata[0]) != 1):
+        if(headderdata[0] != 1):
             return -2
 
-        return ord(headderdata[216]) + 256 * ord(headderdata[217])
+        return headderdata[216] + 256 * headderdata[217]
 
     def getcodestart(self, headderdata=None):
         """
@@ -465,10 +523,10 @@ class DiscipleFile:
         headderdata is optional but saves resources.
         """
 
-        if(ord(headderdata[0]) != 4):
+        if(headderdata[0] != 4):
             return -2
 
-        return ord(headderdata[214]) + 256 * ord(headderdata[215])
+        return headderdata[214] + 256 * headderdata[215]
 
     def getvariableletter(self, headderdata=None):
         """
@@ -482,10 +540,10 @@ class DiscipleFile:
         if(headderdata is None):
             headderdata = self.getheadder()
 
-        if(ord(headderdata[0]) != 2 and ord(headderdata[0]) != 3):
+        if(headderdata[0] != 2 and headderdata[0] != 3):
             return None
 
-        return chr((ord(headderdata[216]) & 127) | 64)
+        return chr((headderdata[216] & 127) | 64)
 
     def getvariablename(self, headderdata=None):
         """
@@ -501,11 +559,11 @@ class DiscipleFile:
         if(headderdata is None):
             headderdata = self.getheadder()
 
-        if(ord(headderdata[0]) != 2 and ord(headderdata[0]) != 3):
+        if(headderdata[0] != 2 and headderdata[0] != 3):
             return None
 
-        return self.getvariableletter(headderdata) + ("$" if ord(
-            headderdata[0]) == 3 else "")
+        return self.getvariableletter(headderdata) + \
+            ("$" if headderdata[0] == 3 else "")
 
     def getarraydescriptor(self, headderdata=None):
         """
@@ -526,10 +584,10 @@ class DiscipleFile:
         if(headderdata is None):
             headderdata = self.getheadder()
 
-        if(ord(headderdata[0]) != 2 and ord(headderdata[0]) != 3):
+        if(headderdata[0] != 2 and headderdata[0] != 3):
             return -1
 
-        return ord(headderdata[216])
+        return headderdata[216]
 
     def getsnapshotregisters(self, headderdata=None):
         """
@@ -558,39 +616,39 @@ class DiscipleFile:
         if(headderdata is None):
             headderdata = self.getheadder()
 
-        if(ord(headderdata[0]) != 5 or ord(headderdata[0]) != 9):
+        if(headderdata[0] != 5 or headderdata[0] != 9):
             return None
 
         regs = {}
         # add registers
-        regs["IY"] = ord(headderdata[220]) + 256 * ord(headderdata[221])
-        regs["IX"] = ord(headderdata[222]) + 256 * ord(headderdata[223])
-        regs["DE'"] = ord(headderdata[224]) + 256 * ord(headderdata[225])
-        regs["BC'"] = ord(headderdata[226]) + 256 * ord(headderdata[227])
-        regs["HL'"] = ord(headderdata[228]) + 256 * ord(headderdata[229])
-        regs["F'"] = ord(headderdata[230])
-        regs["A'"] = ord(headderdata[231])
-        regs["DE"] = ord(headderdata[232]) + 256 * ord(headderdata[233])
-        regs["BC"] = ord(headderdata[234]) + 256 * ord(headderdata[235])
-        regs["HL"] = ord(headderdata[236]) + 256 * ord(headderdata[237])
-        regs["I"] = ord(headderdata[239])
+        regs["IY"] = headderdata[220] + 256 * headderdata[221]
+        regs["IX"] = headderdata[222] + 256 * headderdata[223]
+        regs["DE'"] = headderdata[224] + 256 * headderdata[225]
+        regs["BC'"] = headderdata[226] + 256 * headderdata[227]
+        regs["HL'"] = headderdata[228] + 256 * headderdata[229]
+        regs["F'"] = headderdata[230]
+        regs["A'"] = headderdata[231]
+        regs["DE"] = headderdata[232] + 256 * headderdata[233]
+        regs["BC"] = headderdata[234] + 256 * headderdata[235]
+        regs["HL"] = headderdata[236] + 256 * headderdata[237]
+        regs["I"] = headderdata[239]
         # value of interupt mode is coded in the I register
         regs["IM"] = 1 if (regs["I"] == 0 or regs["I"] == 63) else 2
-        regs["SP"] = ord(headderdata[240]) + 256 * ord(headderdata[241])
+        regs["SP"] = headderdata[240] + 256 * headderdata[241]
 
         # load up memory
         mem = self.getfiledata(False, headderdata)
 
         # handle 128K specific stuff
-        if(ord(headderdata[0]) == 9):
+        if(headderdata[0] == 9):
             # get which rambank is paged in
-            regs["RAMbank"] = ord(mem[0]) & 7
+            regs["RAMbank"] = mem[0] & 7
             # get which screen
-            regs["Screen"] = ord(mem[0] >> 3) & 1
+            regs["Screen"] = (mem[0] >> 3) & 1
             # get which ROM
-            regs["ROM"] = ord(mem[0] >> 4) & 1
+            regs["ROM"] = (mem[0] >> 4) & 1
             # are we ignoreing output to 0x7FFD
-            regs["IgnorePageChange"] = ord(mem[0] >> 5) & 1
+            regs["IgnorePageChange"] = (mem[0] >> 5) & 1
             # now set mem to be which pages are loaded
             # RAM5 is at 0x4000 to 0x7FFF
             # RAM2 is at 0x8000 to 0xBFFF
@@ -605,12 +663,12 @@ class DiscipleFile:
         # extract stack
         mem = mem[regs["SP"] - 0x4000:regs["SP"] - 0x4000 + 6]
 
-        regs["R"] = ord(mem[1])
-        regs["IFF1"] = (ord(mem[0]) >> 2) & 1
+        regs["R"] = mem[1]
+        regs["IFF1"] = (mem[0] >> 2) & 1
         regs["IFF2"] = regs["IFF1"]
-        regs["F"] = ord(mem[2])
-        regs["A"] = ord(mem[3])
-        regs["PC"] = ord(mem[4]) + 256 * ord(mem[5])
+        regs["F"] = mem[2]
+        regs["A"] = mem[3]
+        regs["PC"] = mem[4] + 256 * mem[5]
 
         # SP contains values for the R register, AF, and PC pushed on it, hence
         # needs to be 6 higher
@@ -669,8 +727,8 @@ class DiscipleFile:
         s += "Number of sectors used: {0}\n".format(
             self.getsectorsused(headderdata))
 
-        track = ord(headderdata[13])
-        sector = ord(headderdata[14])
+        track = headderdata[13]
+        sector = headderdata[14]
         i = self.getsectorsused(headderdata)
 
         s += "Sector chain: "
@@ -679,8 +737,8 @@ class DiscipleFile:
                 track, sector,
                 self.image.getsectorposition(track & 127, sector, track >> 7))
             sectordata = self.image.getsector(track & 127, sector, track >> 7)
-            track = ord(sectordata[510])
-            sector = ord(sectordata[511])
+            track = sectordata[510]
+            sector = sectordata[511]
             i -= 1
 
         s += " {0};{1}".format(track, sector)
@@ -725,12 +783,17 @@ class DiscipleImage:
 
     def setbytes(self, bytedata, form="Unknown"):
         """
-        sets the source for the disciple image to be abyte array in a
-        string.
+        Sets the source for the disciple image to be a byte string, a
+        list or tuple of ints or longs, or can also be bytes or
+        bytearray in python 3.
         """
 
+        __checkisvalidbytes(bytedata, "bytedata")
+
+        # convert bytedata to list of ints
+        self.bytedata = __validbytestointlist(bytedata)
+
         self.ImageSource = "Bytes"
-        self.bytedata = bytedata[:]
         self.setimageformat(form)
 
     def setimageformat(self, form):
@@ -822,7 +885,7 @@ class DiscipleImage:
         return ((sector - 1) + (head * 800) + (track * 10)) * 512
 
     def getsector(self, track, sector, head=-1):
-        """Returns a byte string array of the sector requested."""
+        """Returns a list of ints of the sector requested."""
 
         # where is sector we're after
         pos = self.getsectorposition(track, sector, head)
@@ -834,26 +897,38 @@ class DiscipleImage:
             if(self.filehandle.tell() != pos):
                 self.filehandle.seek(pos)
 
-            return self.filehandle.read(512)
+            # in python 2 convert byte string to list of ints
+            if(not __PYTHON_VERSION_HEX > 0x03000000):
+                return [ord(x) for x in self.filehandle.read(512)]
+
+            # return list in python 3
+            return [x for x in self.filehandle.read(512)]
 
         else:
             raise spectrumtranslate.SpectrumTranslateError(
                 'Uninitiated DiscipleImage')
 
     def writesector(self, data, track, sector, head=-1):
-        """Writes supplied sector to image. data is a 512 byte string to
-        write.  If the image is not initiated, then it will be set up as
-        a byte image.  You will need to save off the data at the end to
-        save any changes.
+        """Writes supplied sector to image. data has to be 512 long and
+        is the data to be written to the sector.  In python 2 it must be
+        a list or tuple of ints or longs, and in python 3 it can also be
+        a bytearray or bytes.  If the image is not initiated, then it
+        will be set up as a byte image.  You will need to save off the
+        data at the end to save any changes.
         """
 
-        if(len(data) != 512 or not isinstance(data, str)):
-            raise spectrumtranslate.SpectrumTranslateError(
-                'Sector data must be a 512 byte string.')
+        __checkisvalidbytes(data, "data must be 512 bytes long, and")
+        if(len(data) != 512):
+            raise spectrumtranslate.SpectrumTranslateError("data must be a \
+512 bytes in length, and a list or tuple of int or long, or a byte string in \
+python 2, or of type 'byte' or 'bytearray' in python 3.")
 
         # if we've got uninitiated DiscipleImage then set up as bytearray
         if(self.ImageSource == "Undefined"):
-            self.setbytes('\x00' * 819200)
+            self.setbytes([0] * 819200)
+
+        # convert data to list of ints
+        data = __validbytestointlist(data)
 
         # where is sector we're after
         pos = self.getsectorposition(track, sector, head)
@@ -899,8 +974,8 @@ class DiscipleImage:
 
         sectordata = self.getsector(track, sector)
         # set file type byte to 0 to mark it deleted
-        sectordata = sectordata[:headderstart] + '\x00' + sectordata[
-            headderstart + 1:]
+        sectordata[headderstart] = 0
+
         self.writesector(sectordata, track, sector)
 
     def isimagevalid(self, deeptest=False):
@@ -942,7 +1017,7 @@ class DiscipleImage:
                 headder = self.getsector(track, sector)
 
             # is filetype (excluding flags) consistent with valid file?
-            filetype = ord(headder[headderstart]) & 31
+            filetype = headder[headderstart] & 31
             # ignore empty sectors
             if(filetype == 0):
                 continue
@@ -953,19 +1028,18 @@ class DiscipleImage:
             # check sector map
             sectorcount = 0
             for i in range(195):
-                if(sectorMap[i] & ord(headder[headderstart + 15 + i]) != 0):
+                if(sectorMap[i] & headder[headderstart + 15 + i] != 0):
                     # we have conflicting FAT entries
                     return False
 
                 # update sector map
-                sectorMap[i] |= ord(headder[headderstart + 15 + i])
+                sectorMap[i] |= headder[headderstart + 15 + i]
                 # work out number of sectors used
-                sectorcount += bin(ord(headder[headderstart + 15 + i])).count(
-                    "1")
+                sectorcount += bin(headder[headderstart + 15 + i]).count("1")
 
             # check number of sectors line up with FAT table
-            if(sectorcount != ord(headder[headderstart + 12]) + 256 * ord(
-                    headder[headderstart + 11])):
+            if(sectorcount != headder[headderstart + 12] + 256 *
+                    headder[headderstart + 11]):
                 return False
 
             # compare file length against sectors used in FAT table for
@@ -975,8 +1049,8 @@ class DiscipleImage:
                filetype == 4 or filetype == 7 or filetype == 13):
                 # 1=basic,2=number array,3=string array,4=code,7=screen$,
                 # 13=unidos create file
-                filelen = ord(headder[headderstart + 212]) + 256 * ord(
-                    headder[headderstart + 213])
+                filelen = headder[headderstart + 212] + \
+                          256 * headder[headderstart + 213]
             elif(filetype == 5):
                 # 48K snapshot
                 filelen = 49152  # 3 * 16K ram banks
@@ -986,9 +1060,9 @@ class DiscipleImage:
                 filelen = 131073
             elif(filetype == 10):
                 # opentype
-                filelen = ord(headder[headderstart + 212]) + 256 * ord(
-                    headder[headderstart + 213]) + 65536 * ord(
-                    headder[headderstart + 210])
+                filelen = headder[headderstart + 212] + \
+                          256 * headder[headderstart + 213] + \
+                          65536 * headder[headderstart + 210]
             elif(filetype == 11):
                 # execute
                 filelen = 510
@@ -1007,8 +1081,8 @@ class DiscipleImage:
                     return False
 
             # check start sector is in FAT
-            startsector = ord(headder[headderstart + 14])
-            starttrack = ord(headder[headderstart + 13])
+            startsector = headder[headderstart + 14]
+            starttrack = headder[headderstart + 13]
 
             # calculate offset & bit of this track & sector in sectorMap
             o, b = self.get_offset_and_bit_from_track_and_sector(starttrack,
@@ -1022,8 +1096,7 @@ class DiscipleImage:
                 # ensure sector map is empty at the end
 
                 # get map of sectors used
-                sm = [ord(x) for x in headder[
-                    headderstart + 15:headderstart + 210]]
+                sm = headder[headderstart + 15:headderstart + 210]
 
                 # if we don't know size of file then estimate it
                 if(filelen == -1):
@@ -1057,8 +1130,8 @@ class DiscipleImage:
                     sectordata = self.getsector(t & 127, s, t >> 7)
 
                     # update track & sector
-                    t = ord(sectordata[510])
-                    s = ord(sectordata[511])
+                    t = sectordata[510]
+                    s = sectordata[511]
                     # update number of bytes left to copy
                     filelen -= min(510, filelen)
                     # decrement number of sectors left to fetch
@@ -1079,18 +1152,22 @@ class DiscipleImage:
     def writefile(self, headder, filedata, position=-1):
         """This method will write the supplied filedata to the disk
         image with the headder as specified by headder.  headder has to
-        be a 256 byte string for the file.  Bytes 11 to 209 will be
-        ignored and overwritten, but the other bytes have to correct for
-        the file.  filedata is then written to the disk.  position is
-        optional, but specifies into which file entry you want this
-        saved.  If it's -1 then it will be saved to the first free
-        headder slot.
+        be a 256 byte list or tuple of ints or longs (or a bytes or
+        a bytearraystring object in python 3) for the file.  Bytes 11 to
+        209 will be ignored and overwritten, but the other bytes have to
+        correct for the file.  filedata is then written to the disk.
+        position is optional, but specifies into which file entry you
+        want this saved.  If it's -1 then it will be saved to the first
+        free headder slot.
         """
 
         # first check input
         if(len(headder) != 256):
             raise spectrumtranslate.SpectrumTranslateError(
                 "Header block must be 256 bytes long.")
+
+        __checkisvalidbytes(headder, "headder")
+        __checkisvalidbytes(filedata, "filedata")
 
         if(position != -1 and position < 1 and position > 80):
             raise spectrumtranslate.SpectrumTranslateError(
@@ -1106,7 +1183,7 @@ class DiscipleImage:
             sector = self.getsector(t, s)
             for headderoffset in (0, 256):
                 # if empty check if we can use it
-                if(ord(sector[headderoffset]) == 0):
+                if(sector[headderoffset] == 0):
                     if(position == -1):
                         position = i
 
@@ -1114,17 +1191,16 @@ class DiscipleImage:
                 # overwriting
                 elif(position != i):
                     for l in range(195):
-                        if(sectorMap[l] & ord(sector[
-                           headderoffset + 15 + l]) != 0):
+                        if(sectorMap[l] & sector[headderoffset + 15 + l] != 0):
                             # we have conflicting FAT entries
                             raise spectrumtranslate.SpectrumTranslateError(
                                 "Corrupt FAT table in destination image.")
 
                         # update sector map
-                        sectorMap[l] |= ord(sector[headderoffset + 15 + l])
+                        sectorMap[l] |= sector[headderoffset + 15 + l]
                         # work out number of sectors used
-                        sectorcount += bin(ord(
-                            sector[headderoffset + 15 + l])).count("1")
+                        sectorcount += bin(
+                            sector[headderoffset + 15 + l]).count("1")
 
                 i += 1
 
@@ -1162,7 +1238,7 @@ class DiscipleImage:
             raise spectrumtranslate.SpectrumTranslateError("Image full.")
 
         # make copy of headder localy to alter
-        headder = [ord(x) for x in headder]
+        headder = __validbytestointlist(headder)
 
         # clear FAT table for file headder
         for i in range(195):
@@ -1199,8 +1275,8 @@ class DiscipleImage:
 
             # create sector padding with 0 and finishing off with next
             # sector
-            sectordata = filedata[l:l + chunklength] + "".join(
-                [chr(x) for x in ([0] * (510 - chunklength) + nextsector)])
+            sectordata = filedata[l:l + chunklength] + \
+                [0] * (510 - chunklength) + nextsector
             self.writesector(sectordata, t, s)
 
             # update counters and next sectors
@@ -1208,8 +1284,6 @@ class DiscipleImage:
             l += chunklength
 
         # now save headder
-        # prepare headder for saveing
-        headder = "".join([chr(x) for x in headder])
         # work out track, sector, and offset for headder for file
         headderstart = ((position - 1) & 1) * 256
         track, sector = GetDirectoryEntryPosition(position)
@@ -1222,7 +1296,8 @@ class DiscipleImage:
     def writebasicfile(self, filedata, filename, position=-1, autostartline=-1,
                        varposition=-1, overwritename=True):
         """This method writes a BASIC file to the disk image.  filedata
-        is a byte string of the BASIC file (with or without extra
+        is a list or tuple of ints or longs (or a bytes or bytearray
+        object in python 3) of the BASIC file (with or without extra
         variables).  filename is the name to save the BASIC file as on
         the disk image.  Normaly this method would overwrite an existing
         file with the same name.  If overwritename is False then it will
@@ -1247,31 +1322,14 @@ class DiscipleImage:
         """
 
         # validate input
-        # check filename is valid
-        if(isinstance(filename, list)):
-            # if is list of numbers convert to list of strings
-            if(False not in [isinstance(x, __INT_OR_LONG) for x in filename]):
-                filename = [chr(x) for x in filename]
-
-            # if there are only strings in the list then convert list to
-            # a string
-            if(False not in [isinstance(x, str) for x in filename]):
-                filename = "".join(filename)
-
-        if(not isinstance(filename, str) or len(filename) > 10):
-            raise spectrumtranslate.SpectrumTranslateError(
-                "Filename must be a string, or list of ints or strings of no \
-more than 10 characters.")
-
         if(len(filedata) > 65535 - 23755):
             raise spectrumtranslate.SpectrumTranslateError(
                 "Data too big to fit in spectrum memory.")
 
-        # create headder
-        headder = [0, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32] + ([0] * 245)
-        # set filename
-        for i in range(len(filename)):
-            headder[i + 1] = ord(filename[i])
+        __checkisvalidbytes(filedata, "filedata")
+
+        # create headder and validate filename
+        headder = [0] + __validateandconvertfilename(filename) + ([0] * 245)
 
         # set basic file
         headder[0] = 1
@@ -1287,16 +1345,15 @@ more than 10 characters.")
             # work out position of variables
             offset = 0
             while(offset < len(filedata)):
-                linenumber = (ord(filedata[offset]) * 256) + ord(
-                    filedata[offset + 1])
+                linenumber = (filedata[offset] * 256) + filedata[offset + 1]
                 # bits 5,6,7 of variable code will be 16384 or more
                 if(linenumber > 9999):
                     # too big for line number: is 1st variable
                     break
 
                 # otherwise move to next line
-                linelength = ord(filedata[offset + 2]) + (ord(
-                    filedata[offset + 3]) * 256)
+                linelength = filedata[offset + 2] + (filedata[offset + 3]
+                                                     ) * 256
                 offset += linelength + 4
 
             varposition = min(offset, len(filedata))
@@ -1314,9 +1371,6 @@ more than 10 characters.")
         headder[218] = autostartline & 255
         headder[219] = autostartline // 256
 
-        # convert back to string
-        headder = "".join([chr(x) for x in headder])
-
         # outputfile
         # first work out if we're overwriting existing filename
         if(overwritename):
@@ -1327,7 +1381,7 @@ more than 10 characters.")
                 sector = self.getsector(t, s)
                 for headderoffset in (0, 256):
                     # if exists and is the file we're after then use it
-                    if(ord(sector[headderoffset]) != 0 and
+                    if(sector[headderoffset] != 0 and
                        sector[headderoffset + 1:headderoffset + 12] == headder[
                            1:12]):
                         position = i
@@ -1343,8 +1397,9 @@ more than 10 characters.")
                       codestartaddress=0, overwritename=True,
                       coderunaddress=0):
         """This method writes a code file to the disk image.  filedata
-        is a byte string of the code.  filename is the name to save the
-        code file as on the disk image.  Normaly this method would
+        is a list or tuple of ints or longs (or a bytes or bytearray
+        object in python 3) of the code.  filename is the name to save
+        the code file as on the disk image.  Normaly this method would
         overwrite an existing file with the same name.  If overwritename
         is False then it will not overwrite the existing file.  Haveing
         two files with the same name on a disk is not impossible but is
@@ -1363,31 +1418,12 @@ more than 10 characters.")
         """
 
         # validate input
-        # check filename is valid
-        if(isinstance(filename, list)):
-            # if is list of numbers convert to list of strings
-            if(False not in [isinstance(x, __INT_OR_LONG) for x in filename]):
-                filename = [chr(x) for x in filename]
-
-            # if there are only strings in the list then convert list to
-            # a string
-            if(False not in [isinstance(x, str) for x in filename]):
-                filename = "".join(filename)
-
-        if(not isinstance(filename, str) or len(filename) > 10):
-            raise spectrumtranslate.SpectrumTranslateError(
-                "Filename must be a string, or list of ints or strings of no \
-more than 10 characters.")
-
         if(len(filedata) > 65535):
             raise spectrumtranslate.SpectrumTranslateError(
                 "Data too big to fit in spectrum memory.")
 
-        # create headder
-        headder = [0, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32] + ([0] * 245)
-        # set filename
-        for i in range(len(filename)):
-            headder[i + 1] = ord(filename[i])
+        # create headder and validate filename
+        headder = [0] + __validateandconvertfilename(filename) + ([0] * 245)
 
         # set code file
         headder[0] = 4
@@ -1402,9 +1438,6 @@ more than 10 characters.")
         headder[218] = coderunaddress & 255
         headder[219] = coderunaddress // 256
 
-        # convert back to string
-        headder = "".join([chr(x) for x in headder])
-
         # outputfile
         # first work out if we're overwriting existing filename
         if(overwritename):
@@ -1415,7 +1448,7 @@ more than 10 characters.")
                 sector = self.getsector(t, s)
                 for headderoffset in (0, 256):
                     # if exists and is the file we're after then use it
-                    if(ord(sector[headderoffset]) != 0 and
+                    if(sector[headderoffset] != 0 and
                        sector[headderoffset + 1:headderoffset + 12] == headder[
                            1:12]):
                         position = i
@@ -1430,7 +1463,8 @@ more than 10 characters.")
     def writearrayfile(self, filedata, filename, VariableDescriptor,
                        position=-1, overwritename=True):
         """This method writes an array file to the disk image.  filedata
-        is a byte string of the array data.  filename is the name to
+        is a list or tuple of ints or longs (or a bytes or bytearray
+        object in python 3) of the array data.  filename is the name to
         save the file as on the disk image.  Normaly this method would
         overwrite an existing file with the same name.  If overwritename
         is False then it will not overwrite the existing file.  Haveing
@@ -1450,31 +1484,12 @@ more than 10 characters.")
         """
 
         # validate input
-        # check filename is valid
-        if(isinstance(filename, list)):
-            # if is list of numbers convert to list of strings
-            if(False not in [isinstance(x, __INT_OR_LONG) for x in filename]):
-                filename = [chr(x) for x in filename]
-
-            # if there are only strings in the list then convert list to
-            # a string
-            if(False not in [isinstance(x, str) for x in filename]):
-                filename = "".join(filename)
-
-        if(not isinstance(filename, str) or len(filename) > 10):
-            raise spectrumtranslate.SpectrumTranslateError(
-                "Filename must be a string, or list of ints or strings of no \
-more than 10 characters.")
-
         if(len(filedata) > 65535 - 23755):
             raise spectrumtranslate.SpectrumTranslateError(
                 "Data too big to fit in spectrum memory.")
 
-        # create headder
-        headder = [0, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32] + ([0] * 245)
-        # set filename
-        for i in range(len(filename)):
-            headder[i + 1] = ord(filename[i])
+        # create headder and validate filename
+        headder = [0] + __validateandconvertfilename(filename) + ([0] * 245)
 
         # set variable file
         headder[211] = 1 if VariableDescriptor & 192 == 128 else 2
@@ -1484,9 +1499,6 @@ more than 10 characters.")
         headder[213] = len(filedata) // 256
         # set variabledescriptor
         headder[216] = VariableDescriptor
-
-        # convert back to string
-        headder = "".join([chr(x) for x in headder])
 
         # outputfile
         # first work out if we're overwriting existing filename
@@ -1498,7 +1510,7 @@ more than 10 characters.")
                 sector = self.getsector(t, s)
                 for headderoffset in (0, 256):
                     # if exists and is the file we're after then use it
-                    if(ord(sector[headderoffset]) != 0 and
+                    if(sector[headderoffset] != 0 and
                        sector[headderoffset + 1:headderoffset + 12] == headder[
                            1:12]):
                         position = i
@@ -1513,7 +1525,8 @@ more than 10 characters.")
     def writescreenfile(self, filedata, filename, position=-1,
                         overwritename=True):
         """This method writes a screen file to the disk image.  filedata
-        is a byte string of the screen.  filename is the name to save
+        is a list or tuple of ints or longs (or a bytes or bytearray
+        object in python 3) of the screen.  filename is the name to save
         the file as on the disk image.  Normaly this method would
         overwrite an existing file with the same name.  If overwritename
         is False then it will not overwrite the existing file.  Haveing
@@ -1530,31 +1543,12 @@ more than 10 characters.")
         """
 
         # validate input
-        # check filename is valid
-        if(isinstance(filename, list)):
-            # if is list of numbers convert to list of strings
-            if(False not in [isinstance(x, __INT_OR_LONG) for x in filename]):
-                filename = [chr(x) for x in filename]
-
-            # if there are only strings in the list then convert list to
-            # a string
-            if(False not in [isinstance(x, str) for x in filename]):
-                filename = "".join(filename)
-
-        if(not isinstance(filename, str) or len(filename) > 10):
-            raise spectrumtranslate.SpectrumTranslateError(
-                "Filename must be a string, or list of ints or strings of no \
-more than 10 characters.")
-
         if(len(filedata) != 6912):
             raise spectrumtranslate.SpectrumTranslateError(
                 "filedata is wrong length for a spectrum screen file.")
 
-        # create headder
-        headder = [0, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32] + ([0] * 245)
-        # set filename
-        for i in range(len(filename)):
-            headder[i + 1] = ord(filename[i])
+        # create headder and validate filename
+        headder = [0] + __validateandconvertfilename(filename) + ([0] * 245)
 
         # set screen file
         headder[0] = 7
@@ -1566,9 +1560,6 @@ more than 10 characters.")
         headder[214] = 0
         headder[215] = 0x40
 
-        # convert back to string
-        headder = "".join([chr(x) for x in headder])
-
         # outputfile
         # first work out if we're overwriting existing filename
         if(overwritename):
@@ -1579,7 +1570,7 @@ more than 10 characters.")
                 sector = self.getsector(t, s)
                 for entrystart in (0, 256):
                     # if exists and is the file we're after then use it
-                    if(ord(sector[entrystart]) != 0 and
+                    if(sector[entrystart] != 0 and
                        sector[entrystart + 1: entrystart + 12] == headder[
                            1:12]):
                         position = i
@@ -2159,7 +2150,7 @@ list of options.\n")
                 with open(outputfile, 'rb') as outfile:
                     diout.setbytes(outfile.read())
             else:
-                diout.setbytes('\x00' * 819200)
+                diout.setbytes([0] * 819200)
 
             if(specifiedfiles is None):
                 specifiedfiles = [entrywanted]
@@ -2199,7 +2190,7 @@ list of options.\n")
                 with open(outputfile, 'rb') as outfile:
                     diout.setbytes(outfile.read())
             else:
-                diout.setbytes('\x00' * 819200)
+                diout.setbytes([0] * 819200)
 
             # get where to save to or go for first available slot
             copyposition = -1 if len(copyposition) == 0 else copyposition[0]
@@ -2232,6 +2223,12 @@ list of options.\n")
 
             # now set disk image as output
             retdata = diout.bytedata
+
+        # prepare data for output
+        if(__PYTHON_VERSION_HEX > 0x03000000):
+            retdata = bytes(retdata)
+        else:
+            retdata = ''.join([chr(x) for x in retdata])
 
         # output data
         if(not tostandardoutput):

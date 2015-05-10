@@ -41,12 +41,28 @@
 
 import sys
 import os.path
-import os
 import spectrumtapblock
 import disciplefile
 import spectrumtranslate
 from PyQt4 import QtGui, QtCore, QtWebKit
 from operator import itemgetter
+
+
+if(sys.hexversion > 0x03000000):
+    def __validbytestointlist(x):
+        # function to convert any valid source to a list of ints
+        if(isinstance(x, (bytes, bytearray))):
+            return [b for b in x]
+
+        return x[:]
+
+else:
+    def __validbytestointlist(x):
+        # function to convert any valid source to a list of ints
+        if(isinstance(x, str)):
+            return [ord(b) for b in x]
+
+        return x[:]
 
 
 def _setcombo(combo, text):
@@ -190,10 +206,10 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 while(i < self.columns and a + i < len(self.data)):
                     # print value at address
                     qp.drawText(QtCore.QPointF(x, y),
-                                "{0:02X)".firmat(ord(self.data[a + i])))
+                                "{0:02X)".format(self.data[a + i]))
                     x += self.cWidth * 3
                     # add character
-                    d = ord(self.data[a + i])
+                    d = self.data[a + i]
                     txt += chr(d) if (d >= 32 and d <= 127) else "."
                     i += 1
 
@@ -2522,6 +2538,12 @@ Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
                 0xFF if self.ExportSettings["SaveWithHeadder"] == 1 else
                 self.ExportSettings["Flag"]).getpackagedforfile()
 
+            # prepare data for output
+            if(sys.hexversion > 0x03000000):
+                output = bytes(output)
+            else:
+                output = ''.join([chr(x) for x in output])
+
             try:
                 fo = open(
                     fileout,
@@ -2545,7 +2567,7 @@ Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
                 diout.setbytes(outfile.read())
         # otherwise create blank image
         else:
-            diout.setbytes('\x00' * 819200)
+            diout.setbytes([0] * 819200)
 
         # get where to save directory entry and whether to overwrite
         copyposition = self.ExportSettings["+DPos"] if self.ExportSettings[
@@ -2599,9 +2621,15 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                                 codestartaddress=0,
                                 overwritename=overwritename)
 
+        # prepare data for output
+        if(sys.hexversion > 0x03000000):
+            output = bytes(diout.bytedata)
+        else:
+            output = ''.join([chr(x) for x in diout.bytedata])
+
         # output data
         fo = open(fileout, "wb")
-        fo.write(diout.bytedata)
+        fo.write(output)
         fo.close()
 
     def DisplayImageDialog(self, title, imagedata):
@@ -2614,7 +2642,12 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
         pic = QtGui.QLabel()
         buf = QtCore.QBuffer()
         buf.open(QtCore.QIODevice.ReadWrite)
-        buf.write(imagedata)
+
+        if(sys.hexversion > 0x03000000):
+            buf.write(bytes(imagedata))
+        else:
+            buf.write(''.join([chr(x) for x in imagedata]))
+
         buf.seek(0)
         movie = QtGui.QMovie(buf, QtCore.QByteArray())
         pic.setMovie(movie)
@@ -2803,6 +2836,16 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                                       'No output file selected.')
             return
 
+        # prepare data for output
+        if(sys.hexversion > 0x03000000):
+            if(isinstance(data, str)):
+                data = bytes([ord(b) for b in data])
+            elif(isinstance(data, (list, tuple))):
+                data = bytes(data)
+        else:
+            if(isinstance(data, (list, tuple))):
+                data = ''.join([chr(x) for x in data])
+
         try:
             fo = open(fileout, "wb")
             fo.write(data)
@@ -2867,6 +2910,9 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
             QtGui.QMessageBox.warning(
                 self, "Error!", 'Unable to get data from "{0}"'.format(filein))
             return None
+
+        # ensure data is converted to valid format
+        data = __validbytestointlist(data)
 
         if(len(data) != length):
             QtGui.QMessageBox.warning(
@@ -3147,7 +3193,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         # get contents of file
         try:
             fo = open(self.leFileNameIn.text(), "rb")
-            data = fo.read()
+            data = __validbytestointlist(fo.read())
             fo.close()
         except:
             QtGui.QMessageBox.warning(
@@ -3240,18 +3286,18 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         # save off filename incase want to export it
         self.ExportSettings["Filename"] = tapdata[0].getrawfilename()
 
-        if(ord(tapdata[0].data[0]) == 0):
+        if(tapdata[0].data[0] == 0):
             # basic program
             self.SetBasicDetails(tapdata[0].getheadderautostartline(),
                                  tapdata[0].getheaddervariableoffset())
 
-        elif(ord(tapdata[0].data[0]) == 1 or ord(tapdata[0].data[0]) == 2):
+        elif(tapdata[0].data[0] == 1 or tapdata[0].data[0] == 2):
             # number or character array
             self.SetVariableArrayDetails(tapdata[0].getheaddervariableletter(),
                                          tapdata[0].getheadderarraydescriptor()
                                          )
 
-        elif(ord(tapdata[0].data[0]) == 3):
+        elif(tapdata[0].data[0] == 3):
             # bytes: can be screen or data/machine code
             if(len(tapdata[1].data) == 6912):
                 self.SetScreenDetails(tapdata[0].getheaddercodestart())
@@ -3408,6 +3454,7 @@ def main(fileToOpen=None):
     # sftGUI = SpectrumFileTranslateGUI('/home/william/RR.tap/REBRAID1.TAP')
     # sftGUI = SpectrumFileTranslateGUI("/home/william/java/tap reader/01.img")
 
+    # todo remove once debugging complete
     # move screen to right for debugging
     screen = QtGui.QDesktopWidget().screenGeometry()
     mysize = sftGUI.geometry()
