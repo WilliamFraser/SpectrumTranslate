@@ -49,7 +49,7 @@ from operator import itemgetter
 
 
 if(sys.hexversion > 0x03000000):
-    def __validbytestointlist(x):
+    def _validbytestointlist(x):
         # function to convert any valid source to a list of ints
         if(isinstance(x, (bytes, bytearray))):
             return [b for b in x]
@@ -57,7 +57,7 @@ if(sys.hexversion > 0x03000000):
         return x[:]
 
 else:
-    def __validbytestointlist(x):
+    def _validbytestointlist(x):
         # function to convert any valid source to a list of ints
         if(isinstance(x, str)):
             return [ord(b) for b in x]
@@ -2646,7 +2646,7 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
         if(sys.hexversion > 0x03000000):
             buf.write(bytes(imagedata))
         else:
-            buf.write(''.join([chr(x) for x in imagedata]))
+            buf.write(imagedata)
 
         buf.seek(0)
         movie = QtGui.QMovie(buf, QtCore.QByteArray())
@@ -2912,7 +2912,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
             return None
 
         # ensure data is converted to valid format
-        data = __validbytestointlist(data)
+        data = _validbytestointlist(data)
 
         if(len(data) != length):
             QtGui.QMessageBox.warning(
@@ -3193,7 +3193,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         # get contents of file
         try:
             fo = open(self.leFileNameIn.text(), "rb")
-            data = __validbytestointlist(fo.read())
+            data = _validbytestointlist(fo.read())
             fo.close()
         except:
             QtGui.QMessageBox.warning(

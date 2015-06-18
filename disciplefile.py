@@ -40,15 +40,15 @@
 # Date: 14th January 2015
 
 import spectrumtranslate
-from mmap import mmap as __mmap
-from os.path import isfile as __isfile
-from numbers import Integral as __INT_OR_LONG
-from sys import hexversion as __PYTHON_VERSION_HEX
+from mmap import mmap as _mmap
+from os.path import isfile as _isfile
+from numbers import Integral as _INT_OR_LONG
+from sys import hexversion as _PYTHON_VERSION_HEX
 # sys and codecs are imported if run from the command line
 
 
-if(__PYTHON_VERSION_HEX > 0x03000000):
-    def __checkisvalidbytes(x, m):
+if(_PYTHON_VERSION_HEX > 0x03000000):
+    def _checkisvalidbytes(x, m):
         if(isinstance(x, (bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, int) for val in x))):
@@ -57,7 +57,7 @@ if(__PYTHON_VERSION_HEX > 0x03000000):
         raise spectrumtranslate.SpectrumTranslateError("{0} needs to be a \
 list or tuple of ints, or of type 'bytes' or 'bytearray'".format(m))
 
-    def __validbytestointlist(x):
+    def _validbytestointlist(x):
         # function to convert any valid source to a list of ints
         if(isinstance(x, (bytes, bytearray))):
             return [b for b in x]
@@ -65,16 +65,16 @@ list or tuple of ints, or of type 'bytes' or 'bytearray'".format(m))
         return x[:]
 
 else:
-    def __checkisvalidbytes(x, m):
+    def _checkisvalidbytes(x, m):
         if(isinstance(x, str) or
            (isinstance(x, (list, tuple)) and
-           all(isinstance(val, __INT_OR_LONG) for val in x))):
+           all(isinstance(val, _INT_OR_LONG) for val in x))):
             return
 
         raise spectrumtranslate.SpectrumTranslateError("{0} needs to be a \
 byte string, or a list or tuple of ints or longs".format(m))
 
-    def __validbytestointlist(x):
+    def _validbytestointlist(x):
         # function to convert any valid source to a list of ints
         if(isinstance(x, str)):
             return [ord(b) for b in x]
@@ -82,11 +82,11 @@ byte string, or a list or tuple of ints or longs".format(m))
         return x[:]
 
 
-def __validateandconvertfilename(filename):
+def _validateandconvertfilename(filename):
     # check filename is valid
     if(isinstance(filename, list)):
         # if is list of numbers convert to list of strings
-        if(False not in [isinstance(x, __INT_OR_LONG) for x in filename]):
+        if(False not in [isinstance(x, _INT_OR_LONG) for x in filename]):
             filename = [chr(x) for x in filename]
 
         # if there are only strings in the list then convert list to
@@ -788,10 +788,10 @@ class DiscipleImage:
         bytearray in python 3.
         """
 
-        __checkisvalidbytes(bytedata, "bytedata")
+        _checkisvalidbytes(bytedata, "bytedata")
 
         # convert bytedata to list of ints
-        self.bytedata = __validbytestointlist(bytedata)
+        self.bytedata = _validbytestointlist(bytedata)
 
         self.ImageSource = "Bytes"
         self.setimageformat(form)
@@ -898,7 +898,7 @@ class DiscipleImage:
                 self.filehandle.seek(pos)
 
             # in python 2 convert byte string to list of ints
-            if(not __PYTHON_VERSION_HEX > 0x03000000):
+            if(not _PYTHON_VERSION_HEX > 0x03000000):
                 return [ord(x) for x in self.filehandle.read(512)]
 
             # return list in python 3
@@ -917,7 +917,7 @@ class DiscipleImage:
         data at the end to save any changes.
         """
 
-        __checkisvalidbytes(data, "data must be 512 bytes long, and")
+        _checkisvalidbytes(data, "data must be 512 bytes long, and")
         if(len(data) != 512):
             raise spectrumtranslate.SpectrumTranslateError("data must be a \
 512 bytes in length, and a list or tuple of int or long, or a byte string in \
@@ -928,7 +928,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             self.setbytes([0] * 819200)
 
         # convert data to list of ints
-        data = __validbytestointlist(data)
+        data = _validbytestointlist(data)
 
         # where is sector we're after
         pos = self.getsectorposition(track, sector, head)
@@ -945,7 +945,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                     'DiscipleImage not opened with access mode rb+')
 
             # memory map the sector in the file
-            mm = __mmap(self.filehandle.fileno(), 0)
+            mm = _mmap(self.filehandle.fileno(), 0)
             # write the data
             mm[pos:pos + 512] = data
             mm.flush()
@@ -1166,8 +1166,8 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             raise spectrumtranslate.SpectrumTranslateError(
                 "Header block must be 256 bytes long.")
 
-        __checkisvalidbytes(headder, "headder")
-        __checkisvalidbytes(filedata, "filedata")
+        _checkisvalidbytes(headder, "headder")
+        _checkisvalidbytes(filedata, "filedata")
 
         if(position != -1 and position < 1 and position > 80):
             raise spectrumtranslate.SpectrumTranslateError(
@@ -1238,7 +1238,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             raise spectrumtranslate.SpectrumTranslateError("Image full.")
 
         # make copy of headder localy to alter
-        headder = __validbytestointlist(headder)
+        headder = _validbytestointlist(headder)
 
         # clear FAT table for file headder
         for i in range(195):
@@ -1326,10 +1326,10 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             raise spectrumtranslate.SpectrumTranslateError(
                 "Data too big to fit in spectrum memory.")
 
-        __checkisvalidbytes(filedata, "filedata")
+        _checkisvalidbytes(filedata, "filedata")
 
         # create headder and validate filename
-        headder = [0] + __validateandconvertfilename(filename) + ([0] * 245)
+        headder = [0] + _validateandconvertfilename(filename) + ([0] * 245)
 
         # set basic file
         headder[0] = 1
@@ -1341,25 +1341,12 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         headder[214] = 23755 & 255
         headder[215] = 23755 // 256
         # set variable offset
+        if(varposition is None):
+            varposition = -1
+
         if(varposition == -1):
             # work out position of variables
-            offset = 0
-            while(offset < len(filedata)):
-                linenumber = (filedata[offset] * 256) + filedata[offset + 1]
-                # bits 5,6,7 of variable code will be 16384 or more
-                if(linenumber > 9999):
-                    # too big for line number: is 1st variable
-                    break
-
-                # otherwise move to next line
-                linelength = filedata[offset + 2] + (filedata[offset + 3]
-                                                     ) * 256
-                offset += linelength + 4
-
-            varposition = min(offset, len(filedata))
-
-        if(varposition is None):
-            varposition = len(filedata)
+            varposition = spectrumtranslate.getvariableoffset(filedata)
 
         headder[216] = varposition & 255
         headder[217] = varposition // 256
@@ -1423,7 +1410,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                 "Data too big to fit in spectrum memory.")
 
         # create headder and validate filename
-        headder = [0] + __validateandconvertfilename(filename) + ([0] * 245)
+        headder = [0] + _validateandconvertfilename(filename) + ([0] * 245)
 
         # set code file
         headder[0] = 4
@@ -1489,7 +1476,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                 "Data too big to fit in spectrum memory.")
 
         # create headder and validate filename
-        headder = [0] + __validateandconvertfilename(filename) + ([0] * 245)
+        headder = [0] + _validateandconvertfilename(filename) + ([0] * 245)
 
         # set variable file
         headder[211] = 1 if VariableDescriptor & 192 == 128 else 2
@@ -1548,7 +1535,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                 "filedata is wrong length for a spectrum screen file.")
 
         # create headder and validate filename
-        headder = [0] + __validateandconvertfilename(filename) + ([0] * 245)
+        headder = [0] + _validateandconvertfilename(filename) + ([0] * 245)
 
         # set screen file
         headder[0] = 7
@@ -1741,7 +1728,7 @@ def usage():
 """
 
 
-def __commandline(args):
+def _commandline(args):
 
     def getint(x):
         return int(x, 16 if x.lower().startswith("0x") else 10)
@@ -2146,7 +2133,7 @@ list of options.\n")
             diout = DiscipleImage()
             # if we're writing to an existing file then load it into our
             # image
-            if(not tostandardoutput and __isfile(outputfile)):
+            if(not tostandardoutput and _isfile(outputfile)):
                 with open(outputfile, 'rb') as outfile:
                     diout.setbytes(outfile.read())
             else:
@@ -2186,7 +2173,7 @@ list of options.\n")
             diout = DiscipleImage()
             # if we're writing to an existing file then load it into our
             # image
-            if(not tostandardoutput and __isfile(outputfile)):
+            if(not tostandardoutput and _isfile(outputfile)):
                 with open(outputfile, 'rb') as outfile:
                     diout.setbytes(outfile.read())
             else:
@@ -2225,7 +2212,7 @@ list of options.\n")
             retdata = diout.bytedata
 
         # prepare data for output
-        if(__PYTHON_VERSION_HEX > 0x03000000):
+        if(_PYTHON_VERSION_HEX > 0x03000000):
             retdata = bytes(retdata)
         else:
             retdata = ''.join([chr(x) for x in retdata])
@@ -2252,4 +2239,4 @@ if __name__ == "__main__":
     sys.stdout = getwriter('utf8')(sys.stdout)
     sys.stderr = getwriter('utf8')(sys.stderr)
 
-    __commandline(sys.argv)
+    _commandline(sys.argv)

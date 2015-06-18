@@ -41,24 +41,25 @@
 
 import spectrumnumber
 import sys
+from numbers import Integral as _INT_OR_LONG
 
 # ensure this code runs on python 2 and 3
 if(sys.hexversion > 0x03000000):
-    __unistr = str
+    _unistr = str
 
-    def __u(x):
+    def _u(x):
         return x
 
-    def __checkisvalidbytes(x):
+    def _checkisvalidbytes(x):
         if(isinstance(x, (bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, int) for val in x))):
             return
 
-        raise spectrumtranslate.SpectrumTranslateError("data needs to be a \
-list or tuple of ints, or of type 'bytes' or 'bytearray'")
+        raise SpectrumTranslateError("data needs to be a list or tuple of \
+ints, or of type 'bytes' or 'bytearray'")
 
-    def __validbytestointlist(x):
+    def _validbytestointlist(x):
         # function to convert any valid source to a list of ints
         if(isinstance(x, (bytes, bytearray))):
             return [b for b in x]
@@ -68,22 +69,22 @@ list or tuple of ints, or of type 'bytes' or 'bytearray'")
 else:
     # 2to3 will complain about this line but this code is python 2 & 3
     # compatible
-    __unistr = unicode
-    from codecs import unicode_escape_decode as __UED
+    _unistr = unicode
+    from codecs import unicode_escape_decode as _UED
 
-    def __u(x):
-        return __UED(x)[0]
+    def _u(x):
+        return _UED(x)[0]
 
-    def __checkisvalidbytes(x):
+    def _checkisvalidbytes(x):
         if(isinstance(x, str) or
            (isinstance(x, (list, tuple)) and
-           all(isinstance(val, __INT_OR_LONG) for val in x))):
+           all(isinstance(val, _INT_OR_LONG) for val in x))):
             return
 
-        raise spectrumtranslate.SpectrumTranslateError("data needs to be a \
-byte string, or a list or tuple of ints or longs")
+        raise SpectrumTranslateError("data needs to be a byte string, or a \
+list or tuple of ints or longs")
 
-    def __validbytestointlist(x):
+    def _validbytestointlist(x):
         # function to convert any valid source to a list of ints
         if(isinstance(x, str)):
             return [ord(b) for b in x]
@@ -547,137 +548,137 @@ data format:
 
 Z80_OPCODE_TIMES = {
   "base": (
-    18, 4, 3, 50, 18, 18, 3, 18,
-    18, 4, 3, 50, 18, 18, 3, 18,
-    131072, 4, 3, 50, 18, 18, 3, 18,
-    516, 4, 3, 50, 18, 18, 3, 18,
-    131072, 4, 6, 50, 18, 18, 3, 18,
-    131072, 4, 6, 50, 18, 18, 3, 18,
-    131072, 4, 5, 50, 4, 4, 4, 18,
-    131072, 4, 5, 50, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    3, 3, 3, 3, 3, 3, 18, 3,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    18, 18, 18, 18, 18, 18, 3, 18,
-    1114112, 4, 4, 4, 196608, 4, 3, 4,
-    1114112, 4, 4, 0, 196608, 6, 3, 4,
-    1114112, 4, 4, 260, 196608, 4, 3, 4,
-    1114112, 18, 4, 260, 196608, 0, 3, 4,
-    1114112, 4, 4, 8198, 196608, 4, 3, 4,
-    1114112, 18, 4, 18, 196608, 0, 3, 4,
-    1114112, 4, 4, 18, 196608, 4, 3, 4,
-    1114112, 50, 4, 18, 196608, 0, 3, 4),
+    18, 22, 20, 50, 18, 18, 20, 18,
+    18, 86, 20, 50, 18, 18, 20, 18,
+    1180198, 22, 20, 50, 18, 18, 20, 18,
+    534, 86, 20, 50, 18, 18, 20, 18,
+    655894, 22, 26, 50, 18, 18, 20, 18,
+    655894, 86, 26, 50, 18, 18, 20, 18,
+    655894, 22, 24, 50, 22, 86, 22, 18,
+    655894, 86, 24, 50, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    20, 20, 20, 20, 20, 20, 18, 20,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    18, 18, 18, 18, 18, 18, 20, 18,
+    1114150, 22, 22, 22, 721178, 38, 20, 38,
+    1114150, 22, 22, 0, 721178, 282, 20, 38,
+    1114150, 22, 22, 278, 721178, 38, 20, 38,
+    1114150, 18, 22, 278, 721178, 0, 20, 38,
+    1114150, 22, 22, 8474, 721178, 38, 20, 38,
+    1114150, 18, 22, 18, 721178, 0, 20, 38,
+    1114150, 22, 22, 18, 721178, 38, 20, 38,
+    1114150, 50, 22, 18, 721178, 0, 20, 38),
   "CB": (
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
     1, 1, 1, 1, 1, 1, 1, 1,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 260, 67,
-    67, 67, 67, 67, 67, 67, 260, 67,
-    67, 67, 67, 67, 67, 67, 260, 67,
-    67, 67, 67, 67, 67, 67, 260, 67,
-    67, 67, 67, 67, 67, 67, 260, 67,
-    67, 67, 67, 67, 67, 67, 260, 67,
-    67, 67, 67, 67, 67, 67, 260, 67,
-    67, 67, 67, 67, 67, 67, 260, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67,
-    67, 67, 67, 67, 67, 67, 5, 67),
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 342, 84,
+    84, 84, 84, 84, 84, 84, 342, 84,
+    84, 84, 84, 84, 84, 84, 342, 84,
+    84, 84, 84, 84, 84, 84, 342, 84,
+    84, 84, 84, 84, 84, 84, 342, 84,
+    84, 84, 84, 84, 84, 84, 342, 84,
+    84, 84, 84, 84, 84, 84, 342, 84,
+    84, 84, 84, 84, 84, 84, 342, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84,
+    84, 84, 84, 84, 84, 84, 344, 84),
   "DD": (
     0, 0, 0, 0, 0, 0, 0, 0,
-    0, 5, 0, 0, 0, 0, 0, 0,
+    0, 344, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
-    0, 5, 0, 0, 0, 0, 0, 0,
-    0, 5, 7, 195, 1, 1, 1, 0,
-    0, 5, 7, 195, 1, 1, 1, 0,
-    0, 0, 0, 0, 7, 7, 6, 0,
-    0, 5, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    1, 1, 1, 1, 1, 1, 6, 1,
-    1, 1, 1, 1, 1, 1, 6, 1,
-    6, 6, 6, 6, 6, 6, 0, 6,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 344, 0, 0, 0, 0, 0, 0,
+    0, 88, 92, 212, 1, 1, 1, 0,
+    0, 344, 92, 212, 1, 1, 1, 0,
+    0, 0, 0, 0, 6236, 6236, 2138, 0,
+    0, 344, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    1, 1, 1, 1, 1, 1, 2138, 1,
+    1, 1, 1, 1, 1, 1, 2138, 1,
+    2138, 2138, 2138, 2138, 2138, 2138, 0, 2138,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
-    0, 5, 0, 32775, 0, 5, 0, 0,
-    0, 67, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
-    0, 195, 0, 0, 0, 0, 0, 0),
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 88, 0, 33884, 0, 152, 0, 0,
+    0, 84, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 212, 0, 0, 0, 0, 0, 0),
   "DDCB": (
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
     1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1),
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1),
   "ED": (
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
@@ -687,22 +688,22 @@ Z80_OPCODE_TIMES = {
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
-    260, 260, 5, 7, 67, 5, 67, 131,
-    260, 260, 5, 7, 1, 5, 1, 131,
-    260, 260, 5, 7, 1, 1, 67, 131,
-    260, 260, 5, 7, 1, 1, 67, 131,
-    260, 260, 5, 7, 1, 1, 1, 6,
-    260, 260, 5, 7, 1, 1, 1, 6,
-    260, 1, 5, 7, 1, 1, 1, 0,
-    260, 260, 5, 7, 1, 1, 1, 0,
+    342, 342, 344, 92, 84, 88, 84, 148,
+    342, 342, 344, 92, 1, 88, 1, 148,
+    342, 342, 344, 92, 1, 1, 84, 148,
+    342, 342, 344, 92, 1, 1, 84, 148,
+    342, 342, 344, 92, 1, 1, 1, 1114,
+    342, 342, 344, 92, 1, 1, 1, 1114,
+    342, 1, 344, 92, 1, 1, 1, 0,
+    342, 342, 344, 92, 1, 1, 1, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
-    2053, 2053, 1029, 1029, 0, 0, 0, 0,
-    2053, 2053, 1029, 1029, 0, 0, 0, 0,
-    67371008, 67371008, 33816576, 33816576, 0, 0, 0, 0,
-    67371008, 67371008, 33816576, 33816576, 0, 0, 0, 0,
+    2136, 2136, 1176, 1176, 0, 0, 0, 0,
+    2136, 2136, 1176, 1176, 0, 0, 0, 0,
+    70002778, 70002778, 38544538, 38544538, 0, 0, 0, 0,
+    70002778, 70002778, 38544538, 38544538, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
@@ -713,70 +714,70 @@ Z80_OPCODE_TIMES = {
     0, 0, 0, 0, 0, 0, 0, 0),
   "FD": (
     0, 0, 0, 0, 0, 0, 0, 0,
-    0, 5, 0, 0, 0, 0, 0, 0,
+    0, 344, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
-    0, 5, 0, 0, 0, 0, 0, 0,
-    0, 5, 7, 195, 1, 1, 1, 0,
-    0, 5, 7, 195, 1, 1, 1, 0,
-    0, 0, 0, 0, 7, 7, 6, 0,
-    0, 5, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    1, 1, 1, 1, 1, 1, 6, 1,
-    1, 1, 1, 1, 1, 1, 6, 1,
-    6, 6, 6, 6, 6, 6, 0, 6,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 1, 1, 6, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 344, 0, 0, 0, 0, 0, 0,
+    0, 88, 92, 212, 1, 1, 1, 0,
+    0, 344, 92, 212, 1, 1, 1, 0,
+    0, 0, 0, 0, 6236, 6236, 2138, 0,
+    0, 344, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    1, 1, 1, 1, 1, 1, 2138, 1,
+    1, 1, 1, 1, 1, 1, 2138, 1,
+    2138, 2138, 2138, 2138, 2138, 2138, 0, 2138,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
+    0, 0, 0, 0, 1, 1, 2138, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
-    0, 5, 0, 32775, 0, 5, 0, 0,
-    0, 67, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
-    0, 195, 0, 0, 0, 0, 0, 0),
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 88, 0, 33884, 0, 152, 0, 0,
+    0, 84, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 212, 0, 0, 0, 0, 0, 0),
   "FDCB": (
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
     1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 4102, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1,
-    1, 1, 1, 1, 1, 1, 7, 1)
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6234, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1,
+    1, 1, 1, 1, 1, 1, 6236, 1),
 }
 
 Z80_OPCODE_DATA = {
@@ -1027,6 +1028,35 @@ SPECTRUM_COMMANDS = (
     "RETURN", "COPY")
 
 
+def getvariableoffset(data):
+    """This function works out where variables start in a sepctrum basic
+    program listing.  It returns the offset from the start of the data
+    to where the variables are.
+    """
+
+    # validate data
+    _checkisvalidbytes(data)
+
+    # convert data from string to list of numbers if needed
+    data = _validbytestointlist(data)
+
+    # work out position of variables
+    offset = 0
+    while(offset < len(data)):
+        linenumber = (data[offset] * 256) + data[offset + 1]
+        # bits 5,6,7 of variable code will be 16384 or
+        # more as the max line number is 9999
+        if(linenumber > 9999):
+            # too big for line number: is 1st variable
+            break
+
+        # otherwise move to next line
+        linelength = data[offset + 2] + data[offset + 3] * 256
+        offset += linelength + 4
+
+    return offset
+
+
 def basictotext(data, iAutostart=-1, ivariableOffset=-1):
     """This function returns a string representation of the list or byte
     string supplied of a basic program.  Due to the way program data was
@@ -1044,18 +1074,19 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
     assumed to begin at he start of the array to the end of the array.
     iAutostart is the line number where the program auto starts (less
     than 0 or >9999 if no autostart).  ivariableOffset is the offset
-    from the start of the array to where variables are stored.
+    from the start of the array to where variables are stored.  If not
+    specified then this will be worked out.
     """
 
     # validate data
-    __checkisvalidbytes(data)
+    _checkisvalidbytes(data)
 
     # convert data from string to list of numbers if needed
-    data = __validbytestointlist(data)
+    data = _validbytestointlist(data)
 
-    # if no variable offset supplied then assume there are no variables
+    # if no variable offset supplied then work out where
     if(ivariableOffset == -1):
-        ivariableOffset = len(data)
+        ivariableOffset = getvariableoffset(data)
 
     text = ''
 
@@ -1083,7 +1114,7 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
         bInQuotes = False
         bPostREM = False
         bPostDEF = False
-        Lastchar = ' '
+        Lastchar = ord(' ')
 
         # now move through line
         l = 0
@@ -1106,23 +1137,24 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
                not(                  # and not an extension of number
                                      # 0-9
                    (k >= 0x30 and k <= 0x39 and ' ' not in sNumber) or
-                   k == 'E' or k == 'e' or     # an exponent symbol
-                        # a plus of minus after an exponent symbol
-                   ((k == '+' or k == '-') and (sNumber[-1] == 'E' or
-                    sNumber[-1] == 'e')) or
+                   k == ord('E') or k == ord('e') or     # an exponent symbol
+                   # a plus of minus after an exponent symbol
+                   ((k == ord('+') or k == ord('-')) and
+                    (sNumber[-1] == ord('E') or sNumber[-1] == ord('e'))) or
                    k == 32                   # hit a space
                )):
                 # if so exit number gathering routine without gathering
                 # number definition
                 text += sNumber
+                text += "(number without value)"
                 sNumber = ''
 
             # are we entering/leaving a quote
-            if(k == '"'):
+            if(k == ord('"')):
                 bInQuotes = not bInQuotes
 
             # are we entering or definately leaving a DEF
-            if(k == ')'):
+            if(k == ord(')')):
                 bPostDEF = False
 
             if(k == 206):
@@ -1197,13 +1229,13 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
             # see if is valid number digit.  If so store it
             if(not bInQuotes and not bPostREM and (
                (k >= 0x30 and k <= 0x39) or
-               k == '.' or
-               ((k == 'E' or k == 'e') and len(sNumber) > 0) or
-               ((k == '-' or k == '+') and len(sNumber) > 0 and
-                (sNumber[-1] == 'E' or sNumber[-1] == 'e'))
+               k == ord('.') or
+               ((k == ord('E') or k == ord('e')) and len(sNumber) > 0) or
+               ((k == ord('-') or k == ord('+')) and len(sNumber) > 0 and
+                (sNumber[-1] == ord('E') or sNumber[-1] == ord('e')))
                )):
                 sNumber += chr(k)
-                Lastchar = chr(k)
+                Lastchar = k
                 l += 1
                 continue
 
@@ -1216,13 +1248,13 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
                 if(k == 234):
                     bPostREM = True
 
-                if(Lastchar != ' ' and not bInQuotes):
+                if(Lastchar != ord(' ') and not bInQuotes):
                     text += ' '
 
                 text += SPECTRUM_COMMANDS[k - 163] + " "
                 k = ord(' ')
 
-            Lastchar = chr(k)
+            Lastchar = k
             # exit if hit end of line
             if(k == 13):
                 break
@@ -1248,8 +1280,8 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
         # number who's name is one letter only
         if(k == 3):
             text += VarName + "="
-            text += __sn_to_string(data[i + 1:i + 6],
-                                   "unable to extract number")
+            text += _sn_to_string(data[i + 1:i + 6],
+                                  "unable to extract number")
             text += "\n"
             i += 6
 
@@ -1266,8 +1298,8 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
                 i += 1
 
             i += 1
-            text += "=" + __sn_to_string(data[i:i + 5],
-                                         "unable to extract number")
+            text += "=" + _sn_to_string(data[i:i + 5],
+                                        "unable to extract number")
             text += "\n"
             i += 5
 
@@ -1287,9 +1319,9 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
         elif(k == 7):
             try:
                 text += "FOR...NEXT, {0} Value={1} Limit={2} Step={3}".format(
-                    VarName, __sn_to_string(data[i+1:i+6]),
-                    __sn_to_string(data[i+6:i+11]),
-                    __sn_to_string(data[i+11:i+16]))
+                    VarName, _sn_to_string(data[i+1:i+6]),
+                    _sn_to_string(data[i+6:i+11]),
+                    _sn_to_string(data[i+11:i+16]))
                 text += " Loop back to line={0}, statement={1}\n".format(
                     data[i+16] + 256 * data[i+17], data[i+18])
             except:
@@ -1300,7 +1332,7 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
         # string
         elif(k == 2):
             strlen = data[i+1] + 256 * data[i+2]
-            text += "{0}$=\"{1}\"\n".format(
+            text += '{0}$="{1}"\n'.format(
                 VarName, getspectrumstring(data[i+3:i+3+strlen]))
             i += strlen + 3
 
@@ -1339,18 +1371,19 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
     assumed to begin at he start of the array to the end of the array.
     iAutostart is the line number where the program auto starts (less
     than 0 or >9999 if no autostart).  ivariableOffset is the offset
-    from the start of the array to where variables are stored.
+    from the start of the array to where variables are stored.  If not
+    specified then this will be worked out.
     """
 
     # validate data
-    __checkisvalidbytes(data)
+    _checkisvalidbytes(data)
 
     # convert data from string to list of numbers if needed
-    data = __validbytestointlist(data)
+    data = _validbytestointlist(data)
 
-    # if no variable offset supplied then assume there are no variables
+    # if no variable offset supplied then work out where
     if(ivariableOffset == -1):
-        ivariableOffset = len(data)
+        ivariableOffset = getvariableoffset(data)
 
     text = '<?xml version="1.0" encoding="UTF-8" ?>\n<basiclisting>\n'
 
@@ -1392,7 +1425,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
             # have we hit an argument for an instruction?
             if(bInInstruction and not bInstructionHadArgument and
                not bInQuotes and k != ord(':') and k != 13):
-                text += '      <argument>'
+                text += '\n      <argument>'
                 bInstructionHadArgument = True
 
             # if we're in a REM statement display characters.  ignore
@@ -1409,23 +1442,26 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
                not(                 # and not an extension of the number
                    # have 0-9
                    (k >= 0x30 and k <= 0x39 and ' ' not in sNumber) or
-                   k == 'E' or k == 'e' or     # an exponent symbol
+                   k == ord('E') or k == ord('e') or     # an exponent symbol
                    # a plus of minus after an exponent symbol
-                   ((k == '+' or k == '-') and (sNumber[-1] == 'E' or
-                    sNumber[-1] == 'e')) or
+                   ((k == ord('+') or k == ord('-')) and
+                    (sNumber[-1] == ord('E') or
+                    sNumber[-1] == ord('e'))) or
                    k == 32                   # hit a space
                )):
                 # if so exit number gathering routine without gathering
                 # number definition
-                text += sNumber
+                text += "<number>" + sNumber
+                text += "<realvalue>number without value</realvalue>"
+                text += "</number>"
                 sNumber = ''
 
             # are we entering/leaving a quote
-            if(k == '"'):
+            if(k == ord('"')):
                 bInQuotes = not bInQuotes
 
             # are we entering or definately leaving a DEF
-            if(k == ')'):
+            if(k == ord(')')):
                 bPostDEF = False
 
             if(k == 206):
@@ -1448,6 +1484,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
 
                     if(bInInstruction and bInstructionHadArgument):
                         text += '</argument>'
+                        bInstructionHadArgument = False
 
                     # terminate command if we have to
                     if(bInInstruction):
@@ -1480,15 +1517,15 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
                         # case & handle it first
                         if(len(sNumber) == 0):
                             text += "<{1}>{0!s}</{1}>".format(
-                                sn, "actualvalue")
+                                sn, "realvalue")
                         else:
                             try:
                                 if(sn != sNumber):
                                     text += "<{1}>{0!s}</{1}>".format(
-                                        sn, "actualvalue")
+                                        sn, "realvalue")
                             except:
-                                text += "<actualvalue>real value unclear\
-</actualvalue>"
+                                text += "<realvalue>real value unclear\
+</realvalue>"
 
                         sNumber = ''
                         text += '</number>'
@@ -1518,24 +1555,25 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
             # see if is valid number digit.  If so store it
             if(not bInQuotes and not bPostREM and (
                (k >= 0x30 and k <= 0x39) or
-               k == '.' or
-               ((k == 'E' or k == 'e') and len(sNumber) > 0) or
-               ((k == '-' or k == '+') and len(sNumber) > 0 and
-                (sNumber[-1] == 'E' or sNumber[-1] == 'e'))
+               k == ord('.') or
+               ((k == ord('E') or k == ord('e')) and len(sNumber) > 0) or
+               ((k == ord('-') or k == ord('+')) and len(sNumber) > 0 and
+                (sNumber[-1] == ord('E') or sNumber[-1] == ord('e')))
                )):
                 sNumber += chr(k)
                 l += 1
                 continue
 
             # have we hit an instruction seperator?
-            if(bInInstruction and not bInQuotes and k == ord(':')):
+            if(bInInstruction and not bInQuotes and k == 58):
                 # check to see if we need to close argument xml tag
                 if(bInstructionHadArgument):
-                    text += '</argument>\n    </instruction>\n    \
+                    text += '</argument>'
+
+                text += '\n    </instruction>\n    \
 <instructionseperator>:</instructionseperator>\n'
 
                 bInInstruction = False
-                # bInstructionHadArgument=True
 
             # printable characters not handled elsewhere
             if(k > 31 and k < 128 and k != ord(':')):
@@ -1548,15 +1586,12 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
 
                 # are we entering an instruction
                 if(not bInInstruction):
-                    # if so make a not of it and output xml
+                    # if so make a note of it and output xml
                     text += '    <instruction>\n      '
                     bInInstruction = True
                     bInstructionHadArgument = False
 
                 text += '<keyword>' + SPECTRUM_COMMANDS[k-163] + '</keyword>'
-
-                if(not bInstructionHadArgument):
-                    text += '\n'
 
             # exit if hit end of line
             if(k == 13):
@@ -1588,8 +1623,8 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
                 text += '    <variable>\n      <name>' + VarName
                 text += '</name>\n      <type>number</type>\n'
                 text += '      <value>'
-                text += __sn_to_string(data[i+1:i+6],
-                                       "unable to extract number")
+                text += _sn_to_string(data[i+1:i+6],
+                                      "unable to extract number")
                 text += '</value>\n    </variable>\n'
                 i += 6
 
@@ -1607,8 +1642,8 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
 
                 text += '</name>\n      <type>number</type>\n'
                 text += '      <value>'
-                text += __sn_to_string(data[i+1:i+6],
-                                       "unable to extract number")
+                text += _sn_to_string(data[i+1:i+6],
+                                      "unable to extract number")
                 text += '</value>\n    </variable>\n'
                 i += 6
 
@@ -1619,8 +1654,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
                 text += '      <value>\n'
                 i += 1
 
-                text += '\n'.join(['        ' + x for x in
-                                   spectrumtranslate.arraytoxml(
+                text += '\n'.join(['        ' + x for x in arraytoxml(
                                        data[i+2:], 128).splitlines()])
                 text += '\n      </value>\n    </variable>\n'
                 i += 2 + data[i] + 256*data[i+1]
@@ -1630,11 +1664,11 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
                 try:
                     text += '    <variable>\n      <name>' + VarName
                     text += '</name>\n      <type>fornext</type>\n'
-                    fortext = '      <value>' + __sn_to_string(data[i+1:i+6])
+                    fortext = '      <value>' + _sn_to_string(data[i+1:i+6])
                     fortext += '</value>\n'
-                    fortext += '      <limit>' + __sn_to_string(data[i+6:i+11])
+                    fortext += '      <limit>' + _sn_to_string(data[i+6:i+11])
                     fortext += '</limit>\n'
-                    fortext += '      <step>' + __sn_to_string(data[i+11:i+16])
+                    fortext += '      <step>' + _sn_to_string(data[i+11:i+16])
                     fortext += '</step>\n'
                     fortext += '      <loopbackto>\n        <line>'
                     fortext += str(data[i+16]+256*data[i+17]) + '</line>\n'
@@ -1664,7 +1698,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
                 i += 1
 
                 text += '\n'.join(['        ' + x for x in
-                                   spectrumtranslate.arraytoxml(
+                                   arraytoxml(
                                        data[i+2:], 192).splitlines()])
                 text += '\n      </value>\n    </variable>\n'
                 i += 2 + data[i] + 256*data[i+1]
@@ -1698,10 +1732,10 @@ def getarraydepth(data, descriptor):
     """
 
     # validate data
-    __checkisvalidbytes(data)
+    _checkisvalidbytes(data)
 
     # convert data from string to list of numbers if needed
-    data = __validbytestointlist(data)
+    data = _validbytestointlist(data)
 
     # number array or character array
     if((descriptor & 192) == 128 or (descriptor & 192) == 192):
@@ -1762,10 +1796,10 @@ def extractarray(data, descriptor):
                 range(dims[0])]
 
     # validate data
-    __checkisvalidbytes(data)
+    _checkisvalidbytes(data)
 
     # convert data from string to list of numbers if needed
-    data = __validbytestointlist(data)
+    data = _validbytestointlist(data)
 
     # number array or character array
     if(descriptor & 128 == 128):
@@ -1809,16 +1843,16 @@ def arraytotext(data, descriptor):
             # if so it's either number
             if(isnumber):
                 # in which case return list of numbers
-                return indent + ','.join([str(i) for i in data])
+                return indent + ', '.join([str(i) for i in data])
             # or a string
             else:
                 return indent + '"' + ('",\n' + indent + '"').join(
                     [getspectrumstring(s) for s in data]) + '"'
 
         # otherwise we need to return a sub-array
-        return indent + '{' + ('\n' + indent + '},\n' + indent + '{').join(
+        return indent + '{\n' + ('\n' + indent + '},\n' + indent + '{\n').join(
             [getSubArray(sub, isnumber, indent + "  ") for sub in data]
-            ) + indent + '}'
+            ) + '\n' + indent + '}'
 
     # convert data from string to list of numbers if needed
     if(isinstance(data, str)):
@@ -1871,7 +1905,7 @@ def arraytoxml(data, descriptor):
                         [getspectrumstring(s) for s in data]) + '</string>'
 
         # otherwise we need to return a sub-array
-        return indent + '<dimension>\n{0}\n{}</dimension>'.format(
+        return indent + '<dimension>\n{0}\n{1}</dimension>'.format(
             ('\n{0}</dimension>\n{0}<dimension>\n'.format(indent)).join(
                 [getSubArray(sub, isnumber, indent + "  ") for sub in data]),
             indent)
@@ -1893,14 +1927,14 @@ def arraytoxml(data, descriptor):
     return None
 
 
-def __sn_to_string(data, message=-1):
+def _sn_to_string(data, message=-1):
     # function to transfer number to string and handle exceptions
 
-    # get number
-    sn = spectrumnumber.SpectrumNumber(data)
-
-    # convert to string: can cause exceptions
     try:
+        # get number
+        sn = spectrumnumber.SpectrumNumber(data)
+
+        # convert to string: can cause exceptions
         return str(sn)
     except:
         if(message == -1):
@@ -1928,20 +1962,20 @@ def getspectrumchar(c):
     """
 
     # convert to int if needed
-    if(isinstance(c, (str, __unistr))):
+    if(isinstance(c, (str, _unistr))):
         c = ord(c[0]) & 0xFF
 
     if(c == 127):
-        return __u("\u00A9")
+        return _u("\u00A9")
     if(c == 96):
-        return __u("\u00A3")
+        return _u("\u00A3")
     if(c == 94):
-        return __u("\u2191")
+        return _u("\u2191")
     if(c >= 128 and c <= 143):
-        return (__u('\u2003'), __u('\u259D'), __u('\u2598'), __u('\u2580'),
-                __u('\u2597'), __u('\u2590'), __u('\u259A'), __u('\u259C'),
-                __u('\u2596'), __u('\u259E'), __u('\u258C'), __u('\u259B'),
-                __u('\u2584'), __u('\u259F'), __u('\u2599'), __u('\u2580')
+        return (_u('\u2003'), _u('\u259D'), _u('\u2598'), _u('\u2580'),
+                _u('\u2597'), _u('\u2590'), _u('\u259A'), _u('\u259C'),
+                _u('\u2596'), _u('\u259E'), _u('\u258C'), _u('\u259B'),
+                _u('\u2584'), _u('\u259F'), _u('\u2599'), _u('\u2588')
                 )[c-128]
     if(c >= 163):
         return SPECTRUM_COMMANDS[c-163] + ' '
@@ -1987,7 +2021,7 @@ def chartospectrum(c):
     """
 
     # handle control codes
-    if(isinstance(c, (str, __unistr)) and len(c) == 3 and c[0] == '^'):
+    if(isinstance(c, (str, _unistr)) and len(c) == 3 and c[0] == '^'):
         try:
             return chr(int(c[1:], 16))
         except:
@@ -1995,15 +2029,15 @@ def chartospectrum(c):
                 "code must be ^ followed by 2 digit hexadecimal number.")
 
     # If not a single character, check for command
-    if(isinstance(c, (str, __unistr)) and len(c) != 1):
-        if(c in SPECTRUM_COMMANDS):
-            for i in range(len(SPECTRUM_COMMANDS)):
-                if(SPECTRUM_COMMANDS[i] == c):
-                    return chr(i + 163)
+    if(isinstance(c, (str, _unistr)) and len(c) != 1):
+        for i in range(len(SPECTRUM_COMMANDS)):
+            if(SPECTRUM_COMMANDS[i] + ' ' == c or
+               SPECTRUM_COMMANDS[i] == c):
+                return chr(i + 163)
         raise SpectrumTranslateError("Not recognised spectrum command.")
 
     # convert to number
-    if(isinstance(c, (str, __unistr))):
+    if(isinstance(c, (str, _unistr))):
         c = ord(c)
 
     if(c == 0x00A9):
@@ -2014,7 +2048,7 @@ def chartospectrum(c):
         return chr(94)
     blockcodes = (0x2003, 0x259D, 0x2598, 0x2580, 0x2597, 0x2590, 0x259A,
                   0x259C, 0x2596, 0x259E, 0x258C, 0x259B, 0x2584, 0x259F,
-                  0x2599, 0x2580)
+                  0x2599, 0x2588)
     if(c in blockcodes):
         for i in range(len(blockcodes)):
             if(c == blockcodes[i]):
@@ -2070,12 +2104,12 @@ def stringtospectrum(s, wantcommands=True):
 
 # array to map from colours to colour data so that bright black & not
 # bright black both map to 0x000000
-__COLOUR_MAP = (0, 1, 2, 3, 4, 5, 6, 7, 0, 9, 10, 11, 12, 13, 14, 15)
+_COLOUR_MAP = (0, 1, 2, 3, 4, 5, 6, 7, 0, 9, 10, 11, 12, 13, 14, 15)
 # array of ZX spectrum colours
-__ZXCOLOURTORGB = (0x000000, 0x0000CD, 0xCD0000, 0xCD00CD,
-                   0x00CD00, 0x00CDCD, 0xCDCD00, 0xCDCDCD,
-                   0x000000, 0x0000FF, 0xFF0000, 0xFF00FF,
-                   0x00FF00, 0x00FFFF, 0xFFFF00, 0xFFFFFF)
+_ZXCOLOURTORGB = (0x000000, 0x0000CD, 0xCD0000, 0xCD00CD,
+                  0x00CD00, 0x00CDCD, 0xCDCD00, 0xCDCDCD,
+                  0x000000, 0x0000FF, 0xFF0000, 0xFF00FF,
+                  0x00FF00, 0x00FFFF, 0xFFFF00, 0xFFFFFF)
 
 
 def getgiffromscreen(data, delay=320):
@@ -2144,10 +2178,10 @@ def getgiffromscreen(data, delay=320):
 
             # output colour map if not first
             if(not bFirst):
-                for i in __COLOUR_MAP:
-                    self.PutByte((__ZXCOLOURTORGB[i] >> 16) & 0XFF)
-                    self.PutByte((__ZXCOLOURTORGB[i] >> 8) & 0XFF)
-                    self.PutByte(__ZXCOLOURTORGB[i] & 0XFF)
+                for i in _COLOUR_MAP:
+                    self.PutByte((_ZXCOLOURTORGB[i] >> 16) & 0XFF)
+                    self.PutByte((_ZXCOLOURTORGB[i] >> 8) & 0XFF)
+                    self.PutByte(_ZXCOLOURTORGB[i] & 0XFF)
 
             # record initial code bit size
             self.PutByte(4)
@@ -2284,8 +2318,8 @@ def getgiffromscreen(data, delay=320):
             get colour 1-15 of specified pixel, inverted if is flashing.
             """
             colour = self.data[0x1800 + ((y >> 3) << 5) + (x >> 3)]
-            fg = __COLOUR_MAP[(colour & 7) + ((colour >> 3) & 8)]
-            bg = __COLOUR_MAP[(colour >> 3) & 15]
+            fg = _COLOUR_MAP[(colour & 7) + ((colour >> 3) & 8)]
+            bg = _COLOUR_MAP[(colour >> 3) & 15]
 
             # swap foreground & background if flash & second image
             if(colour >= 128 and bFlash):
@@ -2350,10 +2384,10 @@ def getgiffromscreen(data, delay=320):
         return None
 
     # validate data
-    __checkisvalidbytes(data)
+    _checkisvalidbytes(data)
 
     # convert data from string to list of numbers if needed
-    data = __validbytestointlist(data)
+    data = _validbytestointlist(data)
 
     # is there a flash atribute in the screen
     bFlash = False
@@ -2382,10 +2416,10 @@ def getgiffromscreen(data, delay=320):
     ges.PutByte(0)
 
     # output colour map
-    for i in __COLOUR_MAP:
-        ges.PutByte((__ZXCOLOURTORGB[i] >> 16) & 0XFF)
-        ges.PutByte((__ZXCOLOURTORGB[i] >> 8) & 0XFF)
-        ges.PutByte(__ZXCOLOURTORGB[i] & 0XFF)
+    for i in _COLOUR_MAP:
+        ges.PutByte((_ZXCOLOURTORGB[i] >> 16) & 0XFF)
+        ges.PutByte((_ZXCOLOURTORGB[i] >> 8) & 0XFF)
+        ges.PutByte(_ZXCOLOURTORGB[i] & 0XFF)
 
     # put delay if have flash & want image (delay != -1)
     if(bFlash and delay != -1):
@@ -2431,10 +2465,10 @@ def getrgbfromscreen(data):
     """
 
     # validate data
-    __checkisvalidbytes(data)
+    _checkisvalidbytes(data)
 
     # convert data from string to list of numbers if needed
-    data = __validbytestointlist(data)
+    data = _validbytestointlist(data)
 
     # calculate number of images needed: is there a flash flag set in
     # the colour area?
@@ -2456,8 +2490,8 @@ def getrgbfromscreen(data):
         for x in range(0, 256, 8):
             # work out foreground & backgrounc colour
             i = data[c]
-            fg = __ZXCOLOURTORGB[(i & 7) + ((i >> 3) & 8)]
-            bg = __ZXCOLOURTORGB[(i >> 3) & 15]
+            fg = _ZXCOLOURTORGB[(i & 7) + ((i >> 3) & 8)]
+            bg = _ZXCOLOURTORGB[(i >> 3) & 15]
             # get pixel data for 8 pixel row
             i = data[p]
             image1.append(bg if (i & 128) == 0 else fg)
@@ -2482,8 +2516,8 @@ def getrgbfromscreen(data):
             for x in range(0, 256, 8):
                 # work out foreground & backgrounc colour
                 i = data[c]
-                fg = __ZXCOLOURTORGB[(i & 7) + ((i >> 3) & 8)]
-                bg = __ZXCOLOURTORGB[(i >> 3) & 15]
+                fg = _ZXCOLOURTORGB[(i & 7) + ((i >> 3) & 8)]
+                bg = _ZXCOLOURTORGB[(i >> 3) & 15]
                 if(i >= 128):
                     # swap foreground & background as flashing
                     fg, bg = bg, fg
@@ -2534,10 +2568,10 @@ def snaptosna(data, register, border=0):
         raise SpectrumTranslateError("Wrong size memory")
 
     # validate data
-    __checkisvalidbytes(data)
+    _checkisvalidbytes(data)
 
     # convert data from string to list of numbers if needed
-    data = __validbytestointlist(data)
+    data = _validbytestointlist(data)
 
     # output common headder registers
     out = [register["I"] & 0xFF,
@@ -2696,10 +2730,10 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
             "Valid version numbers for Z80 files are 1, 2, and 3.")
 
     # validate data
-    __checkisvalidbytes(data)
+    _checkisvalidbytes(data)
 
     # convert data from string to list of numbers if needed
-    data = __validbytestointlist(data)
+    data = _validbytestointlist(data)
 
     # save off basic registers in 30 byte headder
     out = [register["A"],
@@ -2878,10 +2912,10 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
     currentAddress = origin + offset
 
     # validate data
-    __checkisvalidbytes(data)
+    _checkisvalidbytes(data)
 
     # convert data from string to list of numbers if needed
-    data = __validbytestointlist(data)
+    data = _validbytestointlist(data)
 
     # get list of line numbers that are being referenced
     ReferencedLineNumbers = [currentAddress]
@@ -3008,22 +3042,22 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
 
                 elif(di.instruction & 0xFF00 == 0x0D00):
                     # DisplayComments
-                    DisplayCommandBytes = di.instruction & 0x01
+                    DisplayComments = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0E00):
+                elif(di.instruction & 0xFFFF == 0x0E00):
                     # Seperator space
                     Seperator = "  "
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0E01):
+                elif(di.instruction & 0xFFFF == 0x0E01):
                     # Seperator tab
                     Seperator = "\t"
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0E02):
+                elif(di.instruction & 0xFFFF == 0x0E02):
                     # Seperator custom
-                    Seperator = di.instruction.data
+                    Seperator = di.data
                     continue
 
                 elif(di.instruction & 0xFF00 == 0x0F00):
@@ -3059,13 +3093,13 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
 
                 # first check is valid test block
                 if(TestBlock is None):
-                    raise __newSpectrumTranslateError(
+                    raise _newSpectrumTranslateError(
                         Vars[0x0A], 0, di.data,
                         "patern to search for must be inside brackets")
 
                 # now check is valid preperation block
                 if(PrepBlock is None):
-                    raise __newSpectrumTranslateError(
+                    raise _newSpectrumTranslateError(
                         Vars[0x0A], 0, di.data,
                         "preperation block must be inside brackets")
 
@@ -3092,18 +3126,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                 # matches
                 k = di.start
                 while(k <= di.end):
-                    Settings["DATASTRINGPOS"] = 0
-                    Vars[0x00] = k
-                    Vars[0x01] = di.end
-                    Vars[0x0C] = 0
-                    Vars[0x0A] = k
-                    Vars[0x0D] = k
-                    Vars[0x0E] = di.end
-                    # test each address
-                    if((DisassembleInstruction.__processcommandblock(
-                            TestBlock, Vars, Settings, data, None, true, true,
-                            None) & 1) == 1):
-                        # have found match
+                    try:
                         Settings["DATASTRINGPOS"] = 0
                         Vars[0x00] = k
                         Vars[0x01] = di.end
@@ -3111,17 +3134,34 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                         Vars[0x0A] = k
                         Vars[0x0D] = k
                         Vars[0x0E] = di.end
-                        # now adjust variables as needed
-                        DisassembleInstruction.__processcommandblock(
-                            PrepBlock, Vars, Settings, data, None, true, false,
-                            None)
-                        # add datablock
-                        DisassembleInstructions += [DisassembleInstruction(
-                            DisassembleInstruction.DISASSEMBLE_CODES[
-                                "Data Block"], Vars[0x00], Vars[0x01],
-                            ActionBlock)]
+                        # test each address
+                        if((_processcommandblock(TestBlock, Vars, Settings,
+                                                 data, True, True,
+                                                 None)[0] & 1) == 1):
+                            # have found match
+                            Settings["DATASTRINGPOS"] = 0
+                            Vars[0x00] = k
+                            Vars[0x01] = di.end
+                            Vars[0x0C] = 0
+                            Vars[0x0A] = k
+                            Vars[0x0D] = k
+                            Vars[0x0E] = di.end
+                            # now adjust variables as needed
+                            _processcommandblock(PrepBlock, Vars, Settings,
+                                                 data, True, False, None)
+                            # add datablock
+                            DisassembleInstructions += [DisassembleInstruction(
+                                DisassembleInstruction.DISASSEMBLE_CODES[
+                                    "Data Block"], Vars[0x00], Vars[0x01],
+                                ActionBlock)]
 
-                    k += 1
+                        k += 1
+                    except IndexError:
+                        raise
+                        raise _newSpectrumTranslateError(
+                            Vars[0x0A], 0, di.data,
+                            "Attempt to reference data outside of supplied \
+code in pattern data block")
 
                 continue
 
@@ -3160,11 +3200,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
     # output start text
     if(XMLOutput == 1):
         soutput = '<?xml version="1.0" encoding="UTF-8" ?>\n<z80code>\n  <org>'
-        soutput += __numbertostring(currentAddress, 16, AddressOutput)
+        soutput += _numbertostring(currentAddress, 16, AddressOutput)
         soutput += "</org>\n"
 
     else:
-        soutput = "ORG " + __numbertostring(currentAddress, 16, AddressOutput)
+        soutput = "ORG " + _numbertostring(currentAddress, 16, AddressOutput)
         soutput += "\n\n"
 
     # di is next disassemble instruction
@@ -3336,19 +3376,19 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
 
             elif(di.instruction & 0xFF00 == 0x0D00):
                 # DisplayComments
-                DisplayCommandBytes = di.instruction & 0x01
+                DisplayComments = di.instruction & 0x01
 
-            elif(di.instruction & 0xFF00 == 0x0E00):
+            elif(di.instruction & 0xFFFF == 0x0E00):
                 # Seperator space
                 Seperator = "  "
 
-            elif(di.instruction & 0xFF00 == 0x0E01):
+            elif(di.instruction & 0xFFFF == 0x0E01):
                 # Seperator tab
                 Seperator = "\t"
 
-            elif(di.instruction & 0xFF00 == 0x0E02):
+            elif(di.instruction & 0xFFFF == 0x0E02):
                 # Seperator custom
-                Seperator = di.instruction.data
+                Seperator = di.data
 
             elif(di.instruction & 0xFF00 == 0x0F00):
                 # Display flags
@@ -3434,8 +3474,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
         try:
             # first check for & replace displacement byte
             if("d" in s):
-                s = s.replace("d", __numbertostring(data[offset + dataOffset],
-                                                    8, NumberOutput, True))
+                s = s.replace("d", _numbertostring(data[offset + dataOffset],
+                                                   8, NumberOutput, True))
                 dataOffset += 1
                 commandlength += 1
 
@@ -3448,8 +3488,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                     data[offset + dataOffset] < 128) else \
                     data[offset + dataOffset] - 256
 
-                s = s.replace("j", __numbertostring(i, 16, AddressOutput,
-                                                    True))
+                s = s.replace("j", _numbertostring(i, 16, AddressOutput, True))
                 dataOffset += 1
                 commandlength += 1
 
@@ -3462,8 +3501,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                 i = data[offset + dataOffset] + \
                     256*data[offset + dataOffset + 1]
 
-                s = s.replace("aa", __numbertostring(i, 16, AddressOutput,
-                                                     True))
+                s = s.replace("aa", _numbertostring(i, 16, AddressOutput,
+                                                    True))
                 dataOffset += 2
                 commandlength += 2
 
@@ -3476,8 +3515,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                 i = data[offset + dataOffset] + \
                     256*data[offset + dataOffset + 1]
 
-                s = s.replace("nn", __numbertostring(i, 16, NumberOutput,
-                                                     True))
+                s = s.replace("nn", _numbertostring(i, 16, NumberOutput, True))
                 dataOffset += 2
                 commandlength += 2
 
@@ -3487,8 +3525,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
 
             # check for & replace 1 byte number
             if("n" in s):
-                s = s.replace("n", __numbertostring(data[offset + dataOffset],
-                                                    8, NumberOutput, True))
+                s = s.replace("n", _numbertostring(data[offset + dataOffset],
+                                                   8, NumberOutput, True))
                 dataOffset += 1
                 commandlength += 1
 
@@ -3511,7 +3549,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
 
         # Handle XML output
         if(XMLOutput == 1):
-            soutput += "  <line><address>" + __numbertostring(
+            soutput += "  <line><address>" + _numbertostring(
                 currentAddress, 16, AddressOutput, AddressOutput > 1) + \
                 "</address>"
 
@@ -3530,7 +3568,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                 i += 1 << 5
 
             soutput += "\0" + chr(i) + chr(ListEveryXLines)
-            soutput += __numbertostring(currentAddress, 16, 0, False)
+            soutput += _numbertostring(currentAddress, 16, 0, False)
 
             # add seperator after address
             soutput += Seperator
@@ -3542,7 +3580,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
         # Handle XML output
         if(XMLOutput == 1):
             soutput += "<bytes>{0}</bytes>".format(
-                ",".join([__numbertostring(b, 8, CommandOutput, False) for b in
+                ",".join([_numbertostring(b, 8, CommandOutput, False) for b in
                           data[offset:offset + commandlength]]))
 
         # handle non-XML
@@ -3550,7 +3588,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
             # only do if want them output
             if(DisplayCommandBytes == 0):
                 soutput += ",".join(
-                    [__numbertostring(b, 8, CommandOutput, False) for b in
+                    [_numbertostring(b, 8, CommandOutput, False) for b in
                      data[offset:offset + commandlength]])
 
                 # now ensure opcodes line up
@@ -3604,7 +3642,9 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
             duration, states = GetTimingInfo(instructionTimes)
 
             # now output timings
-            soutput += "<timeing><cycles>" + str(duration[0]) + "</cycles>"
+            soutput += "<timeing><cycles>"
+            soutput += "unknown" if duration[0] == 0 else str(duration[0])
+            soutput += "</cycles>"
 
             if(states is not None):
                 soutput += "<tstates>" + ",".join(str(x) for x in states[0])
@@ -3661,7 +3701,10 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                 # now output timings
                 soutput += "T="
                 if((OutputTStates & 1) == 1):
-                    soutput += str(duration[0])
+                    if(duration[0] == 0):
+                        soutput += "unknown"
+                    else:
+                        soutput += str(duration[0])
 
                 if((OutputTStates & 2) == 2 and states is not None):
                     soutput += "(" + ",".join(str(x) for x in states[0]) + ")"
@@ -3758,8 +3801,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
            (LineNumberOutput == 2 and currentAddress in ReferencedLineNumbers)
            ):
             # output address
-            s = __numbertostring(currentAddress, 16, AddressOutput,
-                                 AddressOutput > 1)
+            s = _numbertostring(currentAddress, 16, AddressOutput,
+                                AddressOutput > 1)
 
             # reset line counter
             lineCounter = 0
@@ -3907,7 +3950,7 @@ DB        %#output instruction (DB or define byte in this case)
 %$-I      %#close instruction tag
 %S        %#seperator
 %$D       %#start data tag
-%F0000    %#set format to hexadecimal
+%F0000    %#set format to hexadecimal (default for generic define byte)
 %F0100    %#set format to unsigned
 #         %#output '#' to indicate hex number following
 %B0F      %#output contents at current position as byte,
@@ -3987,7 +4030,7 @@ b         %#output 'b' to indicate binary number following
 %$-A      %#close address xml tag
 %S%S      %#seperator
 %$I       %#start instruction xml tag
-SB        %#output instruction (SB or signed byte in this case)
+SB        %#output instruction (SB or signed byte in this case) default to hex
 %$-I      %#close instruction tag
 %S        %#seperator
 %$D       %#start data tag
@@ -4075,7 +4118,7 @@ b         %#output 'b' to indicate binary number following
 %$-A      %#close address xml tag
 %S%S      %#seperator
 %$I       %#start instruction xml tag
-DW        %#output instruction (DW or define word in this case)
+DW        %#output instruction (DW or define word in this case) default to hex
 %$-I      %#close instruction tag
 %S        %#seperator
 %$D       %#start data tag
@@ -4164,7 +4207,7 @@ b         %#output 'b' to indicate binary number following
 %$-A      %#close address xml tag
 %S%S      %#seperator
 %$I       %#start instruction xml tag
-SW        %#output instruction (SW or signed word in this case)
+SW        %#output instruction (SW or signed word in this case) default to hex
 %$-I      %#close instruction tag
 %S        %#seperator
 %$D       %#start data tag
@@ -4254,6 +4297,7 @@ b         %#output 'b' to indicate binary number following
 %S%S      %#seperator
 %$I       %#start instruction xml tag
 DWBE      %#output instruction (DWBE or define word big endian in this case)
+          %#default to hexadecimal
 %$-I      %#close instruction tag
 %S        %#seperator
 %$D       %#start data tag
@@ -4343,6 +4387,7 @@ b         %#output 'b' to indicate binary number following
 %S%S      %#seperator
 %$I       %#start instruction xml tag
 SWBE      %#output instruction (SWBE or signed word big endian in this case)
+          %#default to hexadecimal
 %$-I      %#close instruction tag
 %S        %#seperator
 %$D       %#start data tag
@@ -4841,7 +4886,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
                       c == '\n']),
             self.data.replace('\n', ''))
 
-    def __cmp(self, other):
+    def __cmp__(self, other):
         # defined so can sort by starting address
         return self.start.__cmp__(other.start)
 
@@ -4881,7 +4926,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
                 commandstart = Settings["DATASTRINGPOS"]
 
                 # get next char
-                s = __getnextcharacters(self.data, Settings, 1)
+                s = _getnextcharacters(self.data, Settings, 1)
 
                 if(s == ""):
                     break
@@ -4896,9 +4941,14 @@ DEFB               %#output instuction (DEFB or Define Byte)
 
                 # deal with any instructions
                 # can ignore result
-                res, txt = __processcommandblock(self.data, Vars, Settings,
-                                                 data, False, False,
-                                                 ReferencedLineNumbers)
+                try:
+                    res, txt = _processcommandblock(self.data, Vars, Settings,
+                                                    data, False, False,
+                                                    ReferencedLineNumbers)
+                except IndexError:
+                    raise _newSpectrumTranslateError(
+                        Vars[0x0A], 0, di.data,
+                        "attempt to access data outside of supplied code")
 
                 soutput += txt
 
@@ -4918,7 +4968,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
         return Vars[0x0E], soutput
 
 
-def __numbertostring(n, bits, form, typeindicator=True):
+def _numbertostring(n, bits, form, typeindicator=True):
     """format: 0=hex,1=decimal,2=octal,3=binary
     typeindictor specifies display type specifer before number: "" for
     decimal, "#" for hex, "b" for binary, "o" for octal.
@@ -4946,7 +4996,7 @@ def __numbertostring(n, bits, form, typeindicator=True):
         return ""
 
 
-def __getnextcharacters(instructions, Settings, numberToGet):
+def _getnextcharacters(instructions, Settings, numberToGet):
     """Returns required number of characters skipping space, new line,
     tabs, and comments.
     """
@@ -4991,14 +5041,14 @@ def __getnextcharacters(instructions, Settings, numberToGet):
     return s
 
 
-def __movetoblockend(instructions, Vars, Settings, commandstart):
+def _movetoblockend(instructions, Vars, Settings, commandstart):
     """move to end of specified command block"""
 
     # for each line go through commands instructions character by
     # chracter
     while(Settings["DATASTRINGPOS"] < len(instructions)):
         # get next char
-        s = __getnextcharacters(instructions, Settings, 1)
+        s = _getnextcharacters(instructions, Settings, 1)
 
         if(s == ""):
             break
@@ -5008,7 +5058,7 @@ def __movetoblockend(instructions, Vars, Settings, commandstart):
             continue
 
         # get next char
-        s = __getnextcharacters(instructions, Settings, 1)
+        s = _getnextcharacters(instructions, Settings, 1)
 
         if(s == ""):
             break
@@ -5016,7 +5066,7 @@ def __movetoblockend(instructions, Vars, Settings, commandstart):
         # what command is it?
         if(s[0] == "("):
             # move to end of nested block
-            __movetoblockend(instructions, Vars, Settings, commandstart)
+            _movetoblockend(instructions, Vars, Settings, commandstart)
 
         # return if found end of block
         elif(s[0] == ')'):
@@ -5026,12 +5076,12 @@ def __movetoblockend(instructions, Vars, Settings, commandstart):
 
     # should always find end of block with close brackets, error if
     # block not closed
-    raise __newSpectrumTranslateError(Vars[0x0A], commandstart, instructions,
-                                      "no closing brackets to  block")
+    raise _newSpectrumTranslateError(Vars[0x0A], commandstart, instructions,
+                                     "no closing brackets to  block")
 
 
-def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
-                          InTest, ReferencedLineNumbers):
+def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
+                         InTest, ReferencedLineNumbers):
     """processes an instruction block.
        return bit 0 1=true, 0=false
        bit 1 2=break, 0=not break
@@ -5039,7 +5089,7 @@ def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
        ,output text
     """
 
-    # nested functions needed by __processcommandblock
+    # nested functions needed by _processcommandblock
     def inc_var_if_needed(var_num, Vars, inc_amount):
         """increment variable if apropriate"""
         if((var_num & 0x40) == 0 and ((var_num & 0x3F) < 0x0A or
@@ -5055,10 +5105,10 @@ def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
         pos = Settings["DATASTRINGPOS"]
 
         # get next char
-        s = __getnextcharacters(instructions, Settings, 1)
+        s = _getnextcharacters(instructions, Settings, 1)
 
         if(s == ""):
-            raise __newSpectrumTranslateError(
+            raise _newSpectrumTranslateError(
                 Vars[0x0A], commandstart, instructions,
                 "Invalid variable or number definition")
 
@@ -5068,24 +5118,24 @@ def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
             Settings["DATASTRINGPOS"] = pos
 
             # extract number
-            i = int(__getnextcharacters(instructions, Settings, 4), 16)
+            i = int(_getnextcharacters(instructions, Settings, 4), 16)
             # deal with error
             if(i < 0):
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "number must be 4 digit hexadecimal number")
 
             return i
 
         # get next char
-        s = __getnextcharacters(instructions, Settings, 1)
+        s = _getnextcharacters(instructions, Settings, 1)
 
         if(s[0] == "V"):
             # get variable number
-            i = int(__getnextcharacters(instructions, Settings, 2), 16)
+            i = int(_getnextcharacters(instructions, Settings, 2), 16)
             # deal with invalid variable number
             if(i < 0 or i > 0x0F):
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions, "invalid variable")
 
             # return variable's content
@@ -5093,14 +5143,14 @@ def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
 
         # should now be 'M', handle if not
         if(s[0] != "M"):
-            raise __newSpectrumTranslateError(
+            raise _newSpectrumTranslateError(
                 Vars[0x0A], commandstart, instructions,
                 "argument must be number, variable, or memory content")
 
         pos = Settings["DATASTRINGPOS"]
 
         # get next char
-        s = __getnextcharacters(instructions, Settings, 1)
+        s = _getnextcharacters(instructions, Settings, 1)
 
         # if next char is 'W' then need to get 2 bytes
         if(s[0] == "W"):
@@ -5108,7 +5158,7 @@ def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
             getByte = False
 
             # get next char
-            s = __getnextcharacters(instructions, Settings, 1)
+            s = _getnextcharacters(instructions, Settings, 1)
 
             pos = Settings["DATASTRINGPOS"]
 
@@ -5117,10 +5167,10 @@ def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
         # if next char is 'V' then variable pointing to memory address
         if(s[0] == "V"):
             # get variable number
-            i = int(__getnextcharacters(instructions, Settings, 2), 16)
+            i = int(_getnextcharacters(instructions, Settings, 2), 16)
             # deal with invalid variable number
             if(i < 0 or i > 0x0F):
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "invalid variable number for memory address")
 
@@ -5134,10 +5184,10 @@ def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
             Settings["DATASTRINGPOS"] = pos
 
             # extract number
-            i = int(__getnextcharacters(instructions, Settings, 4), 16)
+            i = int(_getnextcharacters(instructions, Settings, 4), 16)
             # deal with error
             if(i < 0):
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "should be 4 digit hexadecimal number for memory address")
 
@@ -5160,7 +5210,7 @@ def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
         if(mode == 2):
             return a ^ b
 
-    # end of __processcommandblock's nested functions
+    # end of _processcommandblock's nested functions
 
     boolState = False
     boolMode = 1      # 0=and, 1=or, 2=xor
@@ -5173,7 +5223,7 @@ def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
         commandstart = Settings["DATASTRINGPOS"]
 
         # get next char
-        s = __getnextcharacters(instructions, Settings, 1)
+        s = _getnextcharacters(instructions, Settings, 1)
 
         if(s == ""):
             break
@@ -5184,15 +5234,15 @@ def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
             continue
 
         # get next char (command
-        s = __getnextcharacters(instructions, Settings, 1)
+        s = _getnextcharacters(instructions, Settings, 1)
 
         # what command is it?
         if(s[0] == 'F'):  # //format settings
             # get sub command & which format
-            i = int(__getnextcharacters(instructions, Settings, 4), 16)
+            i = int(_getnextcharacters(instructions, Settings, 4), 16)
             if((i >> 8) == 0):  # format hex/decimal/octal/binary
                 if((i & 0xFF) > 6):
-                    raise __newSpectrumTranslateError(
+                    raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "Number format argument must be 0 to 6")
 
@@ -5210,7 +5260,7 @@ def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
 
             elif((i >> 8) == 1):  # number unsigned/signed
                 if((i & 0xFF) > 1):
-                    raise __newSpectrumTranslateError(
+                    raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "Number sign argument must be 0 or 1")
 
@@ -5218,16 +5268,16 @@ def __processcommandblock(instructions, Vars, Settings, data, inBrackets,
 
             elif((i >> 8) == 2):  # word mode little/big endian
                 if((i & 0xFF) > 1):
-                    raise __newSpectrumTranslateError(
+                    raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "Word endedness argument must be 0 or 1")
 
                 Settings["NUMBERWORDORDER"] = i & 0xFF
 
             elif((i >> 8) == 3):  # display line address every X line
-                k = int(__getnextcharacters(instructions, Settings, 2), 16)
+                k = int(_getnextcharacters(instructions, Settings, 2), 16)
                 if(k < 0 or k > 255):
-                    raise __newSpectrumTranslateError(
+                    raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "Display line address every X line argument must be 2 \
 digit hexadecimal number")
@@ -5236,7 +5286,7 @@ digit hexadecimal number")
 
             elif((i >> 8) == 4):  # separator to space/tab/default
                 if((i & 0xFF) > 2):
-                    raise __newSpectrumTranslateError(
+                    raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "Seperator setting argument must be 0 to 2")
 
@@ -5250,16 +5300,16 @@ digit hexadecimal number")
                     Settings["SEPERATOR"] = Settings["ORIGIONALSEPERATOR"]
 
             else:
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "unrecognised format setting")
 
         elif(s[0] == 'B'):  # ouput byte
             # get info
-            i = int(__getnextcharacters(instructions, Settings, 2), 16)
+            i = int(_getnextcharacters(instructions, Settings, 2), 16)
             if((i & 0x3F) == 0x3F):  # dealing with addresses
                 # get address
-                k = int(__getnextcharacters(instructions, Settings, 4), 16)
+                k = int(_getnextcharacters(instructions, Settings, 4), 16)
                 # getbyte at address, adjust for offset
                 k = data[k-Settings["ORIGIN"]]
 
@@ -5274,7 +5324,7 @@ digit hexadecimal number")
                 inc_var_if_needed(i, Vars, 1)
 
             else:
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "invalid byte output argument")
 
@@ -5284,14 +5334,14 @@ digit hexadecimal number")
                 soutput += "-"
 
             # output byte
-            soutput += __numbertostring(k, 8, Settings["NUMBERFORMAT"], False)
+            soutput += _numbertostring(k, 8, Settings["NUMBERFORMAT"], False)
 
         elif(s[0] == 'W'):  # output word
             # get info
-            i = int(__getnextcharacters(instructions, Settings, 2), 16)
+            i = int(_getnextcharacters(instructions, Settings, 2), 16)
             if((i & 0x3F) == 0x3F):  # dealing with addresses
                 # get address
-                k = int(__getnextcharacters(instructions, Settings, 4), 16)
+                k = int(_getnextcharacters(instructions, Settings, 4), 16)
                 # getbyte, adjust for offset
                 k = data[k-Settings["ORIGIN"] +
                          Settings["NUMBERWORDORDER"]] + \
@@ -5313,7 +5363,7 @@ digit hexadecimal number")
                 inc_var_if_needed(i, Vars, 2)
 
             else:
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "invalid number output argument")
 
@@ -5323,17 +5373,17 @@ digit hexadecimal number")
                 soutput += "-"
 
             # output word
-            soutput += __numbertostring(k, 16, Settings["NUMBERFORMAT"], False)
+            soutput += _numbertostring(k, 16, Settings["NUMBERFORMAT"], False)
             # remember number incase it is line number
             if(ReferencedLineNumbers is not None):
                 ReferencedLineNumbers += [k]
 
         elif(s[0] == 'A'):  # output address
             # get info
-            i = int(__getnextcharacters(instructions, Settings, 2), 16)
+            i = int(_getnextcharacters(instructions, Settings, 2), 16)
             if((i & 0x3F) == 0x3F):  # dealing with addresses
                 # get address
-                k = int(__getnextcharacters(instructions, Settings, 4), 16)
+                k = int(_getnextcharacters(instructions, Settings, 4), 16)
                 # getbyte, adjust for offset
                 k = data[k-Settings["ORIGIN"] +
                          Settings["NUMBERWORDORDER"]] + \
@@ -5354,29 +5404,29 @@ digit hexadecimal number")
                 inc_var_if_needed(i, Vars, 2)
 
             else:
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "invalid address output argument")
 
             # output address
             if(Settings["XMLOutput"] == 1):
-                soutput += __numbertostring(k, 16, Settings["NUMBERFORMAT"],
-                                            False)
+                soutput += _numbertostring(k, 16, Settings["NUMBERFORMAT"],
+                                           False)
 
             else:
                 i = Settings["NUMBERFORMAT"] + 4
                 if(Settings["SEPERATOR"] != "  "):
                     i += 1 << 5
                 soutput += "\0" + chr(i) + chr(Settings["DISPLAYEVERYXLINES"])
-                soutput += __numbertostring(k, 16, 0, False)
+                soutput += _numbertostring(k, 16, 0, False)
 
         # output char, defaults to unsigned byte if not printable
         elif(s[0] == 'C'):
             # get info
-            i = int(__getnextcharacters(instructions, Settings, 2), 16)
+            i = int(_getnextcharacters(instructions, Settings, 2), 16)
             if((i & 0x3F) == 0x3F):  # dealing with addresses
                 # get address
-                k = int(__getnextcharacters(instructions, Settings, 4), 16)
+                k = int(_getnextcharacters(instructions, Settings, 4), 16)
                 # getbyte, adjust for offset
                 k = data[k-Settings["ORIGIN"]]
 
@@ -5391,7 +5441,7 @@ digit hexadecimal number")
                 inc_var_if_needed(i, Vars, 1)
 
             else:
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "invalid character output argument")
 
@@ -5400,10 +5450,10 @@ digit hexadecimal number")
 
         elif(s[0] == 'G'):  # output 5 byte floating point number
             # get info
-            i = int(__getnextcharacters(instructions, Settings, 2), 16)
+            i = int(_getnextcharacters(instructions, Settings, 2), 16)
             if((i & 0x3F) == 0x3F):  # dealing with addresses
                 # get address
-                k = int(__getnextcharacters(instructions, Settings, 4), 16)
+                k = int(_getnextcharacters(instructions, Settings, 4), 16)
                 # get and output floating point number
                 soutput += str(SpectrumNumber(data[k-Settings["ORIGIN"]:
                                                    k-Settings["ORIGIN"] + 5]))
@@ -5414,7 +5464,7 @@ digit hexadecimal number")
                     Vars[0x0C] if ((i & 0x3F) == 0x0F) else Vars[i & 0x3F]
                 # has to be a memory address that holds 5 byte number
                 if((i & 0x80) != 0):
-                    raise __newSpectrumTranslateError(
+                    raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "invalid floating point number output argument")
 
@@ -5425,7 +5475,7 @@ digit hexadecimal number")
                 inc_var_if_needed(i, Vars, 5)
 
             else:
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "invalid floating point number output argument")
 
@@ -5449,19 +5499,19 @@ digit hexadecimal number")
         # maths
         elif(s[0] == 'X'):
             # get sub command
-            i = int(__getnextcharacters(instructions, Settings, 2), 16)
+            i = int(_getnextcharacters(instructions, Settings, 2), 16)
             # check if valid command
             if(i < 0 or i > 9):
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "invalid arithmetic operation. Must be 0 to 9")
 
             # where to store result
-            result = int(__getnextcharacters(instructions, Settings, 2), 16)
+            result = int(_getnextcharacters(instructions, Settings, 2), 16)
             # check is valid resultlocation
             if(result < 0 or (result > 9 and result != 0x0C and
                result != 0x0E and result != 0x0F)):
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "invalid arithmetic destination")
 
@@ -5473,7 +5523,7 @@ digit hexadecimal number")
                                             commandstart) if (i != 1) else 0
 
             # now process variables
-            if(i == 0):    # let
+            if(i == 1):    # let
                 k = arga
             elif(i == 2):  # add
                 k = arga + argb
@@ -5506,22 +5556,22 @@ digit hexadecimal number")
         # flow
         elif(s[0] == '('):
             # process contents of brackets and combine result
-            i, txt = __processcommandblock(instructions, Vars, Settings, data,
-                                           True, InTest, ReferencedLineNumbers)
+            i, txt = _processcommandblock(instructions, Vars, Settings, data,
+                                          True, InTest, ReferencedLineNumbers)
             soutput += txt
             boolState = combineresults(boolMode, boolState, (i & 1) == 1)
             i = i & 6
             # if break or continue, leave
             if(i != 0):
                 # move to end of current block
-                __movetoblockend(instructions, Vars, Settings, commandstart)
+                _movetoblockend(instructions, Vars, Settings, commandstart)
                 # leave block
                 return i + (1 if boolState else 0), soutput
 
         elif(s[0] == ')'):
             # if not in brackets  then error
             if(not inBrackets):
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "Closing brackets without opening brackets")
 
@@ -5530,21 +5580,21 @@ digit hexadecimal number")
 
         elif(s[0] == 'I'):  # if then block
             # should have brackets afterwards
-            if(__getnextcharacters(instructions, Settings, 2) != "%("):
-                raise __newSpectrumTranslateError(
+            if(_getnextcharacters(instructions, Settings, 2) != "%("):
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "bracket bound test must follow if statement")
 
             # test if block
-            result, txt = __processcommandblock(instructions, Vars, Settings,
-                                                data, True, True,
-                                                ReferencedLineNumbers)
+            result, txt = _processcommandblock(instructions, Vars, Settings,
+                                               data, True, True,
+                                               ReferencedLineNumbers)
             bTest = (result & 1) == 1
             soutput += txt
 
             # should have brackets afterwards for instruction block
-            if(__getnextcharacters(instructions, Settings, 2) != "%("):
-                raise __newSpectrumTranslateError(
+            if(_getnextcharacters(instructions, Settings, 2) != "%("):
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "bracket bound action must follow if test")
 
@@ -5552,30 +5602,30 @@ digit hexadecimal number")
             k = 0
             # if contition met then process block
             if(bTest):
-                k, txt = __processcommandblock(instructions, Vars, Settings,
-                                               data, True, InTest,
-                                               ReferencedLineNumbers)
+                k, txt = _processcommandblock(instructions, Vars, Settings,
+                                              data, True, InTest,
+                                              ReferencedLineNumbers)
                 soutput += txt
 
             # otherwise move past command block
             else:
-                __movetoblockend(instructions, Vars, Settings, commandstart)
+                _movetoblockend(instructions, Vars, Settings, commandstart)
 
             # save position before checking to see if is else statement
             # following
             i = Settings["DATASTRINGPOS"]
             # see if is an else block
-            if(__getnextcharacters(instructions, Settings, 2) == "%J"):
+            if(_getnextcharacters(instructions, Settings, 2) == "%J"):
                 # should have brackets afterwards for instruction block
-                if(__getnextcharacters(instructions, Settings, 2) != "%("):
-                    raise __newSpectrumTranslateError(
+                if(_getnextcharacters(instructions, Settings, 2) != "%("):
+                    raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "bracket bound action must follow else statement")
 
                 # process block
-                k, txt = __processcommandblock(instructions, Vars, Settings,
-                                               data, True, InTest,
-                                               ReferencedLineNumbers)
+                k, txt = _processcommandblock(instructions, Vars, Settings,
+                                              data, True, InTest,
+                                              ReferencedLineNumbers)
                 soutput += txt
 
             # otherwise reset string position
@@ -5586,14 +5636,14 @@ digit hexadecimal number")
             # leave
             if((k & 6) != 0):
                 # move to end of current block
-                __movetoblockend(instructions, Vars, Settings, commandstart)
+                _movetoblockend(instructions, Vars, Settings, commandstart)
                 # leave block
                 return k, soutput
 
         elif(s[0] == 'L'):  # while do loop
             # should have brackets afterwards
-            if(__getnextcharacters(instructions, Settings, 2) != "%("):
-                raise __newSpectrumTranslateError(
+            if(_getnextcharacters(instructions, Settings, 2) != "%("):
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "bracket bound test must follow loop statement")
 
@@ -5608,38 +5658,38 @@ digit hexadecimal number")
                 Settings["DATASTRINGPOS"] = i
 
                 # test if block
-                result, txt = __processcommandblock(instructions, Vars,
-                                                    Settings, data, True, True,
-                                                    ReferencedLineNumbers)
+                result, txt = _processcommandblock(instructions, Vars,
+                                                   Settings, data, True, True,
+                                                   ReferencedLineNumbers)
                 bTest = (result & 1) == 1
                 soutput += txt
 
                 # should have brackets afterwards for instruction block
-                if(__getnextcharacters(instructions, Settings, 2) != "%("):
-                    raise __newSpectrumTranslateError(
+                if(_getnextcharacters(instructions, Settings, 2) != "%("):
+                    raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "bracket bound action must follow loop test")
 
                 # if contition met then process block
                 if(bTest):
-                    result, txt = __processcommandblock(instructions, Vars,
-                                                        Settings, data, True,
-                                                        InTest,
-                                                        ReferencedLineNumbers)
+                    result, txt = _processcommandblock(instructions, Vars,
+                                                       Settings, data, True,
+                                                       InTest,
+                                                       ReferencedLineNumbers)
                     soutput += txt
                     if((result & 2) == 2):
                         # if break from routine then break out of loop
 
                         # move to end of current block
-                        __movetoblockend(instructions, Vars, Settings,
-                                         commandstart)
+                        _movetoblockend(instructions, Vars, Settings,
+                                        commandstart)
 
                         break
 
                 # otherwise move past command block
                 if(not bTest):
-                    __movetoblockend(instructions, Vars, Settings,
-                                     commandstart)
+                    _movetoblockend(instructions, Vars, Settings,
+                                    commandstart)
 
         # end data block
         elif(s[0] == 'Q'):
@@ -5672,7 +5722,7 @@ digit hexadecimal number")
         # comparitors
         elif(s[0] == '?'):
             # get next chars
-            comp = __getnextcharacters(instructions, Settings, 2)
+            comp = _getnextcharacters(instructions, Settings, 2)
 
             # check if mode change
             if(comp[0] == 'B'):
@@ -5683,7 +5733,7 @@ digit hexadecimal number")
                 elif(comp[1] == 'X'):  # xor
                     boolMode = 2
                 else:  # unrecognised mode command
-                    raise __newSpectrumTranslateError(
+                    raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "unrecognised boolean combination mode")
 
@@ -5700,7 +5750,7 @@ digit hexadecimal number")
                ):
                 # can leave test as have found answer
                 # move to end of current block
-                __movetoblockend(instructions, Vars, Settings, commandstart)
+                _movetoblockend(instructions, Vars, Settings, commandstart)
                 # return from test block
                 return 1 if boolState else 0, soutput
 
@@ -5710,7 +5760,7 @@ digit hexadecimal number")
                 i = {"LT": 0, "MT": 1, "EQ": 2, "LE": 3, "ME": 4,
                      "NE": 5}[comp]
             except:
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "unrecognised comparison")
 
@@ -5742,17 +5792,17 @@ digit hexadecimal number")
             closetag = False
 
             # get next char
-            nextchar = __getnextcharacters(instructions, Settings, 1)
+            nextchar = _getnextcharacters(instructions, Settings, 1)
 
             # check & handle empty tag
             if(nextchar == '$'):
                 emptytag = True
-                nextchar = __getnextcharacters(instructions, Settings, 1)
+                nextchar = _getnextcharacters(instructions, Settings, 1)
 
             # check and handle closeing tag
             elif(nextchar == '-'):
                 closetag = True
-                nextchar = __getnextcharacters(instructions, Settings, 1)
+                nextchar = _getnextcharacters(instructions, Settings, 1)
 
             # now figure out command
             if(nextchar == 'A'):
@@ -5785,7 +5835,7 @@ digit hexadecimal number")
 
                 # handle no closeing bracket
                 if(closepos == -1):
-                    raise __newSpectrumTranslateError(
+                    raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "no closeing bracket on XML tag")
 
@@ -5795,7 +5845,7 @@ digit hexadecimal number")
                 Settings["DATASTRINGPOS"] = closepos + 1
 
             else:
-                raise __newSpectrumTranslateError(
+                raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "unrecognised predefined XML tag")
 
@@ -5817,13 +5867,13 @@ digit hexadecimal number")
                 soutput += '>'
 
         else:  # unrecognised command
-            raise __newSpectrumTranslateError(
+            raise _newSpectrumTranslateError(
                 Vars[0x0A], commandstart, instructions, "unrecognised command")
 
     return 1 if boolState else 0, soutput
 
 
-def __newSpectrumTranslateError(address, pos, instructions, details):
+def _newSpectrumTranslateError(address, pos, instructions, details):
     # generate exception
     return SpectrumTranslateError('Data Format error processing "{0}" near \
 character number {1} on line starting at {2:04X}\n{3}'.format(instructions,
@@ -6061,28 +6111,28 @@ def getpartsofpatterndatablock(pdb):
         Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFFFF]
 
         # first check is valid test block & record where
-        s = __getnextcharacters(pdb, Settings, 2)
+        s = _getnextcharacters(pdb, Settings, 2)
         if(s != "%("):
             return (test, prep, action)
 
         # record test start
         k = Settings["DATASTRINGPOS"]
         # move to end of test block
-        __movetoblockend(pdb, Vars, Settings, 0)
+        _movetoblockend(pdb, Vars, Settings, 0)
         # move past comment if one exists on same line as close block
         passcommentifneeded(pdb, Settings)
         # calculate test string
         test = "%(" + pdb[k:Settings["DATASTRINGPOS"]]
 
         # now check is valid preperation block & record where
-        s = __getnextcharacters(pdb, Settings, 2)
+        s = _getnextcharacters(pdb, Settings, 2)
         if(s != "%("):
             return (test, prep, action)
 
         # record preperation block start
         k = Settings["DATASTRINGPOS"]
         # move to end of preperation block
-        __movetoblockend(pdb, Vars, Settings, 0)
+        _movetoblockend(pdb, Vars, Settings, 0)
         # move past comment if one exists on same line as close block
         passcommentifneeded(pdb, Settings)
         # calculate preperation string
@@ -6250,7 +6300,7 @@ instruction flags:
 """
 
 
-def __commandline(args):
+def _commandline(args):
     # analyse args
     i = 0
     mode = None
@@ -6660,4 +6710,4 @@ input.\n')
 
 
 if __name__ == "__main__":
-    __commandline(sys.argv)
+    _commandline(sys.argv)
