@@ -2444,7 +2444,7 @@ def getgiffromscreen(data, delay=320):
     return ''.join([chr(c) for c in ges.out])
 
 
-def getrgbfromscreen(data):
+def getrgbfromscreen(data, alphamask=0xFF):
     """This function extracts an Image from spectrum screen format data.
 
     data must be a list or tuple of ints or longs, or a byte string in
@@ -2457,11 +2457,13 @@ def getrgbfromscreen(data):
     returned list is None, otherwise it is the image with the flashing
     colours inverted.
 
-    The returned images are in RGB format ints (bits 16-23 are red, 8-15
-    are green, and 0-7 are Blue), and are an array for each pixel
-    starting at x=0,y=0, then x=1,y=0, x=2,y=0 etc.  The images are 256
-    pixels wide, and 192 pixels high, so any pixel can be extracted with
-    by useing image[x+y*256].
+    The returned images are in ARGB format ints (bits 24-31 are alpha,
+    bits 16-23 are red, 8-15 are green, and 0-7 are Blue), and are an
+    array for each pixel starting at x=0,y=0, then x=1,y=0, x=2,y=0 etc.
+    The images are 256 pixels wide, and 192 pixels high, so any pixel
+    can be extracted with by useing image[x+y*256].
+    
+    The alphamask variable sets what you want the alpha component to be.
     """
 
     # validate data
@@ -2490,8 +2492,8 @@ def getrgbfromscreen(data):
         for x in range(0, 256, 8):
             # work out foreground & backgrounc colour
             i = data[c]
-            fg = _ZXCOLOURTORGB[(i & 7) + ((i >> 3) & 8)]
-            bg = _ZXCOLOURTORGB[(i >> 3) & 15]
+            fg = _ZXCOLOURTORGB[(i & 7) + ((i >> 3) & 8)] + (alphamask << 24)
+            bg = _ZXCOLOURTORGB[(i >> 3) & 15] + (alphamask << 24)
             # get pixel data for 8 pixel row
             i = data[p]
             image1.append(bg if (i & 128) == 0 else fg)
@@ -2516,8 +2518,9 @@ def getrgbfromscreen(data):
             for x in range(0, 256, 8):
                 # work out foreground & backgrounc colour
                 i = data[c]
-                fg = _ZXCOLOURTORGB[(i & 7) + ((i >> 3) & 8)]
-                bg = _ZXCOLOURTORGB[(i >> 3) & 15]
+                fg = _ZXCOLOURTORGB[(i & 7) + ((i >> 3) & 8)] + (alphamask <<
+                                                                 24)
+                bg = _ZXCOLOURTORGB[(i >> 3) & 15] + (alphamask << 24)
                 if(i >= 128):
                     # swap foreground & background as flashing
                     fg, bg = bg, fg
