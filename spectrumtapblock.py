@@ -41,6 +41,7 @@
 
 import spectrumtranslate
 from sys import hexversion as _PYTHON_VERSION_HEX
+from numbers import Integral as _INT_OR_LONG
 # sys and codecs imported elsewhere so only used for command line
 
 
@@ -49,7 +50,7 @@ if(_PYTHON_VERSION_HEX > 0x03000000):
         if(isinstance(x, (bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, int) for val in x))):
-            return
+            return True
 
         raise spectrumtranslate.SpectrumTranslateError("data needs to be a \
 list or tuple of ints, or of type 'bytes' or 'bytearray'")
@@ -66,7 +67,7 @@ else:
         if(isinstance(x, str) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, _INT_OR_LONG) for val in x))):
-            return
+            return True
 
         raise spectrumtranslate.SpectrumTranslateError("data needs to be a \
 byte string, or a list or tuple of ints or longs")
@@ -135,9 +136,9 @@ class SpectrumTapBlock:
         custom load and save routines can use any value
         from 0 to 255.
         """
-        if(flag < 0 or flag > 255):
+        if(not isinstance(flag, _INT_OR_LONG) or flag < 0 or flag > 255):
             raise spectrumtranslate.SpectrumTranslateError(
-                "flag needs to be fomr 0 to 255 inclusive.")
+                "flag needs to be from 0 to 255 inclusive.")
 
         self.flag = flag
 
@@ -315,11 +316,11 @@ class SpectrumTapBlock:
         not a number or character array headder block.
         """
 
-        if(not self.isheadder() or (self.data[0] != 1 and self.data[0] != 2)):
+        letter = self.getheaddervariableletter()
+        if(not letter):
             return None
 
-        return self.getheaddervariableletter() + (
-            "$" if self.data[0] == 2 else "")
+        return letter + ("$" if self.data[0] == 2 else "")
 
     def getheadderarraydescriptor(self):
         """
@@ -458,33 +459,29 @@ def gettapblockfrombytes(data, position=0):
     tb = SpectrumTapBlock(filePosition=position)
 
     # if not enough data to hold length, flag then raise an error
-    if(len(data) < 3):
-        raise IOError("Malformed .tap File")
+    if(len(data) < 4):
+        raise IOError("Malformed .tap data")
 
     # flag at beginning and checksum at end of data included in length,
     # so actual data is 2 bytes shorter than block length
     blocklength = _get_word(data[:2]) - 2
 
-    if(len(tb.data) < blocklength + 4):
-        raise IOError("Malformed .tap File")
+    if(len(data) < blocklength + 4):
+        raise IOError("Malformed .tap data")
 
     # now process flag
     tb.flag = data[2]
 
-    tb.data = data[3: blocklength + 4]
+    tb.data = data[3: blocklength + 3]
 
     # now do checksum
-    checkbyte = data[blocklength + 4]
-    if(len(checkbyte) != 1):
-        raise IOError("Malformed .tap File")
-
-    # ensure checksum is right
+    checkbyte = data[blocklength + 3]
     k = tb.flag
     for i in tb.data:
         k = k ^ i
 
-    if((k & 255) != checkbyte[0]):
-        raise IOError("Malformed .tap File")
+    if((k & 255) != checkbyte):
+        raise IOError("Malformed .tap data")
 
     return tb
 
@@ -530,9 +527,9 @@ def tapblockfrombytes(data, position=0):
     # validate data
     _checkisvalidbytes(data)
 
-    while True:
+    while (position < len(data)):
         tb = gettapblockfrombytes(
-            _validbytestointlist(data[position:], position))
+            _validbytestointlist(data[position:]), position)
         if(tb):
             # 2 bytes block length, 1 byte flag, 1 byte checksum, and
             # the rest for the block data
@@ -573,7 +570,7 @@ def createcodeheadder(filename, Origin, Codelength):
     # create basic data block
     tb = SpectrumTapBlock()
     tb.flag = 0
-    tb.data = [0] + _validateandconvertfilename(filename) + [0, 0, 0, 0, 0, 0]
+    tb.data = [3] + _validateandconvertfilename(filename) + [0, 0, 0, 0, 0, 0]
 
     # set code origin
     tb.data[13] = Origin & 0xFF
