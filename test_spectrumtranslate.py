@@ -51,6 +51,8 @@ from sys import hexversion as _PYTHON_VERSION_HEX
 from codecs import unicode_escape_decode as _UED
 # StingIO or io imported later depending on python version
 
+_TEST_DIRECTORY = "test/"
+
 if(_PYTHON_VERSION_HEX > 0x03000000):
     import io as sio
 
@@ -58,7 +60,7 @@ if(_PYTHON_VERSION_HEX > 0x03000000):
         return x
 
     def _getfileaslist(name):
-        with open("test/" + name, 'rb') as infile:
+        with open(_TEST_DIRECTORY + name, 'rb') as infile:
             return [b for b in infile.read()]
 
 else:
@@ -69,7 +71,7 @@ else:
         return _UED(x)[0]
 
     def _getfileaslist(name):
-        with open("test/" + name, 'rb') as infile:
+        with open(_TEST_DIRECTORY + name, 'rb') as infile:
             return [ord(b) for b in infile.read()]
 
 
@@ -196,7 +198,7 @@ class TestArrayConversion(unittest.TestCase):
     def test_getarraydepth(self):
         data = _getfileaslist("arraytest_number.dat")
         self.assertEqual(spectrumtranslate.getarraydepth(data, 0x98), 2)
-        data = _getfileaslist("arraytest_string.dat")
+        data = _getfileaslist("arraytest_char.dat")
         self.assertEqual(spectrumtranslate.getarraydepth(data, 0xD3), 3)
 
     def test_extractarray(self):
@@ -210,7 +212,7 @@ class TestArrayConversion(unittest.TestCase):
         # now compare
         self.assertEqual(data, correctvalues)
 
-        data = _getfileaslist("arraytest_string.dat")
+        data = _getfileaslist("arraytest_char.dat")
         self.assertEqual(spectrumtranslate.extractarray(data, 0xD3),
                          [['test', 'mum ', 'good'], ['one ', 'two ', 'thre']])
 
@@ -279,7 +281,7 @@ class TestArrayConversion(unittest.TestCase):
   }
 }""")
 
-        data = _getfileaslist("arraytest_string.dat")
+        data = _getfileaslist("arraytest_char.dat")
         self.assertEqual(spectrumtranslate.arraytotext(data, 0xD3), """{
   {
     "test",
@@ -539,7 +541,7 @@ class TestArrayConversion(unittest.TestCase):
   </dimension>
 </dimension>""")
 
-        data = _getfileaslist("arraytest_string.dat")
+        data = _getfileaslist("arraytest_char.dat")
         self.assertEqual(spectrumtranslate.arraytoxml(data, 0xD3), """\
 <dimension>
   <dimension>
@@ -674,7 +676,7 @@ class TestImageConvert(unittest.TestCase):
 
     def test_getgiffromscreen(self):
         # get reference images
-        irReference = QtGui.QImageReader("test/screentest.gif")
+        irReference = QtGui.QImageReader(_TEST_DIRECTORY + "screentest.gif")
         refimage1 = self.imageto32bitlist(irReference.read())
         refimage2 = self.imageto32bitlist(irReference.read())
 
@@ -700,7 +702,7 @@ class TestImageConvert(unittest.TestCase):
 
     def test_getrgbfromscreen(self):
         # get reference images
-        irReference = QtGui.QImageReader("test/screentest.gif")
+        irReference = QtGui.QImageReader(_TEST_DIRECTORY + "screentest.gif")
         refimage1 = self.imageto32bitlist(irReference.read())
         refimage2 = self.imageto32bitlist(irReference.read())
 

@@ -3074,7 +3074,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         elif(t == 2 or t == 3):
             # number or character array
             self.SetVariableArrayDetails(df.getvariableletter(headder),
-                                         df.getvariablename(headder))
+                                         df.getarraydescriptor(headder))
 
         elif(t == 4):
             # bytes: can be screen or data/machine code

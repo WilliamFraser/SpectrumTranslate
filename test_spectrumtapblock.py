@@ -51,12 +51,14 @@ from sys import hexversion as _PYTHON_VERSION_HEX
 # imported elsewhere for memory reasons are:
 # unicode_escape_decode in the codecs module
 
+_TEST_DIRECTORY = "test/"
+
 if(_PYTHON_VERSION_HEX > 0x03000000):
     def _u(x):
         return x
 
     def _getfileaslist(name):
-        with open("test/" + name, 'rb') as infile:
+        with open(_TEST_DIRECTORY + name, 'rb') as infile:
             return [b for b in infile.read()]
 
 else:
@@ -67,7 +69,7 @@ else:
         return _UED(x)[0]
 
     def _getfileaslist(name):
-        with open("test/" + name, 'rb') as infile:
+        with open(_TEST_DIRECTORY + name, 'rb') as infile:
             return [ord(b) for b in infile.read()]
 
 
@@ -213,9 +215,9 @@ class TestSpectrumTapBlock(unittest.TestCase):
         stb.data = _getfileaslist("arraytest_number.tap")[3:20]
         self.assertEqual(stb.getfiledetailsstring(),
                          '"x         " Number array X')
-        stb.data = _getfileaslist("arraytest_string.tap")[3:20]
+        stb.data = _getfileaslist("arraytest_char.tap")[3:20]
         self.assertEqual(stb.getfiledetailsstring(),
-                         '"s         " Character array S$')
+                         '"c         " Character array S$')
 
     def test_getheadderautostartline(self):
         stb = spectrumtapblock.SpectrumTapBlock()
@@ -257,7 +259,7 @@ class TestSpectrumTapBlock(unittest.TestCase):
         self.assertEqual(stb.getheaddervariableletter(), None)
         stb.data = _getfileaslist("arraytest_number.tap")[3:20]
         self.assertEqual(stb.getheaddervariableletter(), "X")
-        stb.data = _getfileaslist("arraytest_string.tap")[3:20]
+        stb.data = _getfileaslist("arraytest_char.tap")[3:20]
         self.assertEqual(stb.getheaddervariableletter(), "S")
 
     def test_getheaddervariablename(self):
@@ -267,7 +269,7 @@ class TestSpectrumTapBlock(unittest.TestCase):
         self.assertEqual(stb.getheaddervariablename(), None)
         stb.data = _getfileaslist("arraytest_number.tap")[3:20]
         self.assertEqual(stb.getheaddervariablename(), "X")
-        stb.data = _getfileaslist("arraytest_string.tap")[3:20]
+        stb.data = _getfileaslist("arraytest_char.tap")[3:20]
         self.assertEqual(stb.getheaddervariablename(), "S$")
 
     def test_getheadderarraydescriptor(self):
@@ -277,7 +279,7 @@ class TestSpectrumTapBlock(unittest.TestCase):
         self.assertEqual(stb.getheadderarraydescriptor(), -1)
         stb.data = _getfileaslist("arraytest_number.tap")[3:20]
         self.assertEqual(stb.getheadderarraydescriptor() & 192, 128)
-        stb.data = _getfileaslist("arraytest_string.tap")[3:20]
+        stb.data = _getfileaslist("arraytest_char.tap")[3:20]
         self.assertEqual(stb.getheadderarraydescriptor() & 192, 192)
 
     def test_getdatastartoffset(self):
@@ -295,23 +297,23 @@ class TestSpectrumTapBlock(unittest.TestCase):
 
     def test_savetofile(self):
         stb = spectrumtapblock.SpectrumTapBlock(flag=255, data=[1, 2, 3])
-        stb.savetofile("test/testout.tap", False)
+        stb.savetofile(_TEST_DIRECTORY + "testout.tap", False)
         data = _getfileaslist("testout.tap")
         self.assertEqual(data, [5, 0, 255, 1, 2, 3, 255])
-        stb.savetofile("test/testout.tap")
+        stb.savetofile(_TEST_DIRECTORY + "testout.tap")
         data = _getfileaslist("testout.tap")
         self.assertEqual(data, [5, 0, 255, 1, 2, 3, 255, 5, 0, 255, 1, 2, 3,
                                 255])
-        os_remove("test/testout.tap")
+        os_remove(_TEST_DIRECTORY + "testout.tap")
 
 
 class Testmetafunctions(unittest.TestCase):
     def test_gettapblockfromfile(self):
         position = 0
-        with open("test/arraytest_string.tap", "rb") as f:
+        with open(_TEST_DIRECTORY + "arraytest_char.tap", "rb") as f:
             tb = spectrumtapblock.gettapblockfromfile(f, position)
             position += 4 + len(tb.data)
-            self.assertEqual(tb.data, [2, 115, 32, 32, 32, 32, 32, 32, 32, 32,
+            self.assertEqual(tb.data, [2, 99, 32, 32, 32, 32, 32, 32, 32, 32,
                                        32, 31, 0, 93, 211, 0, 128])
             self.assertEqual(tb.flag, 0)
             self.assertEqual(tb.filePosition, 0)
@@ -335,14 +337,16 @@ class Testmetafunctions(unittest.TestCase):
         self.assertEqual(tb.filePosition, 0)
 
     def test_gettapblocks(self):
-        tbs = spectrumtapblock.gettapblocks("test/arraytest_string.tap")
+        tbs = spectrumtapblock.gettapblocks(_TEST_DIRECTORY +
+                                            "arraytest_char.tap")
         self.assertEqual(len(tbs), 2)
         self.assertEqual(all(isinstance(tb, spectrumtapblock.SpectrumTapBlock)
                              for tb in tbs), True)
 
     def test_tapblockfromfile(self):
         tbs = [tb for tb in
-               spectrumtapblock.tapblockfromfile("test/arraytest_string.tap")]
+               spectrumtapblock.tapblockfromfile(_TEST_DIRECTORY +
+                                                 "arraytest_char.tap")]
         self.assertEqual(len(tbs), 2)
         self.assertEqual(all(isinstance(tb, spectrumtapblock.SpectrumTapBlock)
                              for tb in tbs), True)
@@ -371,6 +375,10 @@ class Testmetafunctions(unittest.TestCase):
         self.assertEqual(tb.flag, 0)
         self.assertEqual(tb.data, [1, 78, 117, 109, 98, 101, 114, 32, 32, 32,
                                    32, 10, 0, 0, 129, 0, 0])
+        tb = spectrumtapblock.createarrayheadder("Char", 194, 10)
+        self.assertEqual(tb.flag, 0)
+        self.assertEqual(tb.data, [2, 67, 104, 97, 114, 32, 32, 32, 32, 32,
+                                   32, 10, 0, 0, 194, 0, 0])
         tb = spectrumtapblock.createarrayheadder("String", 194, 10)
         self.assertEqual(tb.flag, 0)
         self.assertEqual(tb.data, [2, 83, 116, 114, 105, 110, 103, 32, 32, 32,

@@ -1813,7 +1813,7 @@ def extractarray(data, descriptor):
 
     # string
     if(descriptor & 192 == 64):
-        return data[2:data[0] + 256*data[1]]
+        return data[:]
 
     return None
 
@@ -1865,7 +1865,7 @@ def arraytotext(data, descriptor):
 
     # string
     if(descriptor & 192 == 64):
-        return '"' + getspectrumstring(data[2:data[0] + 256*data[1]]) + '"'
+        return getspectrumstring(data)
 
     return None
 
@@ -1921,8 +1921,7 @@ def arraytoxml(data, descriptor):
 
     # string
     if(descriptor & 192 == 64):
-        return '<string>' + getspectrumstring(
-            data[2:data[0] + 256*data[1]]) + '</string>'
+        return '<string>' + getspectrumstring(data) + '</string>'
 
     return None
 
@@ -2462,7 +2461,7 @@ def getrgbfromscreen(data, alphamask=0xFF):
     array for each pixel starting at x=0,y=0, then x=1,y=0, x=2,y=0 etc.
     The images are 256 pixels wide, and 192 pixels high, so any pixel
     can be extracted with by useing image[x+y*256].
-    
+
     The alphamask variable sets what you want the alpha component to be.
     """
 

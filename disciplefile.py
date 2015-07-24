@@ -52,7 +52,7 @@ if(_PYTHON_VERSION_HEX > 0x03000000):
         if(isinstance(x, (bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, int) for val in x))):
-            return
+            return True
 
         raise spectrumtranslate.SpectrumTranslateError("{0} needs to be a \
 list or tuple of ints, or of type 'bytes' or 'bytearray'".format(m))
@@ -69,7 +69,7 @@ else:
         if(isinstance(x, str) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, _INT_OR_LONG) for val in x))):
-            return
+            return True
 
         raise spectrumtranslate.SpectrumTranslateError("{0} needs to be a \
 byte string, or a list or tuple of ints or longs".format(m))
@@ -171,7 +171,7 @@ class DiscipleFile:
 
         bytestocopy = self.getfilelength(headderdata)
 
-        data = ""
+        data = []
 
         # get start track & sector
         track = headderdata[13]
@@ -432,14 +432,15 @@ class DiscipleFile:
             # basic
             details["autostartline"] = self.getautostartline(headderdata)
             details["variableoffset"] = self.getvariableoffset(headderdata)
-            details["catextradata"] = "{0:5}".format(self.getautostartline(
-                headderdata))
+            if(self.getautostartline(headderdata) >= 0):
+                details["catextradata"] = "{0:5}".format(self.getautostartline(
+                                                         headderdata))
 
         if(details["filetype"] == 2 or details["filetype"] == 3):
             # number or character array
             details["variableletter"] = self.getvariableletter(headderdata)
             details["variablename"] = self.getvariablename(headderdata)
-            details["arraydescriptor"] = self.getvariablename(headderdata)
+            details["arraydescriptor"] = self.getarraydescriptor(headderdata)
 
         return details
 
@@ -468,7 +469,9 @@ class DiscipleFile:
 
         if(t == 1):
             # basic
-            s += "         {0:5}".format(self.getautostartline(headderdata))
+            if(self.getautostartline(headderdata) >= 0):
+                s += "         {0:5}".format(self.getautostartline(
+                                             headderdata))
 
         return s
 
@@ -523,7 +526,11 @@ class DiscipleFile:
         headderdata is optional but saves resources.
         """
 
-        if(headderdata[0] != 4):
+        # if no headder supplied, need to load it up
+        if(headderdata is None):
+            headderdata = self.getheadder()
+
+        if(headderdata[0] != 4 and headderdata[0] != 7):
             return -2
 
         return headderdata[214] + 256 * headderdata[215]
@@ -749,12 +756,12 @@ class DiscipleFile:
 class DiscipleImage:
     """A class that holds a +D/Disciple disk image."""
 
-    def __init__(self, fileName=None):
+    def __init__(self, fileName=None, accessmode="rb"):
         self.ImageSource = "Undefined"
         self.ImageFormat = "Unknown"
 
         if(fileName is not None):
-            self.setfilename(fileName)
+            self.setfilename(fileName, accessmode=accessmode)
 
     def setfile(self, filehandle, form="Unknown"):
         """
@@ -947,7 +954,11 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             # memory map the sector in the file
             mm = _mmap(self.filehandle.fileno(), 0)
             # write the data
-            mm[pos:pos + 512] = data
+            if(_PYTHON_VERSION_HEX > 0x03000000):
+                mm[pos:pos + 512] = bytes("".join([chr(x) for x in data]),
+                                          'utf-8')
+            else:
+                mm[pos:pos + 512] = "".join([chr(x) for x in data])
             mm.flush()
             mm.close()
 
@@ -995,10 +1006,13 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             return False
 
         if(self.ImageFormat == "Unknown"):
-            return False
+            self.guessimageformat()
+            if(self.ImageFormat == "Unknown"):
+                return False
 
         # todo handle non 80 track, 2 sided disks
-        if(self.ImageSource == "Bytes" and len(self.bytedata) != 819200):
+        if(self.ImageSource == "Bytes" and (not hasattr(self, "bytedata") or
+           len(self.bytedata) != 819200)):
             return False
 
         # create empty sector map
@@ -1018,7 +1032,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
 
             # is filetype (excluding flags) consistent with valid file?
             filetype = headder[headderstart] & 31
-            # ignore empty sectors
+            # ignore empty directory entries
             if(filetype == 0):
                 continue
 
@@ -1027,6 +1041,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
 
             # check sector map
             sectorcount = 0
+
             for i in range(195):
                 if(sectorMap[i] & headder[headderstart + 15 + i] != 0):
                     # we have conflicting FAT entries
@@ -1106,7 +1121,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                 t = starttrack
                 s = startsector
 
-                # now move through
+                # now move through file sectors
                 while(sectorcount > 0):
                     # have we reached early end of file?
                     if(t == 0 and s == 0):
@@ -1127,7 +1142,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                     sm[o] -= b
 
                     # load next sector in chain
-                    sectordata = self.getsector(t & 127, s, t >> 7)
+                    sectordata = self.getsector(t, s)
 
                     # update track & sector
                     t = sectordata[510]
@@ -1142,7 +1157,12 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                     return False
 
                 # sectorMap should now be blank, otherwise there are
-                # unused sectors
+                # unused sectors.
+                # in theory this shouldn't happen as each sector in the
+                # chain is goine through, and we compare the number of
+                # sectors in the FAT table with the number stated in the
+                # directory entry that this file uses.
+                # Still just in case...
                 for i in sm:
                     if(i != 0):
                         return False
@@ -1293,6 +1313,32 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             headderstart + 256:]
         self.writesector(sectordata, track, sector)
 
+    def fileindexfromname(self, filename, wantdeleted=False):
+        """Returns a list of directory positions for the supplied
+        filename. It returns an empty list if the filename is not found.
+        """
+
+        hits = []
+
+        # ensure filename is valid
+        filename = _validateandconvertfilename(filename)
+
+        # search to see if file exists
+        i = 1
+        while(i <= 80):
+            t, s = GetDirectoryEntryPosition(i)
+            sector = self.getsector(t, s)
+            for headderoffset in (0, 256):
+                # if is the file we're after then note it
+                if(((not wantdeleted and sector[headderoffset] != 0) or
+                    (wantdeleted and sector[headderoffset] == 0)) and
+                   sector[headderoffset + 1:headderoffset + 11] == filename):
+                    hits += [i]
+
+                i += 1
+
+        return hits
+
     def writebasicfile(self, filedata, filename, position=-1, autostartline=-1,
                        varposition=-1, overwritename=True):
         """This method writes a BASIC file to the disk image.  filedata
@@ -1341,10 +1387,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         headder[214] = 23755 & 255
         headder[215] = 23755 // 256
         # set variable offset
-        if(varposition is None):
-            varposition = -1
-
-        if(varposition == -1):
+        if(varposition is None or varposition == -1):
             # work out position of variables
             varposition = spectrumtranslate.getvariableoffset(filedata)
 
@@ -1361,20 +1404,9 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         # outputfile
         # first work out if we're overwriting existing filename
         if(overwritename):
-            # if so search to see if file exists
-            i = 1
-            while(i <= 80 and position == -1):
-                t, s = GetDirectoryEntryPosition(i)
-                sector = self.getsector(t, s)
-                for headderoffset in (0, 256):
-                    # if exists and is the file we're after then use it
-                    if(sector[headderoffset] != 0 and
-                       sector[headderoffset + 1:headderoffset + 12] == headder[
-                           1:12]):
-                        position = i
-                        break
-
-                    i += 1
+            # if so get index or -1
+            hits = self.fileindexfromname(headder[1:11])
+            position = -1 if len(hits) == 0 else hits[0]
 
         # NB basic, code, and variable files have 9 byte extra headder
         # saved before the filedata
@@ -1428,20 +1460,9 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         # outputfile
         # first work out if we're overwriting existing filename
         if(overwritename):
-            # if so search to see if file exists
-            i = 1
-            while(i <= 80 and position == -1):
-                t, s = GetDirectoryEntryPosition(i)
-                sector = self.getsector(t, s)
-                for headderoffset in (0, 256):
-                    # if exists and is the file we're after then use it
-                    if(sector[headderoffset] != 0 and
-                       sector[headderoffset + 1:headderoffset + 12] == headder[
-                           1:12]):
-                        position = i
-                        break
-
-                    i += 1
+            # if so get index or -1
+            hits = self.fileindexfromname(headder[1:11])
+            position = -1 if len(hits) == 0 else hits[0]
 
         # NB basic, code, and variable files have 9 byte extra headder
         # saved before the filedata
@@ -1490,20 +1511,9 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         # outputfile
         # first work out if we're overwriting existing filename
         if(overwritename):
-            # if so search to see if file exists
-            i = 1
-            while(i <= 80 and position == -1):
-                t, s = GetDirectoryEntryPosition(i)
-                sector = self.getsector(t, s)
-                for headderoffset in (0, 256):
-                    # if exists and is the file we're after then use it
-                    if(sector[headderoffset] != 0 and
-                       sector[headderoffset + 1:headderoffset + 12] == headder[
-                           1:12]):
-                        position = i
-                        break
-
-                    i += 1
+            # if so get index or -1
+            hits = self.fileindexfromname(headder[1:11])
+            position = -1 if len(hits) == 0 else hits[0]
 
         # NB basic, code, and variable files have 9 byte extra headder
         # saved before the filedata
@@ -1550,20 +1560,9 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         # outputfile
         # first work out if we're overwriting existing filename
         if(overwritename):
-            # if so search to see if file exists
-            i = 1
-            while(i <= 80 and position == -1):
-                t, s = GetDirectoryEntryPosition(i)
-                sector = self.getsector(t, s)
-                for entrystart in (0, 256):
-                    # if exists and is the file we're after then use it
-                    if(sector[entrystart] != 0 and
-                       sector[entrystart + 1: entrystart + 12] == headder[
-                           1:12]):
-                        position = i
-                        break
-
-                    i += 1
+            # if so get index or -1
+            hits = self.fileindexfromname(headder[1:11])
+            position = -1 if len(hits) == 0 else hits[0]
 
         # NB basic, code, and variable files have 9 byte extra headder
         # saved before the filedata
