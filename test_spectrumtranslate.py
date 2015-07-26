@@ -690,7 +690,7 @@ class TestImageConvert(unittest.TestCase):
 
         # test created gif
         self.assertEqual(irgif.imageCount(), 2)
-        self.assertEqual(irgif.supportsAnimation(), True)
+        self.assertTrue(irgif.supportsAnimation())
         gifimage1 = irgif.read()
         self.assertEqual(gifimage1.size(), QtCore.QSize(256, 192))
         self.assertEqual(self.imageto32bitlist(gifimage1), refimage1)
@@ -772,10 +772,10 @@ class TestDisassembleInstruction(unittest.TestCase):
         self.assertEqual(di.data, "This\nis\ntest\ndata")
 
     def test_isformatinstruction(self):
-        self.assertEqual(spectrumtranslate.DisassembleInstruction(0x0800).
-                         isformatinstruction(), True)
-        self.assertEqual(spectrumtranslate.DisassembleInstruction(0x010000).
-                         isformatinstruction(), False)
+        self.assertTrue(spectrumtranslate.DisassembleInstruction(0x0800).
+                        isformatinstruction())
+        self.assertFalse(spectrumtranslate.DisassembleInstruction(0x010000).
+                         isformatinstruction())
 
     def test_tostring(self):
         di = spectrumtranslate.DisassembleInstruction(0x0200)
@@ -796,9 +796,9 @@ data"""
     def test_cmp(self):
         di1 = spectrumtranslate.DisassembleInstruction(0x0100, start=0x4000)
         di2 = spectrumtranslate.DisassembleInstruction(0x0100, start=0x8000)
-        self.assertEqual(di1 < di2, True)
-        self.assertEqual(di1 > di2, False)
-        self.assertEqual(di1 == di2, False)
+        self.assertTrue(di1 < di2)
+        self.assertFalse(di1 > di2)
+        self.assertFalse(di1 == di2)
 
     def test_disassembledatablock(self):
         di = spectrumtranslate.DisassembleInstruction(

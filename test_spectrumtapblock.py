@@ -76,21 +76,17 @@ else:
 class Testutilityfunctions(unittest.TestCase):
     def test_checkisvalidbytes(self):
         if(_PYTHON_VERSION_HEX > 0x03000000):
-            self.assertEqual(spectrumtapblock._checkisvalidbytes(bytes(
-                                                                 b"Test")),
-                             True)
-            self.assertEqual(spectrumtapblock._checkisvalidbytes(bytearray(
-                                                                 b"Test")),
-                             True)
+            self.assertTrue(spectrumtapblock._checkisvalidbytes(bytes(
+                                                                b"Test")))
+            self.assertTrue(spectrumtapblock._checkisvalidbytes(bytearray(
+                                                                b"Test")))
             self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                               spectrumtapblock._checkisvalidbytes, "Wrong")
         else:
-            self.assertEqual(spectrumtapblock._checkisvalidbytes("Hello"),
-                             True)
+            self.assertTrue(spectrumtapblock._checkisvalidbytes("Hello"))
             # 2to3 will complain but is ok as won't run in python 3
-            self.assertEqual(spectrumtapblock._checkisvalidbytes([long(1),
-                                                                  long(2)]),
-                             True)
+            self.assertTrue(spectrumtapblock._checkisvalidbytes([long(1),
+                                                                 long(2)]))
             # bytes is valid in python 2 as it looks like a string
             # so not checked
             self.assertRaises(spectrumtranslate.SpectrumTranslateError,
@@ -105,7 +101,7 @@ class Testutilityfunctions(unittest.TestCase):
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           spectrumtapblock._checkisvalidbytes,
                           [0.1, 0.2])
-        self.assertEqual(spectrumtapblock._checkisvalidbytes([1, 2]), True)
+        self.assertTrue(spectrumtapblock._checkisvalidbytes([1, 2]))
 
     def test_validbytestointlist(self):
         self.assertEqual(spectrumtapblock._validbytestointlist([1, 2]), [1, 2])
@@ -164,12 +160,12 @@ class TestSpectrumTapBlock(unittest.TestCase):
 
     def test_isheadder(self):
         stb = spectrumtapblock.SpectrumTapBlock(data=[0]*17)
-        self.assertEqual(stb.isheadder(), True)
+        self.assertTrue(stb.isheadder())
         stb.flag = 255
-        self.assertEqual(stb.isheadder(), False)
+        self.assertFalse(stb.isheadder())
         stb.flag = 0
         stb.data = [1]
-        self.assertEqual(stb.isheadder(), False)
+        self.assertFalse(stb.isheadder())
 
     def test_getfilename(self):
         stb = spectrumtapblock.SpectrumTapBlock()
@@ -340,23 +336,23 @@ class Testmetafunctions(unittest.TestCase):
         tbs = spectrumtapblock.gettapblocks(_TEST_DIRECTORY +
                                             "arraytest_char.tap")
         self.assertEqual(len(tbs), 2)
-        self.assertEqual(all(isinstance(tb, spectrumtapblock.SpectrumTapBlock)
-                             for tb in tbs), True)
+        self.assertTrue(all(isinstance(tb, spectrumtapblock.SpectrumTapBlock)
+                            for tb in tbs))
 
     def test_tapblockfromfile(self):
         tbs = [tb for tb in
                spectrumtapblock.tapblockfromfile(_TEST_DIRECTORY +
                                                  "arraytest_char.tap")]
         self.assertEqual(len(tbs), 2)
-        self.assertEqual(all(isinstance(tb, spectrumtapblock.SpectrumTapBlock)
-                             for tb in tbs), True)
+        self.assertTrue(all(isinstance(tb, spectrumtapblock.SpectrumTapBlock)
+                            for tb in tbs))
 
     def test_tapblockfrombytes(self):
         tbs = [tb for tb in spectrumtapblock.tapblockfrombytes(
                [5, 0, 255, 1, 2, 3, 255, 5, 0, 255, 1, 2, 3, 255])]
         self.assertEqual(len(tbs), 2)
-        self.assertEqual(all(isinstance(tb, spectrumtapblock.SpectrumTapBlock)
-                             for tb in tbs), True)
+        self.assertTrue(all(isinstance(tb, spectrumtapblock.SpectrumTapBlock)
+                            for tb in tbs))
 
     def test_createbasicheadder(self):
         tb = spectrumtapblock.createbasicheadder("Hello", 20, 30)

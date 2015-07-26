@@ -76,20 +76,16 @@ else:
 class Testutilityfunctions(unittest.TestCase):
     def test_checkisvalidbytes(self):
         if(_PYTHON_VERSION_HEX > 0x03000000):
-            self.assertEqual(disciplefile._checkisvalidbytes(bytes(b"Test"),
-                                                             0),
-                             True)
-            self.assertEqual(disciplefile._checkisvalidbytes(bytearray(
-                                                             b"Test"), 0),
-                             True)
+            self.assertTrue(disciplefile._checkisvalidbytes(bytes(b"Test"), 0))
+            self.assertTrue(disciplefile._checkisvalidbytes(bytearray(b"Test"),
+                                                            0))
             self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                               disciplefile._checkisvalidbytes, "Wrong", 0)
         else:
-            self.assertEqual(disciplefile._checkisvalidbytes("Hello", 0), True)
+            self.assertTrue(disciplefile._checkisvalidbytes("Hello", 0))
             # 2to3 will complain but is ok as won't run in python 3
-            self.assertEqual(disciplefile._checkisvalidbytes([long(1),
-                                                              long(2)], 0),
-                             True)
+            self.assertTrue(disciplefile._checkisvalidbytes([long(1), long(2)],
+                                                            0))
             # bytes is valid in python 2 as it looks like a string
             # so not checked
             self.assertRaises(spectrumtranslate.SpectrumTranslateError,
@@ -103,7 +99,7 @@ class Testutilityfunctions(unittest.TestCase):
                           0)
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           disciplefile._checkisvalidbytes, [0.1, 0.2], 0)
-        self.assertEqual(disciplefile._checkisvalidbytes([1, 2], 0), True)
+        self.assertTrue(disciplefile._checkisvalidbytes([1, 2], 0))
 
     def test_validbytestointlist(self):
         self.assertEqual(disciplefile._validbytestointlist([1, 2]), [1, 2])

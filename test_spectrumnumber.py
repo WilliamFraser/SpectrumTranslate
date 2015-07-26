@@ -57,7 +57,7 @@ class TestSpectrumNumberComponentsCreate(unittest.TestCase):
         # check creation with default values"""
         result = spectrumnumber.SpectrumNumberComponents()
         self.assertEqual(0, result.mantissa)
-        self.assertEqual(False, result.negative)
+        self.assertFalse(result.negative)
         self.assertEqual(0, result.exponent)
 
         # Check copy creation
@@ -67,7 +67,7 @@ class TestSpectrumNumberComponentsCreate(unittest.TestCase):
         snc.exponent = 4000
         testsnc = spectrumnumber.SpectrumNumberComponents(snc)
         self.assertEqual([0, 20], testsnc.mantissa)
-        self.assertEqual(True, testsnc.negative)
+        self.assertTrue(testsnc.negative)
         self.assertEqual(4000, testsnc.exponent)
 
 # todo
@@ -189,31 +189,31 @@ class TestSpectrumNumberComparisons(unittest.TestCase):
 
     def testSpectrumNumberIsZero(self):
         sn = spectrumnumber.SpectrumNumber(0)
-        self.assertEqual(sn.IsZero(), True)
+        self.assertTrue(sn.IsZero())
         sn = spectrumnumber.SpectrumNumber(1)
-        self.assertEqual(sn.IsZero(), False)
+        self.assertFalse(sn.IsZero())
 
     def testSpectrumNumber__nonzero__(self):
         sn = spectrumnumber.SpectrumNumber(0)
-        self.assertEqual(sn.__nonzero__(), False)
+        self.assertFalse(sn.__nonzero__())
         sn = spectrumnumber.SpectrumNumber(1)
-        self.assertEqual(sn.__nonzero__(), True)
+        self.assertTrue(sn.__nonzero__())
 
     def testSpectrumNumberLessThanZero(self):
         sn = spectrumnumber.SpectrumNumber(0)
-        self.assertEqual(sn.LessThanZero(), False)
+        self.assertFalse(sn.LessThanZero())
         sn = spectrumnumber.SpectrumNumber(1)
-        self.assertEqual(sn.LessThanZero(), False)
+        self.assertFalse(sn.LessThanZero())
         sn = spectrumnumber.SpectrumNumber(-1)
-        self.assertEqual(sn.LessThanZero(), True)
+        self.assertTrue(sn.LessThanZero())
 
     def testSpectrumNumberGreaterThanZero(self):
         sn = spectrumnumber.SpectrumNumber(0)
-        self.assertEqual(sn.GreaterThanZero(), False)
+        self.assertFalse(sn.GreaterThanZero())
         sn = spectrumnumber.SpectrumNumber(1)
-        self.assertEqual(sn.GreaterThanZero(), True)
+        self.assertTrue(sn.GreaterThanZero())
         sn = spectrumnumber.SpectrumNumber(-1)
-        self.assertEqual(sn.GreaterThanZero(), False)
+        self.assertFalse(sn.GreaterThanZero())
 
 
 class TestSpectrumNumberUnaryArithmetic(unittest.TestCase):
