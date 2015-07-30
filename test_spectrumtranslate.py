@@ -46,16 +46,14 @@ Unit Test for SpectrumTranslate file
 import spectrumtranslate
 import spectrumnumber
 import unittest
-from PyQt4 import QtGui, QtCore
+from PIL import Image
 from sys import hexversion as _PYTHON_VERSION_HEX
 from codecs import unicode_escape_decode as _UED
-# StingIO or io imported later depending on python version
+from io import BytesIO
 
 _TEST_DIRECTORY = "test/"
 
 if(_PYTHON_VERSION_HEX > 0x03000000):
-    import io as sio
-
     def _u(x):
         return x
 
@@ -64,9 +62,6 @@ if(_PYTHON_VERSION_HEX > 0x03000000):
             return [b for b in infile.read()]
 
 else:
-    # 2to3 will complain about this but won't cause problems in real life
-    import StringIO as sio
-
     def _u(x):
         return _UED(x)[0]
 
@@ -672,42 +667,43 @@ class TestTextConvert(unittest.TestCase):
 
 class TestImageConvert(unittest.TestCase):
     def imageto32bitlist(self, im):
-        return [im.pixel(xy & 255, xy >> 8) for xy in range(256*192)]
+        return [(xy[0] << 16) + (xy[1] << 8) + xy[2] for xy in
+                im.convert("RGB").getdata()]
 
     def test_getgiffromscreen(self):
         # get reference images
-        irReference = QtGui.QImageReader(_TEST_DIRECTORY + "screentest.gif")
-        refimage1 = self.imageto32bitlist(irReference.read())
-        refimage2 = self.imageto32bitlist(irReference.read())
+        irReference = Image.open(_TEST_DIRECTORY + "screentest.gif")
+        refimage1 = self.imageto32bitlist(irReference)
+        irReference.seek(1)
+        refimage2 = self.imageto32bitlist(irReference)
 
-        # get image created by spectrumtranslate into an imagereader
-        buf = QtCore.QBuffer()
-        buf.open(QtCore.QIODevice.ReadWrite)
-        buf.write(spectrumtranslate.getgiffromscreen(
-            _getfileaslist("screentest.dat")))
-        buf.seek(0)
-        irgif = QtGui.QImageReader(buf)
+        # get image created by spectrumtranslate
+        gifscreen = spectrumtranslate.getgiffromscreen(
+            _getfileaslist("screentest.dat"))
+        # should have valid gif now
+        gifimage = Image.open(BytesIO(gifscreen))
+        # should be 2 images
+        gifimage1 = self.imageto32bitlist(gifimage)
+        self.assertEqual(gifimage.info["duration"], 320)
+        gifimage.seek(1)
+        gifimage2 = self.imageto32bitlist(gifimage)
+        self.assertEqual(gifimage.info["duration"], 320)
+        # ensure only 2 images
+        self.assertRaises(EOFError, gifimage.seek, 2)
 
-        # test created gif
-        self.assertEqual(irgif.imageCount(), 2)
-        self.assertTrue(irgif.supportsAnimation())
-        gifimage1 = irgif.read()
-        self.assertEqual(gifimage1.size(), QtCore.QSize(256, 192))
-        self.assertEqual(self.imageto32bitlist(gifimage1), refimage1)
-        self.assertEqual(irgif.nextImageDelay(), 320)
-        gifimage2 = irgif.read()
-        self.assertEqual(gifimage2.size(), QtCore.QSize(256, 192))
-        self.assertEqual(self.imageto32bitlist(gifimage2), refimage2)
-        self.assertEqual(irgif.nextImageDelay(), 320)
+        # compare images now
+        self.assertEqual(refimage1, gifimage1)
+        self.assertEqual(refimage2, gifimage2)
 
     def test_getrgbfromscreen(self):
         # get reference images
-        irReference = QtGui.QImageReader(_TEST_DIRECTORY + "screentest.gif")
-        refimage1 = self.imageto32bitlist(irReference.read())
-        refimage2 = self.imageto32bitlist(irReference.read())
+        irReference = Image.open(_TEST_DIRECTORY + "screentest.gif")
+        refimage1 = self.imageto32bitlist(irReference)
+        irReference.seek(1)
+        refimage2 = self.imageto32bitlist(irReference)
 
         gifscreen = spectrumtranslate.getrgbfromscreen(
-            _getfileaslist("screentest.dat"))
+            _getfileaslist("screentest.dat"), alphamask=0)
         # should have valid list of RGB values
 
         # should be 2 images

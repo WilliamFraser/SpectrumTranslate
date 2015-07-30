@@ -42,6 +42,7 @@
 import spectrumnumber
 import sys
 from numbers import Integral as _INT_OR_LONG
+from functools import reduce
 
 # ensure this code runs on python 2 and 3
 if(sys.hexversion > 0x03000000):
@@ -2440,7 +2441,10 @@ def getgiffromscreen(data, delay=320):
     # gif trailer
     ges.PutByte(0x3b)
 
-    return ''.join([chr(c) for c in ges.out])
+    if(sys.hexversion > 0x03000000):
+        return bytes(ges.out)
+
+    return b''.join([chr(c) for c in ges.out])
 
 
 def getrgbfromscreen(data, alphamask=0xFF):
@@ -4891,6 +4895,12 @@ DEFB               %#output instuction (DEFB or Define Byte)
     def __cmp__(self, other):
         # defined so can sort by starting address
         return self.start.__cmp__(other.start)
+
+    # for python 3, need lt to sort
+    if(sys.hexversion > 0x03000000):
+        def __lt__(self, other):
+            # defined so can sort by starting address
+            return self.start.__lt__(other.start)
 
     def disassembledatablock(self, Settings, data, ReferencedLineNumbers):
         """This method will disassemble the given data according to the
