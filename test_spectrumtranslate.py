@@ -664,7 +664,7 @@ class TestTextConvert(unittest.TestCase):
             spectrumtranslate.stringtospectrum(''.join(self.spectrumchars)),
             ''.join([chr(x) for x in range(256)]))
 
-
+"""
 class TestImageConvert(unittest.TestCase):
     def imageto32bitlist(self, im):
         return [(xy[0] << 16) + (xy[1] << 8) + xy[2] for xy in
@@ -724,6 +724,7 @@ class TestSnapConvert(unittest.TestCase):
 
     def test_snaptoz80(self):
         pass
+"""
 
 
 class TestDisassembleInstruction(unittest.TestCase):
@@ -1089,6 +1090,57 @@ DEFB             %#output instuction (DEFB or Define Byte)
 #%B0F            %#output contents of current address as byte and increment
                  %#current address\n%$-D             %#close data tag""")
 
+    def test_createfindandcomment(self):
+        self.assertEqual(spectrumtranslate.createfindandcomment("Hello\nTest",
+                                                                "Comment", 4,
+                                                                1),
+                         """\
+%(                   %#start test block
+  %(                 %#start test code
+Hello
+Test
+  %)                 %#end test code
+
+  %?BA
+  %?EQ00000000       %#test to ensure that false test fails now
+
+  %X0200%V0F0004     %#var0 is position of code to check + length of command
+                     %#start comment text
+Comment
+                     %#end comment text
+  %;%V0F%V0010       %#Create comment instruction
+
+  %?BA
+  %?EQ00000001       %#Force fail test otherwise will be processed as pattern
+%)                   %#end test block
+
+%(
+%)
+""")
+
+    def test_detailsfromfindandcomment(self):
+        self.assertEqual(spectrumtranslate.detailsfromfindandcomment("Hello"),
+                         None)
+        self.assertEqual(spectrumtranslate.detailsfromfindandcomment(
+                         spectrumtranslate.createfindandcomment("Hello\nTest",
+                                                                "Comment",
+                                                                4, 1)),
+                         ["Hello\nTest", "Comment", 4, 1])
+
+    def test_instructiontexttostring(self):
+        self.assertEqual(spectrumtranslate.instructiontexttostring("""  Hello
+% Mum%%%T%N."""),
+                         "Hello Mum%\t\n.")
+
+    def test_stringtoinstructiontext(self):
+        self.assertEqual(spectrumtranslate.stringtoinstructiontext(
+            "Hello Mum%\t\n."), "Hello% Mum%%%T%N.")
+
+    def test_isfindandcomment(self):
+        self.assertFalse(spectrumtranslate.isfindandcomment(spectrumtranslate.
+                         DisassembleInstruction.
+                         DISASSEMBLE_PATTERNBLOCK_CODES["RST#08 (Error)"]))
+
     def test_get_disassemblecodename_from_value(self):
         for name in spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES:
             self.assertEqual(spectrumtranslate.
@@ -1397,6 +1449,177 @@ LD HL,b0111111111111111</instruction><flags>S- Z- H- PV- N- C-</flags>\
 4000  21,03,40     LD HL,#4003          ;
       C3,06,40     JP #4006             ;
 
+4006  00           NOP                  ;
+"""]],
+            # comment
+            [[0x00, 0x00, 0x00],
+             [["30000#4001#4002##End of Line"],
+              ["30000#4001#4002##End of Line\nEnd of Line2"],
+              ["30001#4001#4002##Before Line"],
+              ["30001#4001#4002##Before Line\nBefore Line2"],
+              ["30002#4001#4002##After Line"],
+              ["30002#4001#4002##After Line\nAfter Line2"],
+              ["XML Output On", "30000#4001#4002##End of Line"],
+              ["XML Output On", "30000#4001#4002##End of Line\nEnd of Line2"],
+              ["XML Output On", "30001#4001#4002##Before Line"],
+              ["XML Output On", "30001#4001#4002##Before Line\nBefore Line2"],
+              ["XML Output On", "30002#4001#4002##After Line"],
+              ["XML Output On", "30002#4001#4002##After Line\nAfter Line2"]],
+             ["""\
+ORG #4000
+
+4000  00           NOP                  ;
+4001  00           NOP                  ;End of Line
+4002  00           NOP                  ;
+""",
+              """\
+ORG #4000
+
+4000  00           NOP                  ;
+4001  00           NOP                  ;End of Line
+    ;End of Line2
+4002  00           NOP                  ;
+""",
+              """\
+ORG #4000
+
+4000  00           NOP                  ;
+    ;Before Line
+4001  00           NOP                  ;
+4002  00           NOP                  ;
+""",
+              """\
+ORG #4000
+
+4000  00           NOP                  ;
+    ;Before Line
+    ;Before Line2
+4001  00           NOP                  ;
+4002  00           NOP                  ;
+""",
+              """\
+ORG #4000
+
+4000  00           NOP                  ;
+4001  00           NOP                  ;
+    ;After Line
+4002  00           NOP                  ;
+""",
+              """\
+ORG #4000
+
+4000  00           NOP                  ;
+4001  00           NOP                  ;
+    ;After Line
+    ;After Line2
+4002  00           NOP                  ;
+""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+  <line><address>4001</address><bytes>00</bytes><instruction>NOP</instruction>\
+<comment>End of Line</comment><flags>S- Z- H- PV- N- C-</flags><timeing>\
+<cycles>4</cycles><tstates>4</tstates></timeing></line>
+  <line><address>4002</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+</z80code>""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+  <line><address>4001</address><bytes>00</bytes><instruction>NOP</instruction>\
+<comment>End of Line
+End of Line2</comment><flags>S- Z- H- PV- N- C-</flags><timeing>\
+<cycles>4</cycles><tstates>4</tstates></timeing></line>
+  <line><address>4002</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+</z80code>""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+  <line><comment>Before Line</comment></line>
+  <line><address>4001</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+  <line><address>4002</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+</z80code>""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+  <line><comment>Before Line
+Before Line2</comment></line>
+  <line><address>4001</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+  <line><address>4002</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+</z80code>""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+  <line><address>4001</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+  <line><comment>After Line</comment></line>
+  <line><address>4002</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+</z80code>""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+  <line><address>4001</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+  <line><comment>After Line
+After Line2</comment></line>
+  <line><address>4002</address><bytes>00</bytes><instruction>NOP</instruction>\
+<flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
+</tstates></timeing></line>
+</z80code>"""]],
+            # find and comment
+            [[0x21, 0x03, 0x40, 0xCD, 0xC2, 0x04, 0x00],
+             [[spectrumtranslate.DisassembleInstruction(
+                 "Comment Pattern", 0x4000, 0x4004,
+                 spectrumtranslate.createfindandcomment("""\
+  %X0200%V0F0001     %#var0 is position of code to check +1
+  %?EQ%MWV0004C2     %#do the second two bytes point to save routine?
+  %?BA               %#and
+  %(                 %#now ensure first byte is a call command
+    %?EQ%MV0F00CD    %#does the first byte equal 0xCD (code for call)
+    %?BO             %#or
+    %(               %#check if is conditional call command
+      %X0700%V0F00C7 %#var0 is code to check and 0xC7 (mask bits that change)
+      %?EQ%V0000C0   %#masked value should be 0xC0 for a conditional call
+    %)
+  %)""", spectrumtranslate.stringtoinstructiontext("Save IX,DE bytes"), 3, 0))
+               ]],
+             ["""ORG #4000
+
+4000  21,03,40     LD HL,#4003          ;
+4003  CD,C2,04     CALL #04C2           ;Save IX,DE bytes
 4006  00           NOP                  ;
 """]]
         ]

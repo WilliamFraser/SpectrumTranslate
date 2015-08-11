@@ -41,6 +41,7 @@
 
 import spectrumnumber
 import sys
+import re
 from numbers import Integral as _INT_OR_LONG
 from functools import reduce
 
@@ -2947,6 +2948,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
     ShowFlags = 0            # 0=no, 1=yes
     MarkUndocumenedCommand = 0  # 0=no, 1=yes
     XMLOutput = 0            # 0=no, 1=yes
+    Comment = ""
 
     # process special instructions
     DisassembleInstructions = []
@@ -3090,9 +3092,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
             if(di.start < origin):
                 di.start = origin
 
-            # is this a patterndatablock instruction?
+            # is this a patterndatablock instruction or a find&comment
             if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
-                    "Pattern Data Block"]):
+                    "Pattern Data Block"] or
+               di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
+                    "Comment Pattern"]):
                 # get parts of patterndatablock
                 TestBlock, PrepBlock, ActionBlock = getpartsofpatterndatablock(
                     di.data)
@@ -3125,6 +3129,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                             "COMMANDOUTPUT": CommandOutput,
                             "XMLOutput": XMLOutput}
 
+                # if we're looking to add comments add variable to hold
+                # the new comments
+                if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
+                        "Comment Pattern"]):
+                    Settings["CommentsToAdd"] = []
                 Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, di.start, 0, 0, di.start,
                         di.end]
 
@@ -3141,6 +3150,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                         Vars[0x0D] = k
                         Vars[0x0E] = di.end
                         # test each address
+                        # will fail for Comment pattern but only after
+                        # pattern has been added
                         if((_processcommandblock(TestBlock, Vars, Settings,
                                                  data, True, True,
                                                  None)[0] & 1) == 1):
@@ -3168,6 +3179,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                             Vars[0x0A], 0, di.data,
                             "Attempt to reference data outside of supplied \
 code in pattern data block")
+
+                # if possibly have comments, add them
+                if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
+                        "Comment Pattern"]):
+                    DisassembleInstructions += Settings["CommentsToAdd"]
 
                 continue
 
@@ -3415,6 +3431,37 @@ code in pattern data block")
                 else None
             continue
 
+        # check is comment
+        if(di is not None and di.instruction & 0xFFFF00 == 0x030000 and
+           currentAddress >= di.start and currentAddress < di.end and
+           di.data is not None and di.data is not ""):
+            # handle commenmts before this line first
+            if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
+                    "Comment Before"]):
+                if(DisplayComments == 0):
+                    if(XMLOutput == 1):
+                        soutput += "  <line><comment>" + di.data + \
+                                   "</comment></line>\n"
+                    else:
+                        soutput += "".join(["    ;" + comment + "\n" for
+                                            comment in di.data.split("\n")])
+
+                # set di to next disassemble instruction
+                di = DisassembleInstructions.pop(0) if \
+                    DisassembleInstructions else None
+                continue
+            # otherwise end of this line or after
+            # get comment
+            Comment = di.data
+            # get where is going to be
+            CommentAfter = di.instruction == 0x030002
+
+            # set di to next disassemble instruction
+            di = DisassembleInstructions.pop(0) if \
+                DisassembleInstructions else None
+
+            continue
+
         # now deal with machine code
 
         # set length for standard command (ignoring any associated data)
@@ -3637,6 +3684,13 @@ code in pattern data block")
         # Handle XML output of stuff in comments (timing, flags,
         # undocumented commands)
         if(XMLOutput == 1):
+            # do comment
+            if(DisplayComments == 0 and Comment is not "" and
+               not CommentAfter):
+                soutput += "<comment>" + Comment + "</comment>"
+                # clear comment
+                Comment = ""
+
             # do flags
             sflags = getFlagChanges(instructionData)
             # output flag states if we have them
@@ -3685,8 +3739,20 @@ code in pattern data block")
             # following)
             bNeedSpace = False
 
+            # do comment
+            if(Comment is not "" and not CommentAfter):
+                soutput += "\n    ;".join([com for com in Comment.split("\n")])
+                # clear comment
+                Comment = ""
+                # mark will need space if any comment following
+                bNeedSpace = True
+
             # are we listing flags?
             if(ShowFlags > 0):
+                # insert space if needed
+                if(bNeedSpace):
+                    soutput += "  "
+
                 # get flag states for this instruction
                 sflags = getFlagChanges(instructionData)
                 # output flag states if we have them
@@ -3742,6 +3808,17 @@ code in pattern data block")
             soutput += "</line>"
 
         soutput += "\n"
+
+        # handle comments after line
+        if(DisplayComments == 0 and Comment is not "" and CommentAfter):
+            if(XMLOutput == 1):
+                soutput += "  <line><comment>" + Comment + \
+                           "</comment></line>\n"
+            else:
+                soutput += "".join(["    ;" + comment + "\n" for comment in
+                                    Comment.split("\n")])
+            # clear comment
+            Comment = ""
 
         # do we need to have newline after command to make more
         # readable.  Only needed if not doing XML
@@ -3875,7 +3952,11 @@ class DisassembleInstruction:
         "XML Output Off": 0x1200,
         "XML Output On": 0x1201,
         "Data Block": 0x010000,
-        "Pattern Data Block": 0x020000}
+        "Pattern Data Block": 0x020000,
+        "Comment": 0x030000,
+        "Comment Before": 0x030001,
+        "Comment After": 0x030002,
+        "Comment Pattern": 0x040001}
 
     DISASSEMBLE_DATABLOCK_CODES = {
         "Define Byte Hex": """\
@@ -4980,6 +5061,25 @@ DEFB               %#output instuction (DEFB or Define Byte)
         return Vars[0x0E], soutput
 
 
+def isfindandcomment(instructions):
+    """Tests if the supplied instructions is a valid find and comment
+    routine.
+
+    Note that this routine is not perfect, as to be so would be too
+    complex.  It simply ensures that the code can be broken into three
+    sections like a pattern data block, and that the first section
+    contains the %; command.
+    """
+
+    test, prep, action = getpartsofpatterndatablock(instructions)
+
+    # must have a test area and must contain %;
+    if(not test or test.find("%;") == -1):
+        return False
+
+    return True
+
+
 def _numbertostring(n, bits, form, typeindicator=True):
     """format: 0=hex,1=decimal,2=octal,3=binary
     typeindictor specifies display type specifer before number: "" for
@@ -5245,6 +5345,11 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
             soutput += getspectrumchar(s[0])
             continue
 
+        # space after % will get missed by _getnextcharacters so handle
+        if(instructions[Settings["DATASTRINGPOS"]] == ' '):  # output space
+            soutput += ' '
+            continue
+
         # get next char (command
         s = _getnextcharacters(instructions, Settings, 1)
 
@@ -5501,9 +5606,6 @@ digit hexadecimal number")
 
         elif(s[0] == 'N'):  # output newline
             soutput += '\n'
-
-        elif(s[0] == ' '):  # output space
-            soutput += ' '
 
         elif(s[0] == 'T'):  # output tab
             soutput += '\t'
@@ -5878,6 +5980,64 @@ digit hexadecimal number")
 
                 soutput += '>'
 
+        # add comment
+        elif(s[0] == ';'):
+            commentstart = get_number_var_or_memory(instructions, Vars,
+                                                    Settings, data,
+                                                    commandstart)
+            commentend = get_number_var_or_memory(instructions, Vars, Settings,
+                                                  data, commandstart)
+
+            # get what comment is to be
+            nextchar = _getnextcharacters(instructions, Settings, 1)
+            if(nextchar == "0"):
+                commentinstruction = DisassembleInstruction.\
+                    DISASSEMBLE_CODES["Comment"]
+            elif(nextchar == "1"):
+                commentinstruction = DisassembleInstruction.\
+                    DISASSEMBLE_CODES["Comment Before"]
+            elif(nextchar == "2"):
+                commentinstruction = DisassembleInstruction.\
+                    DISASSEMBLE_CODES["Comment After"]
+            else:
+                raise _newSpectrumTranslateError(
+                    Vars[0x0A], commandstart, instructions,
+                    "bad comment position")
+
+            # find out where to get comment from
+            nextchar = _getnextcharacters(instructions, Settings, 1)
+
+            # check if comment is text to end of line
+            if(nextchar == "1"):
+                # find end of line
+                endofline = instructions.find("\n", Settings["DATASTRINGPOS"])
+                # if newline not found, set to end of line
+                if(endofline == -1):
+                    endofline = len(instructions)
+
+                # set comment to be text to end of line
+                commenttext = nextchar + instructions[
+                    Settings["DATASTRINGPOS"]:endofline]
+
+                # move current position past end of line
+                Settings["DATASTRINGPOS"] = endofline
+
+            # if is text so far
+            elif(nextchar == "0"):
+                commenttext = soutput
+
+            # otherwise has been incorrect value
+            else:
+                raise _newSpectrumTranslateError(
+                    Vars[0x0A], commandstart, instructions,
+                    "bad comment source")
+
+            # create instruction
+            di = DisassembleInstruction(commentinstruction, commentstart,
+                                        commentend, commenttext)
+            # add to list of instructions
+            Settings["CommentsToAdd"] += [di]
+
         else:  # unrecognised command
             raise _newSpectrumTranslateError(
                 Vars[0x0A], commandstart, instructions, "unrecognised command")
@@ -6157,6 +6317,98 @@ def getpartsofpatterndatablock(pdb):
 
     except:
         return (test, prep, action)
+
+
+def createfindandcomment(test, comment, commandlength, position):
+    """This function returns a string that can be used as the
+    instruction for a Comment Pattern DisassembleInstruction.
+    test and comment are strings encoded to be processed as a data block
+    instuction (use the stringtoinstructiontext to convert a normal
+    string to a valid instruction). command length is the length of the
+    command you are finding, and position is 0 for the comment to be
+    placed at the end of a line, 1 if before the matched line, and 2
+    if after the matched line.
+    """
+
+    return """\
+%(                   %#start test block
+  %(                 %#start test code
+{0}
+  %)                 %#end test code
+
+  %?BA
+  %?EQ00000000       %#test to ensure that false test fails now
+
+  %X0200%V0F{1:04X}     %#var0 is position of code to check + length of command
+                     %#start comment text
+{2}
+                     %#end comment text
+  %;%V0F%V00{3:X}0       %#Create comment instruction
+
+  %?BA
+  %?EQ00000001       %#Force fail test otherwise will be processed as pattern
+%)                   %#end test block
+
+%(
+%)
+""".format(test, commandlength, comment, position)
+
+
+def detailsfromfindandcomment(code):
+    """This function returns a list of the components of a find and
+    comment instruction. Returns None if the supplied argument is not a
+    valid find and comment instruction.
+    Item 0 is the test code. Item 1 is the comment (encoded to be run
+    by the command interpeter, so use instructiontexttostring to get it
+    converted to plain text). Item 2 is the command length to be matched
+    as an int. Item 3 is the comment position as an int (0 at the end
+    of the matched line, 1 before the matched line, and 2 after the
+    metched line.
+    """
+
+    match = re.search(".*%\(\s*%#start test code\n(.*)\n  %\)\s*%#end test code\
+.*%X0200%V0F([0-9A-F]{4})\s*%#var0 is position of code to check \+ length of \
+command.*%#start comment text\n(.*)\n\s*%#end comment text.*%;%V0F%V00([0-2])0\
+\s*%#Create comment instruction", code, re.DOTALL)
+
+    try:
+        return [match.group(1), match.group(3), int(match.group(2), 16),
+                int(match.group(4), 16)]
+    except:
+        return None
+
+
+def instructiontexttostring(instructiontext):
+    """This function returns text as would be printed out by data block
+    instructiontext.
+    """
+
+    Settings = {"DATASTRINGPOS": 0,
+                "NUMBERFORMAT": 0,
+                "NUMBERSIGNED": 0,
+                "NUMBERWORDORDER": 0,
+                "DISPLAYEVERYXLINES": 1,
+                "ORIGIONALSEPERATOR": "  ",
+                "SEPERATOR": "  ",
+                "ORIGIN": 0x4000,
+                "ADDRESSOUTPUT": 0,
+                "NUMBEROUTPUT": 0,
+                "COMMANDOUTPUT": 0,
+                "XMLOutput": 0}
+    Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x4000, 0, 0, 0x4000, 0x4001]
+
+    flag, text = _processcommandblock(instructiontext, Vars, Settings, None,
+                                      False, True, None)
+
+    return text
+
+
+def stringtoinstructiontext(text):
+    """This function returns the datablock instruction to display text.
+    """
+
+    return text.replace("%", "%%").replace(" ", "% ").replace("\n", "%N").\
+        replace("\t", "%T")
 
 
 def get_disassemblecodename_from_value(value):
