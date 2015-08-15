@@ -13,7 +13,7 @@ to look for certain paterns and treat the area around it as data (usefull for wh
 follows the call to that subroutine for example).
 </p>
 <p>
-Each Disassembly Instruction contains several atributes that tell the disasseblber how to interperate it.
+Each Disassembly Instruction contains several atributes that tell the disassebler how to interperate it.
 They are:
 <ul>
     <li><strong>The instruction</strong> - this tells the disassebbler what to do. It needs to be one of the predefined values.</li>
@@ -91,6 +91,11 @@ variable 1 after the preperation code block, and data set to whatever comes afte
 You don't have to calculate the end position in variable 1 if you don't want to, and can use the %Q instruction
 in the script to end the data processing for the match instead of relying on end to terminate the
 script if you want to. See Below for details of scripts. See this <a href="#PatternExample">example of how patterns work</a>.</li>
+<li><strong>Comment</strong> - This tells the disassembler to add a comment at the end of the line beginning with the start address. The Comment to add is held in the in the DisassembleInstruction's data value.</li>
+<li><strong>Comment Before</strong> - This tells the disassembler to add a comment in a line (or lines) before the line at the specified address. The Comment to add is held in the in the DisassembleInstruction's data value.</li>
+<li><strong>Comment After</strong> - This tells the disassembler to add a comment in a line (or lines) after the line at the specified address. The Comment to add is held in the in the DisassembleInstruction's data value.</li>
+<li><strong>Comment Pattern</strong> - This tells the disassembler to search for a pattern and add comments (and can be before or after) to any lines which match the pattern. The pattern to match is specified just like the matching block of a <strong>Pattern Data Block</strong>. If it returns True then a comment is applied at that line, otherwise it is not.</li>
+
 </p>
 
 <a id="scipting"><center><h2>Data Block (and Pattern Data Block) instruction scripting.</h2></center></a>
@@ -243,6 +248,7 @@ the end value to the current position, and leaves the DisassembleInstruction.</l
 <h3>Miscelanious commands:</h3>
 <p><ul>
 <li><code><strong>%#</strong></code> - This denotes that everything after this until the end of a line is a comment.</li>
+<li><code><strong>%;WXYZ</strong></code> - If encountered in a <strong>Comment Pattern</strong> command, this will add a comment at all matching lines at the position specified. W is a 4 digit hexadecimal number that specifies the code address to start searching for a match. X is a 4 digit hexadecimal number specifying the last address to search for a match (note that trying to search for a match beyond the end of the supplied data can cause errors, and that most matches check bytes after the first byte being looked at). Y is a single digit denoteing where the comment is to be placed (0 for end of matched line, 1 if before the matched line, and 2 if after the matched line). Z is a single digit specifying where the comment text is to be found. If it is 0, then all outputted text up to this command is used as the comment, if it is 1, then the comment is all text until the next newline character (ie end of line), and ignores formatting.</li>
 <li><code><strong>%$?X</strong></code> - This the XML tag command. ? denotes extra options and is optional. If option is not specified then it is assumed to be opening tag. X deontes which XML tag is to be used.<BR>
 options are:<ul>
   <li><code><strong>-</strong></code> - if closeing xml tag.</li>

@@ -206,7 +206,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 while(i < self.columns and a + i < len(self.data)):
                     # print value at address
                     qp.drawText(QtCore.QPointF(x, y),
-                                "{0:02X)".format(self.data[a + i]))
+                                "{0:02X}".format(self.data[a + i]))
                     x += self.cWidth * 3
                     # add character
                     d = self.data[a + i]
@@ -1093,6 +1093,9 @@ display flashing colours, or simple GIF file.")
         lwInstructions.currentItemChanged.connect(
             self.instructionselectionchanged)
         dContainer.lwInstructions = lwInstructions
+        if(len(self.diInstructions) > 1):
+            lwInstructions.setCurrentRow(0)
+            self.SetDisassembleDialogButtons()
 
         grid.addWidget(lwInstructions, 0, 2, 12, 1)
 
@@ -1187,8 +1190,146 @@ display flashing colours, or simple GIF file.")
                 DISASSEMBLE_CODES["Pattern Data Block"]):
             self.EditPatternDataBlock(di)
 
+        if(di.instruction == spectrumtranslate.DisassembleInstruction.
+           DISASSEMBLE_CODES["Comment"] or
+           di.instruction == spectrumtranslate.DisassembleInstruction.
+           DISASSEMBLE_CODES["Comment Before"] or
+           di.instruction == spectrumtranslate.DisassembleInstruction.
+           DISASSEMBLE_CODES["Comment After"]):
+            self.EditComment(di)
+
+        if(di.instruction == spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Pattern"]):
+            self.EditCommentPattern(di)
+
         # ensure any data change is represented in list details
         self.setLabelText(lwInstructions.currentItem())
+
+    def EditComment(self, di):
+        # create dialog
+        dContainer = QtGui.QDialog(self)
+        dContainer.setWindowTitle("Edit Comment")
+        dContainer.setModal(True)
+
+        lay = QtGui.QVBoxLayout()
+
+        lay.addWidget(QtGui.QLabel("Comment Text:"))
+
+        leCommentText = QtGui.QLineEdit()
+        if(di.data):
+            leCommentText.setText(di.data)
+        leCommentText.setToolTip("The text to be added as the comment.")
+        leCommentText.sizePolicy().setHorizontalPolicy(
+            QtGui.QSizePolicy.Expanding)
+        leCommentText.sizePolicy().setHorizontalStretch(1)
+        lay.addWidget(leCommentText)
+
+        cbPosition = QtGui.QComboBox(self)
+        cbPosition.addItem("Comment End of line",
+                           spectrumtranslate.DisassembleInstruction.
+                           DISASSEMBLE_CODES["Comment"])
+        cbPosition.addItem("Comment Before line",
+                           spectrumtranslate.DisassembleInstruction.
+                           DISASSEMBLE_CODES["Comment Before"])
+        cbPosition.addItem("Comment After line",
+                           spectrumtranslate.DisassembleInstruction.
+                           DISASSEMBLE_CODES["Comment After"])
+        cbPosition.setToolTip("Where the comment is placed.")
+        cbPosition.setCurrentIndex(cbPosition.findData(di.instruction))
+        lay.addWidget(cbPosition)
+
+        lay2 = QtGui.QHBoxLayout()
+        lay2.addStretch(1)
+        ok = QtGui.QPushButton("Ok", self)
+        lay2.addWidget(ok)
+        ok.clicked.connect(dContainer.accept)
+        close = QtGui.QPushButton("Cancel", self)
+        lay2.addWidget(close)
+        close.clicked.connect(dContainer.reject)
+        lay2.addStretch(1)
+
+        lay.addLayout(lay2)
+
+        dContainer.setLayout(lay)
+
+        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+            di.data = str(leCommentText.text())
+            di.instruction = int(cbPosition.itemData(
+                                 cbPosition.currentIndex()).toInt()[0])
+            self.Ddialog.cbDisassembleCommands.setCurrentIndex(
+                self.Ddialog.cbDisassembleCommands.findData(di.instruction))
+
+    def EditCommentPattern(self, di):
+        # get instruction parts
+        parts = spectrumtranslate.detailsfromfindandcomment(di.data)
+        # create dialog
+        dContainer = QtGui.QDialog(self)
+        dContainer.setWindowTitle("Edit Comment Pattern")
+        dContainer.setModal(True)
+
+        lay = QtGui.QVBoxLayout()
+
+        lay.addWidget(QtGui.QLabel("Comment Text:"))
+
+        leCommentText = QtGui.QTextEdit()
+        leCommentText.setLineWrapMode(QtGui.QTextEdit.NoWrap)
+        if(parts and parts[0]):
+            leCommentText.setPlainText(
+                spectrumtranslate.instructiontexttostring(parts[1]))
+        leCommentText.myfont = QtGui.QFont(
+            'monospace', leCommentText.fontPointSize())
+        leCommentText.setFont(leCommentText.myfont)
+        leCommentText.setToolTip("The text to be added as the comment.")
+        lay.addWidget(leCommentText)
+
+        cbPosition = QtGui.QComboBox(self)
+        cbPosition.addItem("Comment End of line",
+                           spectrumtranslate.DisassembleInstruction.
+                           DISASSEMBLE_CODES["Comment"])
+        cbPosition.addItem("Comment Before line",
+                           spectrumtranslate.DisassembleInstruction.
+                           DISASSEMBLE_CODES["Comment Before"])
+        cbPosition.addItem("Comment After line",
+                           spectrumtranslate.DisassembleInstruction.
+                           DISASSEMBLE_CODES["Comment After"])
+        cbPosition.setToolTip("Where the comment is placed.")
+        cbPosition.setCurrentIndex(parts[3] if (parts and parts[3]) else 0)
+        lay.addWidget(cbPosition)
+
+        lay.addWidget(QtGui.QLabel("Comment Pattern search commands:"))
+
+        teCommentPatternSearch = QtGui.QTextEdit()
+        teCommentPatternSearch.setLineWrapMode(QtGui.QTextEdit.NoWrap)
+        if(parts and parts[0]):
+            teCommentPatternSearch.setPlainText(parts[0])
+        teCommentPatternSearch.myfont = QtGui.QFont(
+            'monospace', teCommentPatternSearch.fontPointSize())
+        teCommentPatternSearch.setFont(teCommentPatternSearch.myfont)
+        teCommentPatternSearch.setToolTip(
+            "Code to find where if this line should be commented.")
+        lay.addWidget(teCommentPatternSearch)
+
+        lay2 = QtGui.QHBoxLayout()
+        lay2.addStretch(1)
+        ok = QtGui.QPushButton("Ok", self)
+        lay2.addWidget(ok)
+        ok.clicked.connect(dContainer.accept)
+        close = QtGui.QPushButton("Cancel", self)
+        lay2.addWidget(close)
+        close.clicked.connect(dContainer.reject)
+        lay2.addStretch(1)
+
+        lay.addLayout(lay2)
+
+        dContainer.setLayout(lay)
+
+        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+            di.data = spectrumtranslate.createfindandcomment(
+                str(teCommentPatternSearch.toPlainText()),
+                spectrumtranslate.stringtoinstructiontext(
+                    leCommentText.toPlainText()),
+                1,
+                cbPosition.currentIndex())
 
     def EditPatternDataBlock(self, di):
         dContainer = QtGui.QDialog(self)
@@ -1812,6 +1953,8 @@ frequency must be between 0 and 255 decimal.")
                 self.setLabelText(item)
                 lwInstructions.setItemWidget(item, lab)
 
+            if(len(instructions) > 0):
+                lwInstructions.setCurrentRow(0)
             self.SetDisassembleDialogButtons()
 
     def CustomDisassembleDown(self):
@@ -1900,8 +2043,8 @@ frequency must be between 0 and 255 decimal.")
         di = instructionlist.currentItem().di
 
         i = self.CheckInstructionAddress(dialog.leStart)
-        dialog.leStart.setStyleSheet("QLineEdit {background-color:{0}}".format(
-            "#FF8080" if i == -1 else "white"))
+        dialog.leStart.setStyleSheet("QLineEdit {{\nbackground-color: {0}\n}}".
+                                     format("#FF8080" if i == -1 else "white"))
         if(i != -1):
             di.start = i
             self.setLabelText(instructionlist.currentItem())
@@ -1912,8 +2055,8 @@ frequency must be between 0 and 255 decimal.")
         di = instructionlist.currentItem().di
 
         i = self.CheckInstructionAddress(dialog.leEnd)
-        dialog.leEnd.setStyleSheet("QLineEdit {background-color:{0}}".format(
-            "#FF8080" if i == -1 else "white"))
+        dialog.leEnd.setStyleSheet("QLineEdit {{\nbackground-color: {0}\n}}".
+                                   format("#FF8080" if i == -1 else "white"))
         if(i != -1):
             di.end = i
             self.setLabelText(instructionlist.currentItem())
@@ -2003,7 +2146,15 @@ frequency must be between 0 and 255 decimal.")
              di.instruction == spectrumtranslate.DisassembleInstruction.
                 DISASSEMBLE_CODES["Data Block"] or
              di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Pattern Data Block"]))
+                DISASSEMBLE_CODES["Pattern Data Block"] or
+             di.instruction == spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment"] or
+             di.instruction == spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Before"] or
+             di.instruction == spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment After"] or
+             di.instruction == spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Pattern"]))
         dialog.cbDisassembleCommands.setEnabled(di is not None)
         dialog.leStart.setEnabled(di is not None)
         dialog.leEnd.setEnabled(di is not None)
@@ -2042,6 +2193,15 @@ frequency must be between 0 and 255 decimal.")
                     break
 
             s += " - " + key
+
+        elif(lwInstruction.di.instruction == spectrumtranslate.
+             DisassembleInstruction.DISASSEMBLE_CODES["Comment"] or
+             lwInstruction.di.instruction == spectrumtranslate.
+             DisassembleInstruction.DISASSEMBLE_CODES["Comment Before"] or
+             lwInstruction.di.instruction == spectrumtranslate.
+             DisassembleInstruction.DISASSEMBLE_CODES["Comment After"]):
+            s += ' comment: "{0}"'.format("" if not lwInstruction.di.data else
+                                          lwInstruction.di.data)
 
         lwInstruction.label.setText(s)
 
@@ -2729,7 +2889,7 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                         spectrumtranslate.DisassembleInstruction.
                         DISASSEMBLE_CODES["List Command Bytes On"],
                         spectrumtranslate.DisassembleInstruction.
-                        DISASSEMBLE_CODES["Comments Off"],
+                        DISASSEMBLE_CODES["Comments On"],
                         spectrumtranslate.DisassembleInstruction.
                         DISASSEMBLE_CODES["Seperators Space"],
                         spectrumtranslate.DisassembleInstruction.

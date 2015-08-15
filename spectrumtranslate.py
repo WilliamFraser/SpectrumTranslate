@@ -1120,6 +1120,7 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
 
         # now move through line
         l = 0
+        k = data[i]
         while(l < iLineLen):
             # get next line entry character
             k = data[i]
@@ -2904,6 +2905,14 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
 
         return duration, states
 
+    def CommentOutput(comment, XMLOutput):
+        if(XMLOutput == 1):
+            return "  <line><comment>" + comment + "</comment></line>\n"
+        else:
+            linestart = "\0" + chr(12) + chr(0) + "0000" + Seperator + ";"
+            return "".join([linestart + txt + "\n" for txt in
+                            comment.split("\n")])
+
     # end nested functions
 
     # holds how long address is in each number format
@@ -3439,12 +3448,7 @@ code in pattern data block")
             if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
                     "Comment Before"]):
                 if(DisplayComments == 0):
-                    if(XMLOutput == 1):
-                        soutput += "  <line><comment>" + di.data + \
-                                   "</comment></line>\n"
-                    else:
-                        soutput += "".join(["    ;" + comment + "\n" for
-                                            comment in di.data.split("\n")])
+                    soutput += CommentOutput(di.data, XMLOutput)
 
                 # set di to next disassemble instruction
                 di = DisassembleInstructions.pop(0) if \
@@ -3673,14 +3677,6 @@ code in pattern data block")
         else:
             soutput += s
 
-            # align any comments
-            # don't need to bother if using tabs
-            if(Seperator == "  "):
-                soutput += " " * (FormatOpCodeMaxLength[AddressOutput] if
-                                  FormatOpCodeMaxLength[AddressOutput] >
-                                  FormatOpCodeMaxLength[NumberOutput] else
-                                  FormatOpCodeMaxLength[NumberOutput] - len(s))
-
         # Handle XML output of stuff in comments (timing, flags,
         # undocumented commands)
         if(XMLOutput == 1):
@@ -3729,11 +3725,19 @@ code in pattern data block")
 
         # if we're not doing XML and want comments, do so
         elif(DisplayComments == 0):
-            # space between opcode and comments
-            soutput += Seperator
+            precomment = ""
 
-            # output comments
-            soutput += ";"
+            # align any comments
+            # don't need to bother if using tabs
+            if(Seperator == "  "):
+                precomment = " " * (FormatOpCodeMaxLength[AddressOutput] if
+                                    FormatOpCodeMaxLength[AddressOutput] >
+                                    FormatOpCodeMaxLength[NumberOutput] else
+                                    FormatOpCodeMaxLength[NumberOutput] -
+                                    len(s))
+
+            # space between opcode and comments, and comment marker
+            precomment += Seperator + ";"
 
             # will we need a space before this comment (and any comment
             # following)
@@ -3741,7 +3745,19 @@ code in pattern data block")
 
             # do comment
             if(Comment is not "" and not CommentAfter):
-                soutput += "\n    ;".join([com for com in Comment.split("\n")])
+                # output pre comment text
+                soutput += precomment
+                # note has been output
+                precomment = None
+
+                if(Comment.find("\n") == -1):
+                    soutput += Comment
+
+                else:
+                    soutput += Comment.split("\n")[0] + "\n"
+                    soutput += CommentOutput("".join(Comment.split("\n")[1:]),
+                                             XMLOutput)[:-1]
+
                 # clear comment
                 Comment = ""
                 # mark will need space if any comment following
@@ -3749,6 +3765,12 @@ code in pattern data block")
 
             # are we listing flags?
             if(ShowFlags > 0):
+                if(precomment):
+                    # output pre comment text
+                    soutput += precomment
+                    # note has been output
+                    precomment = None
+
                 # insert space if needed
                 if(bNeedSpace):
                     soutput += "  "
@@ -3763,6 +3785,12 @@ code in pattern data block")
                     bNeedSpace = True
 
             if(OutputTStates > 0):
+                if(precomment):
+                    # output pre comment text
+                    soutput += precomment
+                    # note has been output
+                    precomment = None
+
                 # insert space if needed
                 if(bNeedSpace):
                     soutput += "  "
@@ -3795,6 +3823,12 @@ code in pattern data block")
             # are we noteing undocumented commands?
             if(MarkUndocumenedCommand > 0 and
                ((instructionData >> 21) & 1) == 1):
+                if(precomment):
+                    # output pre comment text
+                    soutput += precomment
+                    # note has been output
+                    precomment = None
+
                 # do we need gap?
                 if(bNeedSpace):
                     soutput += "  "
@@ -3811,12 +3845,7 @@ code in pattern data block")
 
         # handle comments after line
         if(DisplayComments == 0 and Comment is not "" and CommentAfter):
-            if(XMLOutput == 1):
-                soutput += "  <line><comment>" + Comment + \
-                           "</comment></line>\n"
-            else:
-                soutput += "".join(["    ;" + comment + "\n" for comment in
-                                    Comment.split("\n")])
+            soutput += CommentOutput(Comment, XMLOutput)
             # clear comment
             Comment = ""
 
@@ -6366,12 +6395,11 @@ def detailsfromfindandcomment(code):
     metched line.
     """
 
-    match = re.search(".*%\(\s*%#start test code\n(.*)\n  %\)\s*%#end test code\
-.*%X0200%V0F([0-9A-F]{4})\s*%#var0 is position of code to check \+ length of \
-command.*%#start comment text\n(.*)\n\s*%#end comment text.*%;%V0F%V00([0-2])0\
-\s*%#Create comment instruction", code, re.DOTALL)
-
     try:
+        match = re.search(".*%\(\s*%#start test code\n(.*)\n  %\)\s*%#end test\
+ code.*%X0200%V0F([0-9A-F]{4})\s*%#var0 is position of code to check \+ length\
+ of command.*%#start comment text\n(.*)\n\s*%#end comment text.*%;%V0F%V00([0-\
+2])0\s*%#Create comment instruction", code, re.DOTALL)
         return [match.group(1), match.group(3), int(match.group(2), 16),
                 int(match.group(4), 16)]
     except:

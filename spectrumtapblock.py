@@ -1146,7 +1146,8 @@ entries in the source data.\n")
         if(_PYTHON_VERSION_HEX > 0x03000000):
             retdata = bytes(retdata)
         else:
-            retdata = ''.join([chr(x) for x in retdata])
+            if(not isinstance(retdata, str)):
+                retdata = ''.join([chr(x) for x in retdata])
 
         # output data
         if(not tostandardoutput):

@@ -1179,7 +1179,7 @@ class TestDisassembleCode(unittest.TestCase):
               ["Mark Undocumented Command On"], ["XML Output On"]],
              ["""ORG #4000
 
-4000  DD,CB,01,01  LD C,RLC (IX+#01)    ;
+4000  DD,CB,01,01  LD C,RLC (IX+#01)
 """,
               """ORG #4000
 
@@ -1197,8 +1197,8 @@ LD C,RLC (IX+#01)</instruction><flags>S+ Z+ H0 PVP N0 C+</flags><timeing>\
              [["Address Output Format Hex"], ["XML Output On"]],
              ["""ORG #4000
 
-4000  DD                                ;
-4001  00           NOP                  ;
+4000  DD           
+4001  00           NOP
 """,
               """<?xml version="1.0" encoding="UTF-8" ?>
 <z80code>
@@ -1222,7 +1222,7 @@ LD C,RLC (IX+#01)</instruction><flags>S+ Z+ H0 PVP N0 C+</flags><timeing>\
 """,
               """ORG #4000
 
-4000  7E           LD A,(HL)            ;
+4000  7E           LD A,(HL)
 """,
               """ORG #4000
 
@@ -1271,9 +1271,9 @@ LD C,RLC (IX+#01)</instruction><flags>S+ Z+ H0 PVP N0 C+</flags><timeing>\
              [["Display Flags Off"], ["Display Flags On"], ["XML Output On"]],
              ["""ORG #4000
 
-4000  CB,47        BIT 0,A              ;
-4002  87           ADD A,A              ;
-4003  A7           AND A                ;
+4000  CB,47        BIT 0,A
+4002  87           ADD A,A
+4003  A7           AND A
 """,
               """ORG #4000
 
@@ -1300,24 +1300,24 @@ LD C,RLC (IX+#01)</instruction><flags>S+ Z+ H0 PVP N0 C+</flags><timeing>\
               ["Line After Jump After All"], ["XML Output On"]],
              ["""ORG #4000
 
-4000  C3,00,00     JP #0000             ;
-4003  C2,00,00     JP NZ,#0000          ;
-4006  00           NOP                  ;
+4000  C3,00,00     JP #0000
+4003  C2,00,00     JP NZ,#0000
+4006  00           NOP
 """,
               """ORG #4000
 
-4000  C3,00,00     JP #0000             ;
+4000  C3,00,00     JP #0000
 
-4003  C2,00,00     JP NZ,#0000          ;
-4006  00           NOP                  ;
+4003  C2,00,00     JP NZ,#0000
+4006  00           NOP
 """,
               """ORG #4000
 
-4000  C3,00,00     JP #0000             ;
+4000  C3,00,00     JP #0000
 
-4003  C2,00,00     JP NZ,#0000          ;
+4003  C2,00,00     JP NZ,#0000
 
-4006  00           NOP                  ;
+4006  00           NOP
 """,
               """<?xml version="1.0" encoding="UTF-8" ?>
 <z80code>
@@ -1347,12 +1347,10 @@ LD C,RLC (IX+#01)</instruction><flags>S+ Z+ H0 PVP N0 C+</flags><timeing>\
                "103#4009#400B#", "200#4009#400B#", "301#4009#400B#"]],
              ["""ORG #4000
 
-4000               041,377,177           LD HL,32767           ;
-16387              00100001,11111111,01111111                     \
-LD HL,o077777          ;
-o040006            21,FF,7F     LD HL,b0111111111111111      ;
-b0100000000001001  33,255,127            LD HL,#7FFF\
-                             ;
+4000               041,377,177           LD HL,32767
+16387              00100001,11111111,01111111                     LD HL,o077777
+o040006            21,FF,7F     LD HL,b0111111111111111
+b0100000000001001  33,255,127            LD HL,#7FFF
 """,
               """<?xml version="1.0" encoding="UTF-8" ?>
 <z80code>
@@ -1373,19 +1371,21 @@ LD HL,b0111111111111111</instruction><flags>S- Z- H- PV- N- C-</flags>\
             # command bytes
             [[0x21, 0xFF, 0x7F],
              [["List Command Bytes On"], ["List Command Bytes Off"]],
-             ["""ORG #4000\n\n4000  21,FF,7F     LD HL,#7FFF          ;\n""",
-              """ORG #4000\n\n4000    LD HL,#7FFF          ;\n"""]],
+             ["""ORG #4000\n\n4000  21,FF,7F     LD HL,#7FFF\n""",
+              """ORG #4000\n\n4000    LD HL,#7FFF\n"""]],
             # comments on/off
             [[0x10, 0xFE],
-             [["Comments On"], ["Comments Off"]],
-             ["""ORG #4000\n\n4000  10,FE        DJNZ #4000           ;\n""",
-              """ORG #4000\n\n4000  10,FE        DJNZ #4000         \n"""]],
+             [["Comments On", "Display Flags On"],
+              ["Comments Off", "Display Flags On"]],
+             ["""ORG #4000\n\n4000  10,FE        DJNZ #4000           \
+;S- Z- H- PV- N- C-\n""",
+              """ORG #4000\n\n4000  10,FE        DJNZ #4000\n"""]],
             # separators
             [[0x10, 0xFE],
              [["Seperators Space"], ["Seperators Tab"], ["0E02#4000#4002##~"]],
-             ["""ORG #4000\n\n4000  10,FE        DJNZ #4000           ;\n""",
-              """ORG #4000\n\n4000\t10,FE\tDJNZ #4000\t;\n""",
-              """ORG #4000\n\n4000~10,FE~DJNZ #4000~;\n"""]],
+             ["""ORG #4000\n\n4000  10,FE        DJNZ #4000\n""",
+              """ORG #4000\n\n4000\t10,FE\tDJNZ #4000\n""",
+              """ORG #4000\n\n4000~10,FE~DJNZ #4000\n"""]],
             # line numbering
             [[0xC3, 0x04, 0x40, 0x00, 0x18, 0x00, 0x00, 0x00, 0x00, 0x00],
              [["Line After Jump None", "Line Numbers All"],
@@ -1395,43 +1395,43 @@ LD HL,b0111111111111111</instruction><flags>S- Z- H- PV- N- C-</flags>\
                "900#4000#400A##3"]],
              ["""ORG #4000
 
-4000  C3,04,40     JP #4004             ;
-4003  00           NOP                  ;
-4004  18,00        JR #4006             ;
-4006  00           NOP                  ;
-4007  00           NOP                  ;
-4008  00           NOP                  ;
-4009  00           NOP                  ;
+4000  C3,04,40     JP #4004
+4003  00           NOP
+4004  18,00        JR #4006
+4006  00           NOP
+4007  00           NOP
+4008  00           NOP
+4009  00           NOP
 """,
               """ORG #4000
 
-      C3,04,40     JP #4004             ;
-      00           NOP                  ;
-      18,00        JR #4006             ;
-      00           NOP                  ;
-      00           NOP                  ;
-      00           NOP                  ;
-      00           NOP                  ;
+      C3,04,40     JP #4004
+      00           NOP
+      18,00        JR #4006
+      00           NOP
+      00           NOP
+      00           NOP
+      00           NOP
 """,
               """ORG #4000
 
-4000  C3,04,40     JP #4004             ;
-      00           NOP                  ;
-4004  18,00        JR #4006             ;
-4006  00           NOP                  ;
-      00           NOP                  ;
-      00           NOP                  ;
-      00           NOP                  ;
+4000  C3,04,40     JP #4004
+      00           NOP
+4004  18,00        JR #4006
+4006  00           NOP
+      00           NOP
+      00           NOP
+      00           NOP
 """,
               """ORG #4000
 
-4000  C3,04,40     JP #4004             ;
-      00           NOP                  ;
-      18,00        JR #4006             ;
-4006  00           NOP                  ;
-      00           NOP                  ;
-      00           NOP                  ;
-4009  00           NOP                  ;
+4000  C3,04,40     JP #4004
+      00           NOP
+      18,00        JR #4006
+4006  00           NOP
+      00           NOP
+      00           NOP
+4009  00           NOP
 """]],
             # reference data
             [[0x21, 0x03, 0x40, 0xC3, 0x06, 0x40, 0x00],
@@ -1439,17 +1439,17 @@ LD HL,b0111111111111111</instruction><flags>S- Z- H- PV- N- C-</flags>\
               ["Line Numbers Referenced", "Reference Data Numbers Off"]],
              ["""ORG #4000
 
-4000  21,03,40     LD HL,#4003          ;
-4003  C3,06,40     JP #4006             ;
+4000  21,03,40     LD HL,#4003
+4003  C3,06,40     JP #4006
 
-4006  00           NOP                  ;
+4006  00           NOP
 """,
               """ORG #4000
 
-4000  21,03,40     LD HL,#4003          ;
-      C3,06,40     JP #4006             ;
+4000  21,03,40     LD HL,#4003
+      C3,06,40     JP #4006
 
-4006  00           NOP                  ;
+4006  00           NOP
 """]],
             # comment
             [[0x00, 0x00, 0x00],
@@ -1468,51 +1468,51 @@ LD HL,b0111111111111111</instruction><flags>S- Z- H- PV- N- C-</flags>\
              ["""\
 ORG #4000
 
-4000  00           NOP                  ;
+4000  00           NOP
 4001  00           NOP                  ;End of Line
-4002  00           NOP                  ;
+4002  00           NOP
 """,
               """\
 ORG #4000
 
-4000  00           NOP                  ;
+4000  00           NOP
 4001  00           NOP                  ;End of Line
-    ;End of Line2
-4002  00           NOP                  ;
+      ;End of Line2
+4002  00           NOP
 """,
               """\
 ORG #4000
 
-4000  00           NOP                  ;
-    ;Before Line
-4001  00           NOP                  ;
-4002  00           NOP                  ;
+4000  00           NOP
+      ;Before Line
+4001  00           NOP
+4002  00           NOP
 """,
               """\
 ORG #4000
 
-4000  00           NOP                  ;
-    ;Before Line
-    ;Before Line2
-4001  00           NOP                  ;
-4002  00           NOP                  ;
+4000  00           NOP
+      ;Before Line
+      ;Before Line2
+4001  00           NOP
+4002  00           NOP
 """,
               """\
 ORG #4000
 
-4000  00           NOP                  ;
-4001  00           NOP                  ;
-    ;After Line
-4002  00           NOP                  ;
+4000  00           NOP
+4001  00           NOP
+      ;After Line
+4002  00           NOP
 """,
               """\
 ORG #4000
 
-4000  00           NOP                  ;
-4001  00           NOP                  ;
-    ;After Line
-    ;After Line2
-4002  00           NOP                  ;
+4000  00           NOP
+4001  00           NOP
+      ;After Line
+      ;After Line2
+4002  00           NOP
 """,
               """<?xml version="1.0" encoding="UTF-8" ?>
 <z80code>
@@ -1618,9 +1618,9 @@ After Line2</comment></line>
                ]],
              ["""ORG #4000
 
-4000  21,03,40     LD HL,#4003          ;
+4000  21,03,40     LD HL,#4003
 4003  CD,C2,04     CALL #04C2           ;Save IX,DE bytes
-4006  00           NOP                  ;
+4006  00           NOP
 """]]
         ]
 
@@ -1669,13 +1669,13 @@ After Line2</comment></line>
         self.assertEqual(spectrumtranslate.disassemble(data, 0, 0x4000,
                          len(data), di), """ORG #4000
 
-4000  7F           LD A,A               ;
-4001  EF           RST 28H              ;
+4000  7F           LD A,A
+4001  EF           RST 28H
     DEFB  #00
     DEFB  #00
     DEFB  #38
 
-4005  C9           RET                  ;
+4005  C9           RET
 
 """)
 
