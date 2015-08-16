@@ -3183,11 +3183,9 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
 
                         k += 1
                     except IndexError:
-                        raise
-                        raise _newSpectrumTranslateError(
-                            Vars[0x0A], 0, di.data,
-                            "Attempt to reference data outside of supplied \
-code in pattern data block")
+                        # exit gracefully if test involves bytes outside
+                        # supplied data.
+                        break
 
                 # if possibly have comments, add them
                 if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
