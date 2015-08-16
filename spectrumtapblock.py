@@ -635,16 +635,17 @@ def usage():
     return"""usage: python spectrumtapblock.py instruction [args] infile
     outfile
 
-    moves data from infile which should be a tap file and outputs it to
-    outfile.
+    moves data from infile which should be a tap file (or data to save
+    as a file into a tap file) and outputs it to outfile.
 
     instruction is required and specifies what you want to do. It must
-    be 'list', 'extract', 'delete' or 'copy.  'list' will list the
-    contents of the specified tapfile.  'extract' extracts the data from
-    a tap file entry to wherever you want.  'copy' copies the specified
-    tap file entries to another tap file.  'delete' deletes the
-    specified entries from the source tap file and outputs the resulting
-    tap file.
+    be 'list', 'extract', 'delete', 'copy, or 'create'.  'list' will
+    list the contents of the specified tapfile.  'extract' extracts the
+    data from a tap file entry to wherever you want.  'copy' copies the
+    specified tap file entries to another tap file.  'delete' deletes
+    the specified entries from the source tap file and outputs the
+    resulting tap file. 'create' creates a tap entry (as well as a
+    headder entry if needed) in outfile using the supplied file data.
 
     infile and outfile are required unless reading from the standard
     input or outputting to the standard output.  Usually arguments are
@@ -657,6 +658,14 @@ def usage():
     entry(entries) you want to copy must be specified before the
     filename.  You do not need to do this if you have already specified
     which entries you want with the -s flag.
+
+    If using the create instruction, you must specify what you are
+    creating imediatly after the create instruction.  Valid options are
+    'basic', 'code', 'array', 'screen', and 'block'.  You must also
+    specify the filnename for the file with the --filename flag unless
+    you are creating a data block.  If creating an array, you must also
+    specify the name and type of array with the --arraytype and
+    --arrayname flags.
 
     general flags:
     -o specifies that the output from this program is to be directed to
@@ -704,6 +713,32 @@ def usage():
     copy flags:
     -a specifies that the output should be appended to an existing file
        rather than overwriting it.
+    -p specifies that the output should be inserted at the position in
+       the desitnation file.  The index where you want the copied
+       entry(entries) inserted must follow the flag and must be either a
+       decimal or hexadecimal number preceded by '0x'.
+    --pos same as -p.
+    --position same as -p.
+
+    create flags:
+    --autostart This is used when creating a BASIC file to specify the
+                autostart line.
+    --variableoffset This is used to specify the offset into a BASIC
+                     listing where the variables start.  If not
+                     specified, the program will reliably work out where
+                     the variables are unless the BASIC file is very
+                     non-standard.  So this flag whould not be used
+                     unless you have a very good reason.
+    --origin This specifies the address for the origin of a code file.
+    --arraytype This specifies the type of array file to create.  It
+                must be followed by the type of array to create.  Valid
+                options are:
+                character or c for a character array, number or n for a
+                number array, and string or s for a string.
+    --arrayname This specifies the name for a saved array or string.  It
+                must be followed by a single letter of the alphabet.
+    --flag This specifies the flag byte for the data block. It must be
+           followed by a number from 0 to 255.
     -p specifies that the output should be inserted at the position in
        the desitnation file.  The index where you want the copied
        entry(entries) inserted must follow the flag and must be either a
