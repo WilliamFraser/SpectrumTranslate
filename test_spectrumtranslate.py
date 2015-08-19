@@ -664,7 +664,7 @@ class TestTextConvert(unittest.TestCase):
             spectrumtranslate.stringtospectrum(''.join(self.spectrumchars)),
             ''.join([chr(x) for x in range(256)]))
 
-"""
+
 class TestImageConvert(unittest.TestCase):
     def imageto32bitlist(self, im):
         return [(xy[0] << 16) + (xy[1] << 8) + xy[2] for xy in
@@ -724,7 +724,6 @@ class TestSnapConvert(unittest.TestCase):
 
     def test_snaptoz80(self):
         pass
-"""
 
 
 class TestDisassembleInstruction(unittest.TestCase):
