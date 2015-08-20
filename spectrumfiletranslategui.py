@@ -44,17 +44,37 @@ import os.path
 import spectrumtapblock
 import disciplefile
 import spectrumtranslate
-from PyQt4 import QtGui, QtCore, QtWebKit
+try:
+    from PyQt5 import QtCore
+    from PyQt5.QtGui import (QFont, QStandardItemModel, QStandardItem,
+                             QPainter, QColor, QPen)
+    from PyQt5.QtCore import QItemSelectionModel
+    from PyQt5.QtWebKitWidgets import QWebView
+    import PyQt5.QtWidgets as QtGui
+except:
+    from PyQt4.QtGui import (QFont, QStandardItemModel, QStandardItem,
+                             QItemSelectionModel, QPainter, QColor,
+                             QPen)
+    from PyQt4 import QtGui, QtCore
+    from PyQt4.QtWebKit import QWebView
 from operator import itemgetter
 
 
-if(sys.hexversion > 0x03000000):
+if(sys.hexversion >= 0x03000000):
     def _validbytestointlist(x):
         # function to convert any valid source to a list of ints
         if(isinstance(x, (bytes, bytearray))):
             return [b for b in x]
 
         return x[:]
+
+    # open file modes
+    MODE_WB = 'wb'
+    MODE_RB = 'rb'
+    MODE_AB = 'ab'
+    MODE_WT = 'w'
+    MODE_RT = 'r'
+    MODE_AT = 'a'
 
 else:
     def _validbytestointlist(x):
@@ -63,6 +83,14 @@ else:
             return [ord(b) for b in x]
 
         return x[:]
+
+    # open file modes
+    MODE_WB = 'wb'
+    MODE_RB = 'rb'
+    MODE_AB = 'ab'
+    MODE_WT = 'wt'
+    MODE_RT = 'rt'
+    MODE_AT = 'at'
 
 
 def _setcombo(combo, text):
@@ -88,9 +116,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             self.rows = -1
 
             # set font and get text dimensions
-            self.myfont = QtGui.QFont('monospace', 10)
+            self.myfont = QFont('monospace', 10)
             self.setFont(self.myfont)
-            self.cWidth = self.fontMetrics().charWidth('0', 0)
+            self.cWidth = self.fontMetrics().width('0')
             self.cHeight = self.fontMetrics().height()
             self.baseline = self.fontMetrics().ascent()
 
@@ -105,7 +133,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             self.update()
 
         def paintEvent(self, event):
-            qp = QtGui.QPainter()
+            qp = QPainter()
             qp.begin(self)
 
             # if topleft not set do so now
@@ -118,8 +146,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             qp.setFont(self.myfont)
 
             # blank canvas
-            qp.setBrush(QtGui.QColor(255, 255, 255))
-            qp.setPen(QtGui.QPen(QtCore.Qt.NoPen))
+            qp.setBrush(QColor(255, 255, 255))
+            qp.setPen(QPen(QtCore.Qt.NoPen))
             qp.drawRect(0, 0, self.width(), self.height())
 
             # Are we doing selection?
@@ -130,7 +158,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                self.columns and
                self.selectEnd > self.topleftaddress):
                 # selection background to grey
-                qp.setBrush(QtGui.QColor(128, 128, 128))
+                qp.setBrush(QColor(128, 128, 128))
 
                 # work out first full row, and last row to be
                 # highlighted
@@ -170,10 +198,10 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 if(i != 0 and
                    self.selectEnd < self.topleftaddress +
                    (self.rows * self.columns)):
-                    qp.setBrush(QtGui.QColor(255, 255, 255))
-                    qp.drawRect(x + (i * 3 * self.cWidth),
+                    qp.setBrush(QColor(255, 255, 255))
+                    qp.drawRect(x + (((i * 3) - 1) * self.cWidth),
                                 (rend - 1) * self.cHeight,
-                                (((self.columns - i) * 3) - 1) * self.cWidth,
+                                ((self.columns - i) * 3) * self.cWidth,
                                 self.cHeight)
                     qp.drawRect(y + (i * self.cWidth),
                                 (rend - 1) * self.cHeight,
@@ -181,7 +209,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                                 self.cHeight)
 
             # now display data in file
-            qp.setPen(QtGui.QColor(0, 0, 0))
+            qp.setPen(QColor(0, 0, 0))
 
             # set y to baseline
             y = self.baseline
@@ -223,7 +251,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 a += self.columns
 
             # draw lines between display areas
-            qp.setPen(QtGui.QPen(QtCore.Qt.black, 1, QtCore.Qt.SolidLine))
+            qp.setPen(QPen(QtCore.Qt.black, 1, QtCore.Qt.SolidLine))
             y = self.rows * self.cHeight
             x = (self.cWidth >> 1) + (self.cWidth * 9)
             qp.drawLine(x, 0, x, y)
@@ -348,35 +376,30 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
     def initUI(self, defaultFile=None):
         self.setWindowTitle("Spectrum File Translate")
 
-        QtGui.QToolTip.setFont(QtGui.QFont('SansSerif', 10))
+        QtGui.QToolTip.setFont(QFont('SansSerif', 10))
 
         bBrowse = QtGui.QPushButton("&Browse", self)
-        self.connect(bBrowse, QtCore.SIGNAL("clicked()"),
-                     lambda who=bBrowse: self.buttonPressed(who))
+        bBrowse.clicked.connect(self.buttonPressed)
         bBrowse.setToolTip("Search for file to extract data from.")
         self.bBrowse = bBrowse
         bBrowseContainer = QtGui.QPushButton("Browse disk image", self)
         bBrowseContainer.setEnabled(False)
         self.bBrowseContainer = bBrowseContainer
-        self.connect(bBrowseContainer, QtCore.SIGNAL("clicked()"),
-                     lambda who=bBrowseContainer: self.buttonPressed(who))
+        bBrowseContainer.clicked.connect(self.buttonPressed)
         bBrowseContainer.setToolTip(
             "Select Spectrum file to translate from container file.")
         bBrowseHex = QtGui.QPushButton("Browse Hex", self)
         bBrowseHex.setEnabled(False)
         self.bBrowseHex = bBrowseHex
-        self.connect(bBrowseHex, QtCore.SIGNAL("clicked()"),
-                     lambda who=bBrowseHex: self.buttonPressed(who))
+        bBrowseHex.clicked.connect(self.buttonPressed)
         bBrowseHex.setToolTip(
             "Manually select start and last byte of file to translate.")
         bBrowseOut = QtGui.QPushButton("Browse", self)
-        self.connect(bBrowseOut, QtCore.SIGNAL("clicked()"),
-                     lambda who=bBrowseOut: self.buttonPressed(who))
+        bBrowseOut.clicked.connect(self.buttonPressed)
         bBrowseOut.setToolTip("Select file to save translation in.")
         self.bBrowseOut = bBrowseOut
         bTranslate = QtGui.QPushButton("Translate", self)
-        self.connect(bTranslate, QtCore.SIGNAL("clicked()"),
-                     lambda who=bTranslate: self.buttonPressed(who))
+        bTranslate.clicked.connect(self.buttonPressed)
         bTranslate.setToolTip("Translate selected data.")
         self.bTranslate = bTranslate
         lFileNameIn = QtGui.QLabel("Source File:")
@@ -420,7 +443,7 @@ file from where to extract data.")
         cbDataType.addItem("Raw Data", 4)
         cbDataType.addItem("Snapshot", 5)
         # disable Snapshot option for now until snapshot is selected
-        cbDataType.setItemData(5, QtCore.QVariant(0), QtCore.Qt.UserRole - 1)
+        cbDataType.model().item(5).setEnabled(False)
         cbDataType.setToolTip("Specifies what to translate data as.")
         self.cbDataType = cbDataType
         _setcombo(cbDataType, "Basic Program")
@@ -655,8 +678,7 @@ absolute jumps, none or all.")
         self.cbXMLOutput = cbXMLOutput
         bCustomInstructions = QtGui.QPushButton("Custom Instructions", self)
         bCustomInstructions.setToolTip("Edit Custom Disassemble Instructions.")
-        self.connect(bCustomInstructions, QtCore.SIGNAL("clicked()"),
-                     lambda who=bCustomInstructions: self.buttonPressed(who))
+        bCustomInstructions.clicked.connect(self.buttonPressed)
         self.bCustomInstructions = bCustomInstructions
 
         grid2.addWidget(lCodeOrigin, 0, 0)
@@ -885,7 +907,8 @@ display flashing colours, or simple GIF file.")
 
         self.CheckIfKnownContainerFile()
 
-    def buttonPressed(self, button):
+    def buttonPressed(self):
+        button = self.sender()
         # browse to find input file
         if(button == self.bBrowse):
             filein = self.leFileNameIn.text()
@@ -1141,9 +1164,12 @@ display flashing colours, or simple GIF file.")
 
         lay = QtGui.QVBoxLayout()
 
-        view = QtWebKit.QWebView(self)
+        view = QWebView(self)
         lay.addWidget(view)
-        view.setUrl(QtCore.QUrl("DisassembleInstructionHelp.html"))
+        fi = open("DisassembleInstructionHelp.html", MODE_RT)
+        html = fi.read()
+        fi.close()
+        view.setHtml(html)
 
         lay2 = QtGui.QHBoxLayout()
         lay2.addStretch(1)
@@ -1276,7 +1302,7 @@ display flashing colours, or simple GIF file.")
         if(parts and parts[0]):
             leCommentText.setPlainText(
                 spectrumtranslate.instructiontexttostring(parts[1]))
-        leCommentText.myfont = QtGui.QFont(
+        leCommentText.myfont = QFont(
             'monospace', leCommentText.fontPointSize())
         leCommentText.setFont(leCommentText.myfont)
         leCommentText.setToolTip("The text to be added as the comment.")
@@ -1302,7 +1328,7 @@ display flashing colours, or simple GIF file.")
         teCommentPatternSearch.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         if(parts and parts[0]):
             teCommentPatternSearch.setPlainText(parts[0])
-        teCommentPatternSearch.myfont = QtGui.QFont(
+        teCommentPatternSearch.myfont = QFont(
             'monospace', teCommentPatternSearch.fontPointSize())
         teCommentPatternSearch.setFont(teCommentPatternSearch.myfont)
         teCommentPatternSearch.setToolTip(
@@ -1373,7 +1399,7 @@ display flashing colours, or simple GIF file.")
         tePatternDataBlockSearch.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         if(testblock):
             tePatternDataBlockSearch.setPlainText(testblock)
-        tePatternDataBlockSearch.myfont = QtGui.QFont(
+        tePatternDataBlockSearch.myfont = QFont(
             'monospace', tePatternDataBlockSearch.fontPointSize())
         tePatternDataBlockSearch.setFont(tePatternDataBlockSearch.myfont)
         tePatternDataBlockSearch.setToolTip(
@@ -1390,7 +1416,7 @@ display flashing colours, or simple GIF file.")
         tePatternDataBlockSetup.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         if(prepblock):
             tePatternDataBlockSetup.setPlainText(prepblock)
-        tePatternDataBlockSetup.myfont = QtGui.QFont(
+        tePatternDataBlockSetup.myfont = QFont(
             'monospace', tePatternDataBlockSetup.fontPointSize())
         tePatternDataBlockSetup.setFont(tePatternDataBlockSetup.myfont)
         tePatternDataBlockSetup.setToolTip(
@@ -1406,7 +1432,7 @@ display flashing colours, or simple GIF file.")
         tePatternDataBlockAction.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         if(actionblock):
             tePatternDataBlockAction.setPlainText(actionblock)
-        tePatternDataBlockAction.myfont = QtGui.QFont(
+        tePatternDataBlockAction.myfont = QFont(
             'monospace', tePatternDataBlockAction.fontPointSize())
         tePatternDataBlockAction.setFont(tePatternDataBlockAction.myfont)
         tePatternDataBlockAction.setToolTip(
@@ -1540,7 +1566,7 @@ display flashing colours, or simple GIF file.")
         teDataBlock.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         if(di.data):
             teDataBlock.setPlainText(di.data)
-        teDataBlock.myfont = QtGui.QFont('monospace',
+        teDataBlock.myfont = QFont('monospace',
                                          teDataBlock.fontPointSize())
         teDataBlock.setFont(teDataBlock.myfont)
         teDataBlock.setToolTip("Code to be executed in the Data Block.")
@@ -1912,7 +1938,7 @@ frequency must be between 0 and 255 decimal.")
             lwInstructions = self.Ddialog.lwInstructions
             fOut = qfd.selectedFiles()[0]
             try:
-                fo = open(fOut, "wb")
+                fo = open(fOut, MODE_WT)
                 fo.write("\n".join([str(lwInstructions.item(i).di) for i in
                                     range(lwInstructions.count())]))
                 fo.close()
@@ -1930,7 +1956,7 @@ frequency must be between 0 and 255 decimal.")
         if(qfd.exec_() == QtGui.QDialog.Accepted):
             fIn = qfd.selectedFiles()[0]
             try:
-                fo = open(fIn, "rb")
+                fo = open(fIn, MODE_RT)
                 instructions = [spectrumtranslate.DisassembleInstruction(
                     line.rstrip('\n')) for line in fo]
                 fo.close()
@@ -2252,7 +2278,7 @@ frequency must be between 0 and 255 decimal.")
         leFileName.sizePolicy().setHorizontalPolicy(
             QtGui.QSizePolicy.Expanding)
         leFileName.sizePolicy().setHorizontalStretch(1)
-        leFileName.setText(self.ExportSettings["Filename"])
+        leFileName.setText(str(self.ExportSettings["Filename"]))
         leFileName.textEdited.connect(self.setleFileNameD)
         hbox.addWidget(leFileName)
         vbox.addLayout(hbox)
@@ -2707,7 +2733,8 @@ Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
             try:
                 fo = open(
                     fileout,
-                    "ab" if self.ExportSettings["AppendOrOver"] == 1 else "wb")
+                    MODE_AB if self.ExportSettings["AppendOrOver"] == 1 else
+                    MODE_WB)
                 fo.write(output)
                 fo.close()
             except:
@@ -2723,8 +2750,13 @@ Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
         diout = disciplefile.DiscipleImage()
         # if we're writing to an existing file then load it into image
         if(os.path.isfile(fileout)):
-            with open(fileout, 'rb') as outfile:
-                diout.setbytes(outfile.read())
+            try:
+                with open(fileout, MODE_RB) as outfile:
+                    diout.setbytes(outfile.read())
+            except:
+                QtGui.QMessageBox.warning(
+                    self, "Error!",
+                    'Failed to save data to "{0}"'.format(fileout))
         # otherwise create blank image
         else:
             diout.setbytes([0] * 819200)
@@ -2788,9 +2820,14 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
             output = ''.join([chr(x) for x in diout.bytedata])
 
         # output data
-        fo = open(fileout, "wb")
-        fo.write(output)
-        fo.close()
+        try:
+            fo = open(fileout, MODE_WB)
+            fo.write(output)
+            fo.close()
+        except:
+            QtGui.QMessageBox.warning(
+                self, "Error!",
+                'Failed to save data to "{0}"'.format(fileout))
 
     def DisplayImageDialog(self, title, imagedata):
         # create dialog to display image
@@ -2968,7 +3005,7 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
         textdisplay = QtGui.QTextEdit()
         textdisplay.setPlainText(txt)
         textdisplay.setReadOnly(True)
-        textdisplay.myfont = QtGui.QFont('monospace',
+        textdisplay.myfont = QFont('monospace',
                                          textdisplay.fontPointSize())
         textdisplay.setFont(textdisplay.myfont)
 
@@ -3007,7 +3044,7 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                 data = ''.join([chr(x) for x in data])
 
         try:
-            fo = open(fileout, "wb")
+            fo = open(fileout, MODE_WB)
             fo.write(data)
             fo.close()
         except:
@@ -3039,7 +3076,6 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                 # return it's data, ignoreing any offset
                 return (df.getfiledata(True))[o:]
             except:
-                raise
                 QtGui.QMessageBox.warning(self, "Error!", 'Failed to extract \
 file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
                 return None
@@ -3062,7 +3098,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
 
         # get contents of file
         try:
-            fo = open(filein, "rb")
+            fo = open(filein, MODE_RB)
             fo.seek(offset)
             data = fo.read(length)
             fo.close()
@@ -3135,11 +3171,11 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         dContainer.setModal(True)
 
         Dview = QtGui.QListView()
-        Dview.myfont = QtGui.QFont('monospace', 10)
+        Dview.myfont = QFont('monospace', 10)
         Dview.setFont(Dview.myfont)
         maxwidth = 0
 
-        Dmodel = QtGui.QStandardItemModel()
+        Dmodel = QStandardItemModel()
 
         di = disciplefile.DiscipleImage(self.leFileNameIn.text())
 
@@ -3149,7 +3185,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
                 txt = '{filenumber:2} "{filename:s}"{sectors:4} \
 {filetypeshort} {catextradata}'.format(**df.getfiledetails())
                 maxwidth = max(Dview.fontMetrics().width(txt), maxwidth)
-                line = QtGui.QStandardItem(txt)
+                line = QStandardItem(txt)
                 line.Ddata = df
                 line.setEditable(False)
                 Dmodel.appendRow(line)
@@ -3179,7 +3215,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
 
         # ensure first item is always selected
         Dview.selectionModel().select(Dmodel.createIndex(0, 0),
-                                      QtGui.QItemSelectionModel.Select)
+                                      QItemSelectionModel.Select)
 
         # remember Dview and dialog
         self.Ddialog = dContainer
@@ -3224,7 +3260,8 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
                              9 if ((t > 0 and t < 5) or t == 7) else 0)
 
         # save off filename incase want to export it
-        self.ExportSettings["Filename"] = df.getrawfilename()
+        self.ExportSettings["Filename"] = ''.join(
+            [chr(x) for x in df.getrawfilename()])
 
         if(t == 1):
             # basic program
@@ -3272,7 +3309,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         dContainer.setWindowTitle("Select what to translate")
         dContainer.setModal(True)
 
-        tapmodel = QtGui.QStandardItemModel()
+        tapmodel = QStandardItemModel()
         tapmodel.setHorizontalHeaderLabels(['Tap Entries'])
 
         tbs = spectrumtapblock.gettapblocks(self.leFileNameIn.text())
@@ -3282,13 +3319,13 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
             if(i < len(tbs) - 1 and tbs[i].isheadder() and
                tbs[i + 1].flag == 255 and
                len(tbs[i + 1].data) == tbs[i].getheadderdescribeddatalength()):
-                block = QtGui.QStandardItem(tbs[i].getfiledetailsstring())
+                block = QStandardItem(tbs[i].getfiledetailsstring())
                 block.tapdata = tbs[i:i + 2]
-                line = QtGui.QStandardItem(str(tbs[i]))
+                line = QStandardItem(str(tbs[i]))
                 line.tapdata = tbs[i:i + 1]
                 line.setEditable(False)
                 block.appendRow(line)
-                line = QtGui.QStandardItem(str(tbs[i + 1]))
+                line = QStandardItem(str(tbs[i + 1]))
                 line.tapdata = tbs[i + 1:i + 2]
                 line.setEditable(False)
                 block.appendRow(line)
@@ -3297,14 +3334,14 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
                 tapmodel.appendRow(block)
             # if not treat it as simple block of data
             else:
-                line = QtGui.QStandardItem(str(tbs[i]))
+                line = QStandardItem(str(tbs[i]))
                 line.tapdata = tbs[i:i + 1]
                 line.setEditable(False)
                 tapmodel.appendRow(line)
                 i += 1
 
         tapview = QtGui.QTreeView()
-        tapview.myfont = QtGui.QFont('monospace', 10)
+        tapview.myfont = QFont('monospace', 10)
         tapview.setFont(tapview.myfont)
         tapview.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         tapview.setModel(tapmodel)
@@ -3333,7 +3370,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
 
         # ensure first item is always selected
         tapview.selectionModel().select(tapmodel.createIndex(0, 0),
-                                        QtGui.QItemSelectionModel.Select)
+                                        QItemSelectionModel.Select)
 
         # remember tapview and dialog
         self.tapdialog = dContainer
@@ -3352,7 +3389,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
 
         # get contents of file
         try:
-            fo = open(self.leFileNameIn.text(), "rb")
+            fo = open(self.leFileNameIn.text(), MODE_RB)
             data = _validbytestointlist(fo.read())
             fo.close()
         except:
@@ -3444,7 +3481,8 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
                              len(tapdata[1].data), -1)
 
         # save off filename incase want to export it
-        self.ExportSettings["Filename"] = tapdata[0].getrawfilename()
+        self.ExportSettings["Filename"] = ''.join(
+            [chr(x) for x in tapdata[0].getrawfilename()])
 
         if(tapdata[0].data[0] == 0):
             # basic program
@@ -3499,8 +3537,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         _setcombo(self.cbDataType, "Machine Code")
         self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(1)
-        self.cbDataType.setItemData(5, QtCore.QVariant(0),
-                                    QtCore.Qt.UserRole - 1)
+        self.cbDataType.model().item(5).setEnabled(False)
 
     def SetScreenDetails(self, origin):
         self.leBasicAutoLine.setText("")
@@ -3510,8 +3547,8 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         _setcombo(self.cbDataType, "Screen")
         self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(3)
-        self.cbDataType.setItemData(5, QtCore.QVariant(0),
-                                    QtCore.Qt.UserRole - 1)
+        self.cbDataType.model().item(5).setEnabled(False)
+
 
     def SetVariableArrayDetails(self, variableletter, arraydescriptor):
         self.leBasicAutoLine.setText("")
@@ -3527,8 +3564,8 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         _setcombo(self.cbDataType, "Variable Array")
         self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(2)
-        self.cbDataType.setItemData(5, QtCore.QVariant(0),
-                                    QtCore.Qt.UserRole - 1)
+        self.cbDataType.model().item(5).setEnabled(False)
+
 
     def SetBasicDetails(self, autoline, variableoffset):
         self.leBasicAutoLine.setText("" if (autoline < 0) else
@@ -3539,8 +3576,8 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         _setcombo(self.cbDataType, "Basic Program")
         self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(0)
-        self.cbDataType.setItemData(5, QtCore.QVariant(0),
-                                    QtCore.Qt.UserRole - 1)
+        self.cbDataType.model().item(5).setEnabled(False)
+
 
     def SetRawData(self):
         self.leBasicAutoLine.setText("")
@@ -3550,8 +3587,8 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         _setcombo(self.cbDataType, "Raw Data")
         self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(4)
-        self.cbDataType.setItemData(5, QtCore.QVariant(0),
-                                    QtCore.Qt.UserRole - 1)
+        self.cbDataType.model().item(5).setEnabled(False)
+
 
     def FormatNumber(self, n):
         if(n == -1):

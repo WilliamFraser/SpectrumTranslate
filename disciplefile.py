@@ -389,7 +389,7 @@ class DiscipleFile:
         return spectrumtranslate.getspectrumstring(headderdata[1:11])
 
     def getrawfilename(self, headderdata=None):
-        """This returns the 10 character file name as a byte string."""
+        """This returns the 10 character file name as a list of ints."""
 
         # if no headder supplied, need to load it up
         if(headderdata is None):

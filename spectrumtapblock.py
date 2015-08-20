@@ -176,7 +176,7 @@ class SpectrumTapBlock:
         return spectrumtranslate.getspectrumstring(self.data[1:11])
 
     def getrawfilename(self):
-        """This returns the 10 character file name as a byte string."""
+        """This returns the 10 character file name as a list of ints."""
 
         return self.data[1:11]
 
