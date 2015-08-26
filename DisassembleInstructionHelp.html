@@ -17,10 +17,11 @@ Each Disassembly Instruction contains several atributes that tell the disasseble
 They are:
 <ul>
     <li><strong>The instruction</strong> - this tells the disassebbler what to do. It needs to be one of the predefined values.</li>
-    <li><strong>The start address</strong> - this is the first address (inclusive) to start applying the DisassembleInstruction from, or 0 if to apply to all the data.</li>
-    <li><strong>The End address</strong> - the last address (inclusive) to apply the Disassemble Instruction to. The address after this will be the fist one not afected by this Disassemble Instruction. As the Spectrum is a 16 bit computer, 0xFFFF or 65535 is the last address. Use a number biger than this to ensure it aplies to the end of data.</li>
+    <li><strong>The start address</strong> - this is the first address (inclusive) to start applying the DisassembleInstruction from, or 0 if to apply from the start of the data.</li>
+    <li><strong>The End address</strong> - the last address (inclusive) to apply the Disassemble Instruction to. The address after this will be the fist one not afected by this Disassemble Instruction. As the Spectrum is a 16 bit computer, 0xFFFF or 65535 is the last address. Use a number biger than this to ensure it aplies all the way to the end of data.</li>
     <li><strong>Extra data</strong> - his holds data used for data blocks, and specialised commands.</li>
 </ul>
+It is worth noting that commands are not always run in the order they are listed. They are ordered by their start (and end address if the start address is the same) before they are run in order. Also specifying a start address of 0, and an end address of 10000 hexadecimal specifies that the command is to set a default setting such as the default format. This can be overridden by any subsequent command that afects that setting so you can then specify local changes from the default settings. Also certain commands like Pattern Data Block, and Comment Pattern can have 0 and 10000 as their start and end addresses to specify that they apply to the whole source code regardless of it's origin or end, although you can specify smaller start to end spans if you want a smaller area to be afected.
 </p>
 
 <p>
