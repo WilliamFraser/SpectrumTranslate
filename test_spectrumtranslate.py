@@ -795,6 +795,13 @@ data"""
         self.assertTrue(di1 < di2)
         self.assertFalse(di1 > di2)
         self.assertFalse(di1 == di2)
+        
+        di1.end = 0x8000
+        di2.start = 0x4000
+        di2.end = 0x7000
+        self.assertTrue(di1 > di2)
+        self.assertFalse(di1 < di2)
+        self.assertFalse(di1 == di2)
 
     def test_disassembledatablock(self):
         di = spectrumtranslate.DisassembleInstruction(

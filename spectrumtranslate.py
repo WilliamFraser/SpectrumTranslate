@@ -5002,12 +5002,17 @@ DEFB               %#output instuction (DEFB or Define Byte)
 
     def __cmp__(self, other):
         # defined so can sort by starting address
-        return self.start.__cmp__(other.start)
+        c = self.start.__cmp__(other.start)
+        if(c == 0):
+            return self.end.__cmp__(other.end)
+        return c
 
     # for python 3, need lt to sort
     if(sys.hexversion > 0x03000000):
         def __lt__(self, other):
             # defined so can sort by starting address
+            if(self.start == other.start):
+                return self.end.__lt__(other.end)
             return self.start.__lt__(other.start)
 
     def disassembledatablock(self, Settings, data, ReferencedLineNumbers):
