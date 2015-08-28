@@ -1019,17 +1019,25 @@ display flashing colours, or simple GIF file.")
         bnew.clicked.connect(self.CustomDisassembleNew)
         dContainer.bnew = bnew
 
+        lay = QtGui.QHBoxLayout()
         bup = QtGui.QPushButton("Move Up", self)
         bup.setToolTip("Move curently selected instruction up a line.")
-        grid.addWidget(bup, 4, 0, 1, 2)
+        lay.addWidget(bup)
         bup.clicked.connect(self.CustomDisassembleUp)
         dContainer.bup = bup
 
         bdown = QtGui.QPushButton("Move Down", self)
         bdown.setToolTip("Move curently selected instruction down a line.")
-        grid.addWidget(bdown, 5, 0, 1, 2)
+        lay.addWidget(bdown)
         bdown.clicked.connect(self.CustomDisassembleDown)
         dContainer.bdown = bdown
+        grid.addLayout(lay, 4, 0, 1, 2)
+
+        bsort = QtGui.QPushButton("Sort Instructions", self)
+        bsort.setToolTip("Sorts instructions to the order in which they will be processed.")
+        grid.addWidget(bsort, 5, 0, 1, 2)
+        bsort.clicked.connect(self.CustomDisassembleSort)
+        dContainer.bsort = bsort
 
         cbNumberFormat = QtGui.QComboBox(self)
         cbNumberFormat.addItem("Hexadecimal", 0)
@@ -1155,6 +1163,48 @@ display flashing colours, or simple GIF file.")
                                             range(lwInstructions.count())]
 
         del self.Ddialog
+
+    def CustomDisassembleSort(self):
+        lwInstructions = self.Ddialog.lwInstructions
+        # can't sort if no instructions
+        if(lwInstructions.count() == 0):
+            return
+
+        # get current instructions
+        diInstructions = [lwInstructions.item(i).di for i in
+                          range(lwInstructions.count())]
+
+        # make note of which one was selected in way that will survive
+        # sorting
+        for i in range(len(diInstructions)):
+            diInstructions[i].Selected = False
+
+        diInstructions[lwInstructions.currentRow()].Selected = True
+
+        # now sort them
+        diInstructions = sorted(diInstructions)
+
+        # find selected index
+        for i in range(len(diInstructions)):
+            if(diInstructions[i].Selected):
+                selected = i
+
+        # clear listwidget
+        lwInstructions.clear()
+        # put them back in listwidget
+        for di in diInstructions:
+            item = QtGui.QListWidgetItem("\n")
+            lwInstructions.addItem(item)
+            lab = QtGui.QLabel()
+            lab.setIndent(5)
+            lab.setFrameShape(QtGui.QFrame.Box)
+            item.label = lab
+            item.di = spectrumtranslate.DisassembleInstruction(di)
+            self.setLabelText(item)
+            lwInstructions.setItemWidget(item, lab)
+
+        lwInstructions.setCurrentRow(selected)
+        self.SetDisassembleDialogButtons()
 
     def DisplayInstructionsHelp(self):
         # create dialog
@@ -2052,6 +2102,11 @@ frequency must be between 0 and 255 decimal.")
             "Address Output Format Hex")
         self.setLabelText(item)
         lwInstructions.setItemWidget(item, lab)
+
+        # set focus if new item added
+        if(len(self.diInstructions) == 1):
+            lwInstructions.setCurrentRow(0)
+            self.SetDisassembleDialogButtons()
 
     def DissassembleEditorFormatChange(self, index):
         self.Ddialog.Format = ('{0:X}', '{0:d}', '{0:o}', '{0:b}')[index]
