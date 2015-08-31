@@ -329,14 +329,21 @@ haveing to create your own.</p>
 <a id="PatternExample"><center><h2>Pattern Data Block example.</h2></center></a>
 <p>Here is an example that works on the machine code for the game Colony where a routine at 0xC123 prints text
 following the call statement until a zero byte is found. This will search out each instance of the machine
-code instruction to CALL #C123 and decrypt the text afterwards stopping at a zero byte:</p>
+code instruction to CALL #C123 and decrypt the text afterwards stopping at a zero byte. Note that the Pattern
+Data Block consists of 3 parts (in the example below there is a blank line between them, but there doesn't have
+to be as they are split up naturaly into code blocks by %( and %). The First code block contains the test that
+has to match for it to process a data block. It needs to be bounded by %( and %). The second code block is the
+set up phase where you set up variable 0 as the start of the data block, and variable 1 as the end. Variable 0
+starts as the address that matched. Everything after the setup code block is run for each match.</p>
 <p><code>
 %(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start test block <br/>
-&nbsp;&nbsp;%?EQ%MWV0F23CD;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#do the first 2 bytes equal 0xCD,0x23 ( remember Z80 is little endian <br/>
-&nbsp;&nbsp;%X0200%V0F0002;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#var0=current address+2 <br/>
+&nbsp;&nbsp;%?EQ%MWV0F23CD&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#do the first 2 bytes equal 0xCD,0x23 ( remember Z80 is little endian <br/>
+&nbsp;&nbsp;%X0200%V0F0002&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#var0=current address+2 <br/>
 &nbsp;&nbsp;%?BA&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#and mode <br/>
 &nbsp;&nbsp;%?EQ%MV0000C1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#does the byte at current address+2==0xC1 <br/>
 %)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end of test block <br/>
+</code></p>
+<p><code>
 %(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start of preperation block <br/>
 &nbsp;&nbsp;%X0200%V000003&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#add 3 to var0 to move to 1st byte after call command <br/>
 &nbsp;&nbsp;%X0101%V00&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#let var1=var0 <br/>
@@ -347,6 +354,8 @@ code instruction to CALL #C123 and decrypt the text afterwards stopping at a zer
 &nbsp;&nbsp;&nbsp;&nbsp;%X0201%V010001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#add 1 to var1 and store in var1 <br/>
 &nbsp;&nbsp;%)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end of loop do block <br/>
 %)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end of preperation block. Everything from here on will be executed for each match <br/>
+</code></p>
+<p><code>
 %$A&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start address xml tag<br>
 %F0004&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#set number format to address format<br/>
 %ACA&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#output as address, the line address itself, not incrementing the value <br/>
