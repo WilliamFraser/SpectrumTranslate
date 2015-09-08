@@ -44,19 +44,19 @@ import os.path
 import spectrumtapblock
 import disciplefile
 import spectrumtranslate
+# Manage moveing of functions and renameing modules from PyQt4 to PyQt5
 try:
-    from PyQt5 import QtCore
-    from PyQt5.QtGui import (QFont, QStandardItemModel, QStandardItem,
-                             QPainter, QColor, QPen)
-    from PyQt5.QtCore import QItemSelectionModel
     from PyQt5.QtWebKitWidgets import QWebView
+    from PyQt5 import QtCore
+    from PyQt5.QtGui import (QColor, QStandardItemModel, QStandardItem,
+                             QPainter, QFont, QPen)
+    from PyQt5.QtCore import QItemSelectionModel
     import PyQt5.QtWidgets as QtGui
 except:
-    from PyQt4.QtGui import (QFont, QStandardItemModel, QStandardItem,
-                             QItemSelectionModel, QPainter, QColor,
-                             QPen)
-    from PyQt4 import QtGui, QtCore
     from PyQt4.QtWebKit import QWebView
+    from PyQt4 import QtGui, QtCore
+    from PyQt4.QtGui import (QColor, QStandardItemModel, QStandardItem,
+                             QPainter, QFont, QPen, QItemSelectionModel)
 from operator import itemgetter
 
 
@@ -355,6 +355,46 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
             # repaint display
             self.update()
+
+    class DisassemblerThread(QtCore.QThread):
+        sFinished = QtCore.pyqtSignal()
+        sStatus = QtCore.pyqtSignal()
+        sAbort = QtCore.pyqtSignal()
+
+        def __init__(self, main, data, origin):
+            QtCore.QThread.__init__(self)
+            self.sFinished.connect(main.DisassembleFinished)
+            self.sStatus.connect(main.StatusUpdate)
+            self.sAbort.connect(main.AbortDisassembly)
+            self.main = main
+            self.data = data
+            self.origin = origin
+            self.dContainer = main.progressdialog
+            self.start()
+
+        def run(self):
+            # dissasemble the code
+            try:
+                self.dContainer.result = spectrumtranslate.disassemble(
+                    self.data, 0, self.origin, len(self.data),
+                    self.main.diInstructions, self.StatusUpdate)
+                self.dContainer.error = None
+
+            except spectrumtranslate.SpectrumTranslateError as ste:
+                self.dContainer.error = ste.value
+                self.dContainer.result = None
+
+            self.sFinished.emit()
+
+        def StatusUpdate(self, text, a1, a2, b1, b2):
+            # pass on status update to main program
+            self.dContainer.update = (text, a1, a2, b1, b2)
+            self.sStatus.emit()
+
+        def Stop(self):
+            self.dContainer.result = None
+            self.terminate()
+            self.sAbort.emit()
 
     # end nested definitions
 
@@ -1034,7 +1074,8 @@ display flashing colours, or simple GIF file.")
         grid.addLayout(lay, 4, 0, 1, 2)
 
         bsort = QtGui.QPushButton("Sort Instructions", self)
-        bsort.setToolTip("Sorts instructions to the order in which they will be processed.")
+        bsort.setToolTip("Sorts instructions to the order in which they will \
+be processed.")
         grid.addWidget(bsort, 5, 0, 1, 2)
         bsort.clicked.connect(self.CustomDisassembleSort)
         dContainer.bsort = bsort
@@ -1616,8 +1657,7 @@ display flashing colours, or simple GIF file.")
         teDataBlock.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         if(di.data):
             teDataBlock.setPlainText(di.data)
-        teDataBlock.myfont = QFont('monospace',
-                                         teDataBlock.fontPointSize())
+        teDataBlock.myfont = QFont('monospace', teDataBlock.fontPointSize())
         teDataBlock.setFont(teDataBlock.myfont)
         teDataBlock.setToolTip("Code to be executed in the Data Block.")
         teDataBlock.textChanged.connect(self.ChangeDataBlock)
@@ -2998,13 +3038,7 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                             "XML Output On" if bXMLOutput else
                             "XML Output Off"]))
 
-            try:
-                return spectrumtranslate.disassemble(data, 0, origin,
-                                                     len(data),
-                                                     self.diInstructions)
-            except spectrumtranslate.SpectrumTranslateError as ste:
-                QtGui.QMessageBox.warning(self, "Error!", ste.value)
-                return None
+            return self.DisassembleDialog(data, origin)
 
         elif(datatype == "Variable Array"):
             idescriptor = self.cbArrayVarType.currentIndex()
@@ -3050,6 +3084,81 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
         else:
             return "Error!"
 
+    def DisassembleDialog(self, data, origin):
+        # create dialog
+        dContainer = QtGui.QDialog(self)
+        dContainer.setWindowTitle("Disassembling")
+        dContainer.setModal(True)
+
+        lay = QtGui.QVBoxLayout()
+
+        lWhatDoing = QtGui.QLabel("Waiting to start.")
+        lay.addWidget(lWhatDoing)
+        dContainer.lWhatDoing = lWhatDoing
+
+        pbCurrentJob = QtGui.QProgressBar()
+        pbCurrentJob.setMinimum(0)
+        pbCurrentJob.setMaximum(100)
+        lay.addWidget(pbCurrentJob)
+        dContainer.pbCurrentJob = pbCurrentJob
+
+        lay.addWidget(QtGui.QLabel("Total complete:"))
+
+        pbTotal = QtGui.QProgressBar()
+        pbTotal.setMinimum(0)
+        pbTotal.setMaximum(100)
+        lay.addWidget(pbTotal)
+        dContainer.pbTotal = pbTotal
+
+        # todo:
+        # There's a problem with Abort button not responding.
+        # Haven't been able to figure it out just yet, but otherwise it
+        # works so comment out for now.
+
+        # bStop = QtGui.QPushButton("Abort", self)
+        # bStop.clicked.connect(self.AbortDisassembly)
+        # lay.addWidget(bStop)
+
+        dContainer.setLayout(lay)
+
+        self.progressdialog = dContainer
+
+        dContainer.result = None
+
+        # start disassembly thread
+        dContainer.t = SpectrumFileTranslateGUI.DisassemblerThread(self, data,
+                                                                   origin)
+
+        # start dialog
+        dContainer.exec_()
+
+        del self.progressdialog
+
+        return dContainer.result
+
+    def AbortDisassembly(self):
+        dContainer = self.progressdialog
+        dContainer.t.Stop()
+        dContainer.reject()
+
+    def DisassembleFinished(self):
+        if(self.progressdialog.error):
+            QtGui.QMessageBox.warning(self, "Error!",
+                                      self.progressdialog.error)
+
+        # close dialog
+        self.progressdialog.reject()
+
+    def StatusUpdate(self):
+        dContainer = self.progressdialog
+        dContainer.lWhatDoing.setText(dContainer.update[0])
+
+        dContainer.pbCurrentJob.setValue(dContainer.update[1])
+        dContainer.pbCurrentJob.setMaximum(dContainer.update[2])
+
+        dContainer.pbTotal.setValue(dContainer.update[3])
+        dContainer.pbTotal.setMaximum(dContainer.update[4])
+
     def DisplayTranslation(self, txt):
         # create dialog to display image
         dContainer = QtGui.QDialog(self)
@@ -3060,8 +3169,7 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
         textdisplay = QtGui.QTextEdit()
         textdisplay.setPlainText(txt)
         textdisplay.setReadOnly(True)
-        textdisplay.myfont = QFont('monospace',
-                                         textdisplay.fontPointSize())
+        textdisplay.myfont = QFont('monospace', textdisplay.fontPointSize())
         textdisplay.setFont(textdisplay.myfont)
 
         lay = QtGui.QVBoxLayout()
@@ -3604,7 +3712,6 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         self.settingsstack.setCurrentIndex(3)
         self.cbDataType.model().item(5).setEnabled(False)
 
-
     def SetVariableArrayDetails(self, variableletter, arraydescriptor):
         self.leBasicAutoLine.setText("")
         self.leBasicVariableOffset.setText("")
@@ -3621,7 +3728,6 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         self.settingsstack.setCurrentIndex(2)
         self.cbDataType.model().item(5).setEnabled(False)
 
-
     def SetBasicDetails(self, autoline, variableoffset):
         self.leBasicAutoLine.setText("" if (autoline < 0) else
                                      self.FormatNumber(autoline))
@@ -3633,7 +3739,6 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         self.settingsstack.setCurrentIndex(0)
         self.cbDataType.model().item(5).setEnabled(False)
 
-
     def SetRawData(self):
         self.leBasicAutoLine.setText("")
         self.leBasicVariableOffset.setText("")
@@ -3643,7 +3748,6 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         self.SetTranslateButtonText()
         self.settingsstack.setCurrentIndex(4)
         self.cbDataType.model().item(5).setEnabled(False)
-
 
     def FormatNumber(self, n):
         if(n == -1):

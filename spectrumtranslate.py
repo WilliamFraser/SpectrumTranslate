@@ -2828,7 +2828,8 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
     return out
 
 
-def disassemble(data, offset, origin, length, SpecialInstructions=None):
+def disassemble(data, offset, origin, length, SpecialInstructions=None,
+                progressfunction=None):
     """This function will disassemble a byte string or list holding Z80
     code.  You can specify instructions to alter the disassembled
     output.
@@ -2841,6 +2842,16 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
     SpecialInstructions is a list of DisassembleInstruction instructing
     things like output format, and data blocks.  Should be None if no
     array to pass.
+    progressfunction is a function that takes X arguments. The first is
+    a string detailing what the Disassembler is currently doing.  The
+    second is how far through the current section of work it is, and
+    the third is how much work there is in the current section.  To get
+    a percentage of how much work in the current section use argument2
+    / argument3 * 100. The fourth argument gives the overall work done,
+    and the fifth argument the overall work to do. Note that the work
+    done can change, and the total work to do can increase as the
+    disassembly progresses, but the ratio (and thus the percentage work
+    done) will never decrease.
 
     Returns a String representation of the data.
     """
@@ -2959,10 +2970,45 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
     XMLOutput = 0            # 0=no, 1=yes
     Comment = ""
 
+    # Work out how much there is to process for progress callback
+    # faster going through formatting at end than actual disassembling
+    # assume that phase 1 where process instructions will take 10%
+    # this may be wrong but good average: simple instructions will take
+    # less and complex will take longer.
+    worktodo1 = 0           # default no work pre-processing
+    worktodo2 = length * 2  # *2 for disassembling
+    worktodo3 = length      # for formatting
+    workdone = 0
+    # now look at special instructions as this can increase workload
+    if(SpecialInstructions is not None and len(SpecialInstructions) > 0):
+        for di in SpecialInstructions:
+            worktodo1 += 1
+            if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
+                    "Pattern Data Block"] or
+               di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
+                    "Comment Pattern"]):
+                # work out start and end points
+                e = di.end
+                if(e >= origin + len(data)):
+                    e = origin + len(data)-1
+                s = di.start
+                if(s < origin):
+                    s = origin
+                # must process once before disassembly
+                worktodo1 += (e - s) * 2
+
     # process special instructions
     DisassembleInstructions = []
     if(SpecialInstructions is not None and len(SpecialInstructions) > 0):
         for di in SpecialInstructions:
+            # update progress
+            workdone += 1
+            # call progress update
+            if(progressfunction is not None):
+                progressfunction("Evaluating Instructions",
+                                 workdone, worktodo1,
+                                 (workdone * 10) / worktodo1, 100)
+
             # check if special formatting commands for default for whole
             # output
             if(di.start == 0x0000 and di.end >= 0xFFFF):
@@ -3149,7 +3195,16 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                 # move through area covered by instruction & check for
                 # matches
                 k = di.start
+                # work done after done this
+                wdafter = workdone + ((di.end - di.start) * 2)
                 while(k <= di.end):
+                    # update progress
+                    workdone += 2
+                    # call progress update
+                    if(progressfunction is not None):
+                        progressfunction("Evaluating Instructions",
+                                         workdone, worktodo1,
+                                         (workdone * 10) / worktodo1, 100)
                     try:
                         Settings["DATASTRINGPOS"] = 0
                         Vars[0x00] = k
@@ -3181,16 +3236,21 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                                     "Data Block"], Vars[0x00], Vars[0x01],
                                 ActionBlock)]
 
+                            # increase work in disassembly phase
+                            worktodo2 += (Vars[0x01] - Vars[0x00]) * 2
                         k += 1
                     except IndexError:
                         # exit gracefully if test involves bytes outside
                         # supplied data.
+                        workdone = wdafter
                         break
 
                 # if possibly have comments, add them
                 if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
                         "Comment Pattern"]):
                     DisassembleInstructions += Settings["CommentsToAdd"]
+
+                workdone = wdafter
 
                 continue
 
@@ -3200,6 +3260,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
                 ReferencedLineNumbers += [di.start]
                 continue
 
+            if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
+                    "Data Block"]):
+                # increase work in disassembly phase
+                worktodo2 += (di.end - di.start) * 2
+
             # add instruction to list of stuff to do during disassembly
             DisassembleInstructions += [di]
 
@@ -3207,6 +3272,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
         DisassembleInstructions = sorted(DisassembleInstructions)
 
     # should now be sorted along by start
+
+    # adjust workdone to be 10% of total work to stop progress going
+    # backwards with extra work in disassembly phase
+    worktodo1 = (worktodo2 + worktodo3) / 9
+    workdone = 0
 
     # set up format stack to hold current format
     # hold formatting instructions
@@ -3241,6 +3311,12 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
 
     # start disassembling
     while(length > 0):
+        # call progress update
+        if(progressfunction is not None):
+            progressfunction("Disassembling", workdone, worktodo2,
+                             workdone + worktodo1,
+                             worktodo1 + worktodo2 + worktodo3)
+
         # are we exiting format section?
         if(currentAddress > CurrentFormatEnd):
             # if so recover details of underlying format
@@ -3297,6 +3373,9 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
 
             # adjust offset
             offset = currentAddress-origin
+
+            # update work done
+            workdone += (di.end - di.start) * 2
 
             # di is now next disassemble instruction
             di = DisassembleInstructions.pop(0) if DisassembleInstructions \
@@ -3859,6 +3938,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
         offset &= 0xFFFF
         currentAddress += commandlength
 
+        workdone += commandlength * 2
+
     # end 1st pass
 
     if(XMLOutput == 1):
@@ -3872,8 +3953,17 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
     # keep track of where we are in string
     k = 0
 
+    workdone = worktodo1 + worktodo2
+
     # search for address markers, only needed if not doing XML
     while(XMLOutput == 0):
+        # call progress update
+        if(progressfunction is not None):
+            l = len(soutput)
+            progressfunction("Formatting", k, l,
+                             ((k * worktodo3) / l) + workdone,
+                             worktodo1 + worktodo2 + worktodo3)
+
         # find next or we've finnished
         i = soutput.find("\0", k)
         if(i == -1):
@@ -3926,6 +4016,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None):
         soutput = soutput[:i] + s + soutput[i + 7:]
         # point k past line address details
         k = i + len(s)
+
+    # report job done
+    if(progressfunction is not None):
+        progressfunction("Done", 100, 100, worktodo1 + worktodo2 + worktodo3,
+                         worktodo1 + worktodo2 + worktodo3)
 
     return soutput
 
