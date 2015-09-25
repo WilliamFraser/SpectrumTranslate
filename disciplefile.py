@@ -40,11 +40,12 @@
 # Date: 14th January 2015
 
 import spectrumtranslate
+import sys
 from mmap import mmap as _mmap
 from os.path import isfile as _isfile
 from numbers import Integral as _INT_OR_LONG
 from sys import hexversion as _PYTHON_VERSION_HEX
-# sys and codecs are imported if run from the command line
+# codecs is imported if run from the command line
 
 
 if(_PYTHON_VERSION_HEX > 0x03000000):
@@ -1372,7 +1373,9 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             raise spectrumtranslate.SpectrumTranslateError(
                 "Data too big to fit in spectrum memory.")
 
+        # ensure filedata is valid and ready for use
         _checkisvalidbytes(filedata, "filedata")
+        filedata = _validbytestointlist(filedata)
 
         # create headder and validate filename
         headder = [0] + _validateandconvertfilename(filename) + ([0] * 245)
@@ -1403,7 +1406,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
 
         # outputfile
         # first work out if we're overwriting existing filename
-        if(overwritename):
+        if(overwritename and position is -1):
             # if so get index or -1
             hits = self.fileindexfromname(headder[1:11])
             position = -1 if len(hits) == 0 else hits[0]
@@ -1436,6 +1439,10 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         filename is invalid.
         """
 
+        # ensure filedata is valid and ready for use
+        _checkisvalidbytes(filedata, "filedata")
+        filedata = _validbytestointlist(filedata)
+
         # validate input
         if(len(filedata) > 65535):
             raise spectrumtranslate.SpectrumTranslateError(
@@ -1454,12 +1461,14 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         headder[214] = codestartaddress & 255
         headder[215] = codestartaddress // 256
         # set coderunaddress
+        if(coderunaddress < 0 or coderunaddress > 0xFFFF):
+            coderunaddress = 0
         headder[218] = coderunaddress & 255
         headder[219] = coderunaddress // 256
 
         # outputfile
         # first work out if we're overwriting existing filename
-        if(overwritename):
+        if(overwritename and position is -1):
             # if so get index or -1
             hits = self.fileindexfromname(headder[1:11])
             position = -1 if len(hits) == 0 else hits[0]
@@ -1496,6 +1505,10 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             raise spectrumtranslate.SpectrumTranslateError(
                 "Data too big to fit in spectrum memory.")
 
+        # ensure filedata is valid and ready for use
+        _checkisvalidbytes(filedata, "filedata")
+        filedata = _validbytestointlist(filedata)
+
         # create headder and validate filename
         headder = [0] + _validateandconvertfilename(filename) + ([0] * 245)
 
@@ -1510,7 +1523,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
 
         # outputfile
         # first work out if we're overwriting existing filename
-        if(overwritename):
+        if(overwritename and position is -1):
             # if so get index or -1
             hits = self.fileindexfromname(headder[1:11])
             position = -1 if len(hits) == 0 else hits[0]
@@ -1544,6 +1557,10 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             raise spectrumtranslate.SpectrumTranslateError(
                 "filedata is wrong length for a spectrum screen file.")
 
+        # ensure filedata is valid and ready for use
+        _checkisvalidbytes(filedata, "filedata")
+        filedata = _validbytestointlist(filedata)
+
         # create headder and validate filename
         headder = [0] + _validateandconvertfilename(filename) + ([0] * 245)
 
@@ -1559,7 +1576,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
 
         # outputfile
         # first work out if we're overwriting existing filename
-        if(overwritename):
+        if(overwritename and position is -1):
             # if so get index or -1
             hits = self.fileindexfromname(headder[1:11])
             position = -1 if len(hits) == 0 else hits[0]
@@ -1621,9 +1638,9 @@ def usage():
     If using the create instruction, you must specify what you are
     creating imediatly after the create instruction.  Valid options are
     'basic', 'code', 'array', and 'screen'.  You must also specify the
-    filnename for the file with the -filename flag.  If creating an
+    filnename for the file with the --filename flag.  If creating an
     array, you must also specify the name and type of array with the
-    -arraytype and -arrayname flags.
+    --arraytype and --arrayname flags.
 
     general flags:
     -o specifies that the output from this program is to be directed to
@@ -2022,7 +2039,7 @@ character, number or string).'.format(args[i])
         # if help is needed display it
         if(mode == 'help'):
             sys.stdout.write(usage())
-            sys.exit(0)
+            return
 
         # get input data
         if(mode == 'create'):
@@ -2231,9 +2248,6 @@ list of options.\n")
         sys.stderr.write(se.value + "\n")
 
 if __name__ == "__main__":
-    # import here as only needed for command line
-    import sys
-
     # set encodeing so can handle non ascii characters
     from codecs import getwriter
     sys.stdout = getwriter('utf8')(sys.stdout)
