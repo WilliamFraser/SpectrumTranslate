@@ -40,44 +40,34 @@
 # Date: 14th January 2015
 
 import spectrumtranslate
+import sys
 from sys import hexversion as _PYTHON_VERSION_HEX
 from numbers import Integral as _INT_OR_LONG
-# sys and codecs imported elsewhere so only used for command line
+# codecs imported elsewhere so only used for command line
 
 
 if(_PYTHON_VERSION_HEX > 0x03000000):
-    def _checkisvalidbytes(x):
+    def _validateandpreparebytes(x, m=""):
         if(isinstance(x, (bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, int) for val in x))):
-            return True
+            return bytearray(x)
 
-        raise spectrumtranslate.SpectrumTranslateError("data needs to be a \
-list or tuple of ints, or of type 'bytes' or 'bytearray'")
-
-    def _validbytestointlist(x):
-        # function to convert any valid source to a list of ints
-        if(isinstance(x, (bytes, bytearray))):
-            return [b for b in x]
-
-        return x[:]
+        raise spectrumtranslate.SpectrumTranslateError("{0} needs to be a \
+list or tuple of ints, or of type 'bytes' or 'bytearray'".format(m))
 
 else:
-    def _checkisvalidbytes(x):
-        if(isinstance(x, str) or
+    def _validateandpreparebytes(x, m=""):
+        # function to convert any valid source to a list of ints and
+        # except if not
+        if(isinstance(x, (str, bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, _INT_OR_LONG) for val in x))):
-            return True
+            return bytearray(x)
 
-        raise spectrumtranslate.SpectrumTranslateError("data needs to be a \
-byte string, or a list or tuple of ints or longs")
-
-    def _validbytestointlist(x):
-        # function to convert any valid source to a list of ints
-        if(isinstance(x, str)):
-            return [ord(b) for b in x]
-
-        return x[:]
+        raise spectrumtranslate.SpectrumTranslateError("{0} needs to be a \
+byte string, or a list or tuple of ints or longs, or of type 'bytes' or \
+'bytearray'".format(m))
 
 
 def _get_word(s):
@@ -90,20 +80,23 @@ def _validateandconvertfilename(filename):
     if(isinstance(filename, list)):
         # if is list of numbers convert to list of strings
         if(False not in [isinstance(x, _INT_OR_LONG) for x in filename]):
-            filename = [chr(x) for x in filename]
+            filename = bytearray(filename)
 
         # if there are only strings in the list then convert list to
         # a string
         if(False not in [isinstance(x, str) for x in filename]):
             filename = "".join(filename)
 
-    if(not isinstance(filename, str) or len(filename) > 10):
+    if(isinstance(filename, str)):
+        filename = bytearray(filename, "utf8")
+
+    if(not isinstance(filename, (bytes, bytearray)) or len(filename) > 10):
         raise spectrumtranslate.SpectrumTranslateError(
-            "Filename must be a string, or list of ints or strings of no \
-more than 10 characters.")
+            "Filename must be a string, or list of ints or strings, of type \
+'bytes' or 'bytearray' and of no more than 10 characters.")
 
     # return filename right padded with spaces
-    return [ord(x) for x in filename] + [32] * (10 - len(filename))
+    return bytearray(filename) + bytearray([32] * (10 - len(filename)))
 
 
 class SpectrumTapBlock:
@@ -114,27 +107,20 @@ class SpectrumTapBlock:
 
     def __init__(self, flag=0, data=[], filePosition=0):
         """
-        Creates a new TapBlock object from an input stream.
-        tapfile is the Tap file from which to read the data.
-        position is the offset to the data from the start of the stream.
-        You can safely put 0 here if this is of no use to you.
-        data if defined has to be list or tuple of ints or longs, or a
-        byte string in python 2, or a bytes or bytearray in python 3.
+        Creates a new TapBlock object. filePosition is the offset to the
+        data from the start of the stream.  You can safely put 0 here if
+        this is of no use to you.  data if defined has to be list or
+        tuple of ints or longs, or of type 'bytes' or 'bytearray'.
         """
 
-        # validate data
-        _checkisvalidbytes(data)
-
-        # initialise data
-
+        # validate and prepare data
         """An array of bytes holding the data for the block."""
-        self.data = _validbytestointlist(data)
+        self.data = _validateandpreparebytes(data, "data")
 
         """
         The 8 bit data identifier value for the block.
         Typically it is 0 for a headder and 255 for a data block, but
-        custom load and save routines can use any value
-        from 0 to 255.
+        custom load and save routines can use any value from 0 to 255.
         """
         if(not isinstance(flag, _INT_OR_LONG) or flag < 0 or flag > 255):
             raise spectrumtranslate.SpectrumTranslateError(
@@ -176,7 +162,7 @@ class SpectrumTapBlock:
         return spectrumtranslate.getspectrumstring(self.data[1:11])
 
     def getrawfilename(self):
-        """This returns the 10 character file name as a list of ints."""
+        """This returns the 10 character file name as a bytearray."""
 
         return self.data[1:11]
 
@@ -358,7 +344,7 @@ class SpectrumTapBlock:
         """
         returns this TapBlock packaged up with length headder, flag and
         checksum ready for saveing to a file.  Will be returned as a
-        bytestring in python2, or a bytes object in python 3.
+        bytearray.
         """
 
         # work out length of data+flag+checksum
@@ -369,15 +355,9 @@ class SpectrumTapBlock:
         for i in self.data:
             checksum = checksum ^ i
 
-        # merge it into a list
-        package = [length & 0xFF, (length >> 8) & 0xFF,
-                   self.flag] + self.data + [checksum]
-
-        # return converted to bytes or string
-        if(_PYTHON_VERSION_HEX > 0x03000000):
-            return bytes(package)
-
-        return ''.join([chr(x) for x in package])
+        # merge it into a list, and return
+        return bytearray([length & 0xFF, (length >> 8) & 0xFF,
+                          self.flag]) + self.data + bytearray([checksum])
 
     def savetofile(self, filename, append=True):
         """
@@ -414,21 +394,21 @@ def gettapblockfromfile(tapfile, position=0):
 
     # flag at beginning and checksum at end of data included in length,
     # so actual data is 2 bytes shorter than block length
-    blocklength = _get_word(_validbytestointlist(lengthbytes)) - 2
+    blocklength = _get_word(_validateandpreparebytes(lengthbytes)) - 2
 
     # now process flag
-    flagbyte = _validbytestointlist(tapfile.read(1))
+    flagbyte = _validateandpreparebytes(tapfile.read(1))
     if(len(flagbyte) != 1):
         raise IOError("Malformed .tap File")
 
     tb.flag = flagbyte[0]
 
-    tb.data = _validbytestointlist(tapfile.read(blocklength))
+    tb.data = _validateandpreparebytes(tapfile.read(blocklength))
     if(len(tb.data) != blocklength):
         raise IOError("Malformed .tap File")
 
     # now do checksum
-    checkbyte = _validbytestointlist(tapfile.read(1))
+    checkbyte = _validateandpreparebytes(tapfile.read(1))
     if(len(checkbyte) != 1):
         raise IOError("Malformed .tap File")
 
@@ -445,7 +425,7 @@ def gettapblockfromfile(tapfile, position=0):
 
 def gettapblockfrombytes(data, position=0):
     """
-    Gets a TapBlock from the specified file.
+    Gets a TapBlock from the specified file data.
     Returns SpectrumTranslateError if have reached the end of a file.
     Raises IOError if any problems with file format.  The position
     variable is not used to read the tap block, only so that it can be
@@ -454,7 +434,7 @@ def gettapblockfrombytes(data, position=0):
     """
 
     # validate data
-    _checkisvalidbytes(data)
+    data = _validateandpreparebytes(data, "data")
 
     tb = SpectrumTapBlock(filePosition=position)
 
@@ -525,11 +505,10 @@ def tapblockfrombytes(data, position=0):
         do_stuff_with(tb)
     """
     # validate data
-    _checkisvalidbytes(data)
+    data = _validateandpreparebytes(data[position:], "data")
 
     while (position < len(data)):
-        tb = gettapblockfrombytes(
-            _validbytestointlist(data[position:]), position)
+        tb = gettapblockfrombytes(data, position)
         if(tb):
             # 2 bytes block length, 1 byte flag, 1 byte checksum, and
             # the rest for the block data
@@ -547,7 +526,8 @@ def createbasicheadder(filename, VariableOffset, ProgLength, AutoStart=-1):
     # create basic data block
     tb = SpectrumTapBlock()
     tb.flag = 0
-    tb.data = [0] + _validateandconvertfilename(filename) + [0, 0, 0, 0, 0, 0]
+    tb.data = bytearray([0]) + _validateandconvertfilename(filename) + \
+        bytearray([0, 0, 0, 0, 0, 0])
     # set program
     tb.data[11] = ProgLength & 0xFF
     tb.data[12] = (ProgLength >> 8) & 0xFF
@@ -570,7 +550,8 @@ def createcodeheadder(filename, Origin, Codelength):
     # create basic data block
     tb = SpectrumTapBlock()
     tb.flag = 0
-    tb.data = [3] + _validateandconvertfilename(filename) + [0, 0, 0, 0, 0, 0]
+    tb.data = bytearray([3]) + _validateandconvertfilename(filename) + \
+        bytearray([0, 0, 0, 0, 0, 0])
 
     # set code origin
     tb.data[13] = Origin & 0xFF
@@ -592,7 +573,8 @@ def createarrayheadder(filename, VariableDescriptor, ArrayLength):
 
     tb = SpectrumTapBlock()
     tb.flag = 0
-    tb.data = [0] + _validateandconvertfilename(filename) + [0, 0, 0, 0, 0, 0]
+    tb.data = bytearray([0]) + _validateandconvertfilename(filename) + \
+        bytearray([0, 0, 0, 0, 0, 0])
 
     # set array file type
     tb.data[0] = 1 if VariableDescriptor & 192 == 128 else 2
@@ -617,12 +599,9 @@ def createscreenheadder(filename):
 def createdatablock(data, flag=0xFF):
     """Create a data SpectrumTapBlock."""
 
-    # first check input
-    _checkisvalidbytes(data)
-
     tb = SpectrumTapBlock()
     tb.flag = flag
-    tb.data = _validbytestointlist(data)
+    tb.data = _validateandpreparebytes(data, "data")
 
     return tb
 
@@ -1028,15 +1007,15 @@ list of options.\n")
         # if help is needed display it
         if(mode == 'help'):
             sys.stdout.write(usage())
-            sys.exit(0)
+            return
 
         # get data
         if(not fromstandardinput):
             with open(inputfile, 'rb') as infile:
-                data = infile.read()
+                data = bytearray(infile.read())
 
         else:
-            data = sys.stdin.read()
+            data = bytearray(sys.stdin.read(), 'utf8')
 
         # now do command
         if(mode == 'list'):
@@ -1092,6 +1071,8 @@ list of options.\n")
                         str(tb))
 
                 pos += 1
+
+            retdata = bytearray(retdata, "utf8")
 
         if(mode == 'extract'):
             tbs = [tb for tb in tapblockfrombytes(data)]
@@ -1177,13 +1158,6 @@ entries in the source data.\n")
                 else:
                     retdata = destinationtbs + retdata
 
-        # prepare data for output
-        if(_PYTHON_VERSION_HEX > 0x03000000):
-            retdata = bytes(retdata)
-        else:
-            if(not isinstance(retdata, str)):
-                retdata = ''.join([chr(x) for x in retdata])
-
         # output data
         if(not tostandardoutput):
             fo = open(outputfile, "ab" if mode == 'copy' and append else "wb")
@@ -1191,19 +1165,17 @@ entries in the source data.\n")
             fo.close()
 
         else:
-            sys.stdout.write(retdata)
+            sys.stdout.write(retdata.decode("utf8"))
 
     # catch and handle expected exceptions nicely
     except spectrumtranslate.SpectrumTranslateError as se:
         sys.stderr.write(se.value + "\n")
 
 if __name__ == "__main__":
-    # import here as only needed for command line
-    import sys
-
-    # set encodeing so can handle non ascii characters
-    from codecs import getwriter
-    sys.stdout = getwriter('utf8')(sys.stdout)
-    sys.stderr = getwriter('utf8')(sys.stderr)
+    if(_PYTHON_VERSION_HEX < 0x03000000):
+        # set encodeing so can handle non ascii characters
+        from codecs import getwriter
+        sys.stdout = getwriter('utf8')(sys.stdout)
+        sys.stderr = getwriter('utf8')(sys.stderr)
 
     _commandline(sys.argv)

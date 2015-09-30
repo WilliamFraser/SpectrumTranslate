@@ -46,6 +46,9 @@ Unit Test for SpectrumTranslate file
 import spectrumtranslate
 import spectrumnumber
 import unittest
+import subprocess
+import re
+import sys
 from PIL import Image
 from sys import hexversion as _PYTHON_VERSION_HEX
 from codecs import unicode_escape_decode as _UED
@@ -795,7 +798,7 @@ data"""
         self.assertTrue(di1 < di2)
         self.assertFalse(di1 > di2)
         self.assertFalse(di1 == di2)
-        
+
         di1.end = 0x8000
         di2.start = 0x4000
         di2.end = 0x7000
@@ -1691,6 +1694,108 @@ class TestSpectrumTranslateError(unittest.TestCase):
         # test create
         e = spectrumtranslate.SpectrumTranslateError("Test")
         self.assertEqual("Test", e.value)
+
+
+class Testformating(unittest.TestCase):
+    def runpep8(self, py_file, errignore, stdoutignore):
+        p = subprocess.Popen(["python",
+                              "/usr/local/lib/python2.6/dist-packages/pep8.py",
+                              "--repeat", py_file],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = p.communicate()
+
+        output = output.splitlines()
+        if(len(output) > 0 and isinstance(output[0], bytes)):
+            output = [x.decode("utf-8") for x in output]
+        if(stdoutignore):
+            output = [x for x in output if x not in stdoutignore]
+
+        error = error.splitlines()
+        if(len(error) > 0 and isinstance(error[0], bytes)):
+            error = [x.decode("utf-8") for x in error]
+        if(errignore):
+            error = [x for x in error if x not in errignore]
+
+        return "\n".join(output), "\n".join(error)
+
+    def test_pep8(self):
+        output, error = self.runpep8("spectrumtranslate.py", [], [])
+        self.assertEqual(output, "", "spectrumtranslate.py pep8 formatting \
+errors:\n" + output)
+        self.assertEqual(error, "", "spectrumtranslate.py pep8 format check \
+had errors:\n" + error)
+
+        output, error = self.runpep8("test_spectrumtranslate.py", [], [
+            "test_spectrumtranslate.py:82:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:1209:9: W291 trailing whitespace"])
+        self.assertEqual(output, "", "test_spectrumtranslate.py pep8 \
+formatting errors:\n" + output)
+        self.assertEqual(error, "", "test_spectrumtranslate.py pep8 format \
+check had errors:\n" + error)
+
+
+class Test2_3compatibility(unittest.TestCase):
+    def run2to3(self, py_file, errignore, stdoutignore):
+        p = subprocess.Popen(["/usr/bin/2to3", py_file],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = p.communicate()
+
+        # remove refactoring info
+        output = output.splitlines()
+        if(len(output) > 0 and isinstance(output[0], bytes)):
+            output = [x.decode("utf-8") for x in output]
+        refactorignore = ["--- " + py_file + " (original)",
+                          "+++ " + py_file + " (refactored)"]
+        output = "\n".join([x for x in output if x not in refactorignore])
+        # split into diffs
+        chunks = re.compile(
+            "^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
+            re.MULTILINE).split(output)
+        chunks = [x for x in chunks if len(x) > 0]
+        # prepare matcher if is problem commented to ignore
+        commentmatcher = re.compile("^([^\-\+].*?\n)*(\s*# 2to3 will complain \
+but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
+        # filter out stuff want to ignore
+        output = []
+        for x in range(0, len(chunks), 2):
+            if(commentmatcher.match(chunks[x + 1])):
+                continue
+            if(chunks[x + 1] not in stdoutignore):
+                output += [chunks[x], chunks[x + 1]]
+
+        error = error.splitlines()
+        if(len(error) > 0 and isinstance(error[0], bytes)):
+            error = [x.decode("utf-8") for x in error]
+        if(not errignore):
+            errignore = []
+        errignore += [
+            "AssertionError: {0} 2to3 check had errors:".format(py_file),
+            "RefactoringTool: Skipping implicit fixer: buffer",
+            "RefactoringTool: Skipping implicit fixer: idioms",
+            "RefactoringTool: Skipping implicit fixer: set_literal",
+            "RefactoringTool: Skipping implicit fixer: ws_comma",
+            "RefactoringTool: Refactored {0}".format(py_file),
+            "RefactoringTool: Files that need to be modified:",
+            "RefactoringTool: {0}".format(py_file),
+            "RefactoringTool: No changes to {0}".format(py_file)]
+
+        error = [x for x in error if x not in errignore]
+
+        return output, "".join(error)
+
+    def test_2to3(self):
+        output, error = self.run2to3("spectrumtranslate.py", [], [])
+        self.assertEqual(output, [], "spectrumtranslate.py 2to3 errors:\n" +
+                         "".join(output))
+        self.assertEqual(error, "", "spectrumtranslate.py 2to3 check had \
+errors:\n" + error)
+
+        output, error = self.run2to3("test_spectrumtranslate.py", [], [])
+        self.assertEqual(output, [], "test_spectrumtranslate.py 2to3 errors\
+:\n" + "".join(output))
+        self.assertEqual(error, "", "test_spectrumtranslate.py 2to3 check had \
+errors:\n" + error)
+
 
 # todo test command line
 

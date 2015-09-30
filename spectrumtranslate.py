@@ -52,46 +52,34 @@ if(sys.hexversion > 0x03000000):
     def _u(x):
         return x
 
-    def _checkisvalidbytes(x):
+    def _validateandpreparebytes(x):
         if(isinstance(x, (bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, int) for val in x))):
-            return
+            return bytearray(x)
 
-        raise SpectrumTranslateError("data needs to be a list or tuple of \
-ints, or of type 'bytes' or 'bytearray'")
-
-    def _validbytestointlist(x):
-        # function to convert any valid source to a list of ints
-        if(isinstance(x, (bytes, bytearray))):
-            return [b for b in x]
-
-        return x[:]
+        raise spectrumtranslate.SpectrumTranslateError("data needs to be a \
+list or tuple of ints, or of type 'bytes' or 'bytearray'")
 
 else:
-    # 2to3 will complain about this line but this code is python 2 & 3
-    # compatible
+    # 2to3 will complain but this code is python 2 & 3 compatible
     _unistr = unicode
     from codecs import unicode_escape_decode as _UED
 
     def _u(x):
         return _UED(x)[0]
 
-    def _checkisvalidbytes(x):
-        if(isinstance(x, str) or
+    def _validateandpreparebytes(x):
+        # function to convert any valid source to a list of ints and
+        # except if not
+        if(isinstance(x, (str, bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, _INT_OR_LONG) for val in x))):
-            return
+            return bytearray(x)
 
-        raise SpectrumTranslateError("data needs to be a byte string, or a \
-list or tuple of ints or longs")
-
-    def _validbytestointlist(x):
-        # function to convert any valid source to a list of ints
-        if(isinstance(x, str)):
-            return [ord(b) for b in x]
-
-        return x[:]
+        raise spectrumtranslate.SpectrumTranslateError("data needs to be a \
+byte string, or a list or tuple of ints or longs, or of type 'bytes' or \
+'bytearray'")
 
 
 # tables of all the opcodes
@@ -1036,11 +1024,8 @@ def getvariableoffset(data):
     to where the variables are.
     """
 
-    # validate data
-    _checkisvalidbytes(data)
-
-    # convert data from string to list of numbers if needed
-    data = _validbytestointlist(data)
+    # validate and convert data from string to bytearray if needed
+    data = _validateandpreparebytes(data)
 
     # work out position of variables
     offset = 0
@@ -1080,11 +1065,8 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
     specified then this will be worked out.
     """
 
-    # validate data
-    _checkisvalidbytes(data)
-
-    # convert data from string to list of numbers if needed
-    data = _validbytestointlist(data)
+    # validate and convert data from string to bytearray if needed
+    data = _validateandpreparebytes(data)
 
     # if no variable offset supplied then work out where
     if(ivariableOffset == -1):
@@ -1378,11 +1360,8 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
     specified then this will be worked out.
     """
 
-    # validate data
-    _checkisvalidbytes(data)
-
-    # convert data from string to list of numbers if needed
-    data = _validbytestointlist(data)
+    # validate and convert data from string to bytearray if needed
+    data = _validateandpreparebytes(data)
 
     # if no variable offset supplied then work out where
     if(ivariableOffset == -1):
@@ -1734,11 +1713,8 @@ def getarraydepth(data, descriptor):
     String[] would have depth of 2: array of array of characters.
     """
 
-    # validate data
-    _checkisvalidbytes(data)
-
-    # convert data from string to list of numbers if needed
-    data = _validbytestointlist(data)
+    # validate and convert data from string to bytearray if needed
+    data = _validateandpreparebytes(data)
 
     # number array or character array
     if((descriptor & 192) == 128 or (descriptor & 192) == 192):
@@ -1798,11 +1774,8 @@ def extractarray(data, descriptor):
         return [getSubArray(dims[1:], data, isnumber, offset + i*o) for i in
                 range(dims[0])]
 
-    # validate data
-    _checkisvalidbytes(data)
-
-    # convert data from string to list of numbers if needed
-    data = _validbytestointlist(data)
+    # validate and convert data from string to bytearray if needed
+    data = _validateandpreparebytes(data)
 
     # number array or character array
     if(descriptor & 128 == 128):
@@ -2385,11 +2358,8 @@ def getgiffromscreen(data, delay=320):
     if(len(data) < 6912):
         return None
 
-    # validate data
-    _checkisvalidbytes(data)
-
-    # convert data from string to list of numbers if needed
-    data = _validbytestointlist(data)
+    # validate and convert data from string to bytearray if needed
+    data = _validateandpreparebytes(data)
 
     # is there a flash atribute in the screen
     bFlash = False
@@ -2471,11 +2441,8 @@ def getrgbfromscreen(data, alphamask=0xFF):
     The alphamask variable sets what you want the alpha component to be.
     """
 
-    # validate data
-    _checkisvalidbytes(data)
-
-    # convert data from string to list of numbers if needed
-    data = _validbytestointlist(data)
+    # validate and convert data from string to bytearray if needed
+    data = _validateandpreparebytes(data)
 
     # calculate number of images needed: is there a flash flag set in
     # the colour area?
@@ -2575,11 +2542,8 @@ def snaptosna(data, register, border=0):
     if(len(data) != 49152 and len(data) != 131072):
         raise SpectrumTranslateError("Wrong size memory")
 
-    # validate data
-    _checkisvalidbytes(data)
-
-    # convert data from string to list of numbers if needed
-    data = _validbytestointlist(data)
+    # validate and convert data to bytearray if needed
+    data = _validateandpreparebytes(data)
 
     # output common headder registers
     out = [register["I"] & 0xFF,
@@ -2737,11 +2701,8 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
         raise SpectrumTranslateError(
             "Valid version numbers for Z80 files are 1, 2, and 3.")
 
-    # validate data
-    _checkisvalidbytes(data)
-
-    # convert data from string to list of numbers if needed
-    data = _validbytestointlist(data)
+    # validate and convert data to bytearray if needed
+    data = _validateandpreparebytes(data)
 
     # save off basic registers in 30 byte headder
     out = [register["A"],
@@ -2938,11 +2899,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     # work out where we are
     currentAddress = origin + offset
 
-    # validate data
-    _checkisvalidbytes(data)
-
-    # convert data from string to list of numbers if needed
-    data = _validbytestointlist(data)
+    # validate and convert data to bytearray if needed
+    data = _validateandpreparebytes(data)
 
     # get list of line numbers that are being referenced
     ReferencedLineNumbers = [currentAddress]

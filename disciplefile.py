@@ -41,7 +41,6 @@
 
 import spectrumtranslate
 import sys
-from mmap import mmap as _mmap
 from os.path import isfile as _isfile
 from numbers import Integral as _INT_OR_LONG
 from sys import hexversion as _PYTHON_VERSION_HEX
@@ -49,38 +48,27 @@ from sys import hexversion as _PYTHON_VERSION_HEX
 
 
 if(_PYTHON_VERSION_HEX > 0x03000000):
-    def _checkisvalidbytes(x, m):
+    def _validateandpreparebytes(x, m):
         if(isinstance(x, (bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, int) for val in x))):
-            return True
+            return bytearray(x)
 
         raise spectrumtranslate.SpectrumTranslateError("{0} needs to be a \
 list or tuple of ints, or of type 'bytes' or 'bytearray'".format(m))
 
-    def _validbytestointlist(x):
-        # function to convert any valid source to a list of ints
-        if(isinstance(x, (bytes, bytearray))):
-            return [b for b in x]
-
-        return x[:]
-
 else:
-    def _checkisvalidbytes(x, m):
-        if(isinstance(x, str) or
+    def _validateandpreparebytes(x, m):
+        # function to convert any valid source to a list of ints and
+        # except if not
+        if(isinstance(x, (str, bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, _INT_OR_LONG) for val in x))):
-            return True
+            return bytearray(x)
 
         raise spectrumtranslate.SpectrumTranslateError("{0} needs to be a \
-byte string, or a list or tuple of ints or longs".format(m))
-
-    def _validbytestointlist(x):
-        # function to convert any valid source to a list of ints
-        if(isinstance(x, str)):
-            return [ord(b) for b in x]
-
-        return x[:]
+byte string, or a list or tuple of ints or longs, or of type 'bytes' or \
+'bytearray'".format(m))
 
 
 def _validateandconvertfilename(filename):
@@ -88,20 +76,23 @@ def _validateandconvertfilename(filename):
     if(isinstance(filename, list)):
         # if is list of numbers convert to list of strings
         if(False not in [isinstance(x, _INT_OR_LONG) for x in filename]):
-            filename = [chr(x) for x in filename]
+            filename = bytearray(filename)
 
         # if there are only strings in the list then convert list to
         # a string
         if(False not in [isinstance(x, str) for x in filename]):
             filename = "".join(filename)
 
-    if(not isinstance(filename, str) or len(filename) > 10):
+    if(isinstance(filename, str)):
+        filename = bytearray(filename, "utf8")
+
+    if(not isinstance(filename, (bytes, bytearray)) or len(filename) > 10):
         raise spectrumtranslate.SpectrumTranslateError(
-            "Filename must be a string, or list of ints or strings of no \
-more than 10 characters.")
+            "Filename must be a string, or list of ints or strings, of type \
+'bytes' or 'bytearray' and of no more than 10 characters.")
 
     # return filename right padded with spaces
-    return [ord(x) for x in filename] + [32] * (10 - len(filename))
+    return bytearray(filename) + bytearray([32] * (10 - len(filename)))
 
 
 def GetDirectoryEntryPosition(num):
@@ -135,7 +126,7 @@ class DiscipleFile:
                 "Invalid File Number")
 
     def getheadder(self):
-        """Returns 256 byte file headder"""
+        """Returns 256 bytearray file headder"""
 
         # work out if first or second entry in sector
         headderstart = ((self.filenumber-1) & 1) * 256
@@ -144,8 +135,8 @@ class DiscipleFile:
         return self.image.getsector(t, s)[headderstart: headderstart + 256]
 
     def getfiledata(self, wantheadder=False, headderdata=None):
-        """Get the data of the file. Returns a byte string array
-        containing the file data.
+        """Get the data of the file. Returns a bytearray containing the
+        file data.
 
         BASIC, code, number array, string array, and screen files have
         and extra 9 bytes at the start of the file (these extra bytes
@@ -172,7 +163,7 @@ class DiscipleFile:
 
         bytestocopy = self.getfilelength(headderdata)
 
-        data = []
+        data = bytearray()
 
         # get start track & sector
         track = headderdata[13]
@@ -390,7 +381,7 @@ class DiscipleFile:
         return spectrumtranslate.getspectrumstring(headderdata[1:11])
 
     def getrawfilename(self, headderdata=None):
-        """This returns the 10 character file name as a list of ints."""
+        """This returns the 10 character file name as a bytearray."""
 
         # if no headder supplied, need to load it up
         if(headderdata is None):
@@ -791,15 +782,13 @@ class DiscipleImage:
 
     def setbytes(self, bytedata, form="Unknown"):
         """
-        Sets the source for the disciple image to be a byte string, a
+        Sets the source for the disciple image to be a bytearray string, a
         list or tuple of ints or longs, or can also be bytes or
         bytearray in python 3.
         """
 
-        _checkisvalidbytes(bytedata, "bytedata")
-
-        # convert bytedata to list of ints
-        self.bytedata = _validbytestointlist(bytedata)
+        # validate and prepare bytedata
+        self.bytedata = _validateandpreparebytes(bytedata, "bytedata")
 
         self.ImageSource = "Bytes"
         self.setimageformat(form)
@@ -905,12 +894,7 @@ class DiscipleImage:
             if(self.filehandle.tell() != pos):
                 self.filehandle.seek(pos)
 
-            # in python 2 convert byte string to list of ints
-            if(not _PYTHON_VERSION_HEX > 0x03000000):
-                return [ord(x) for x in self.filehandle.read(512)]
-
-            # return list in python 3
-            return [x for x in self.filehandle.read(512)]
+            return bytearray(self.filehandle.read(512))
 
         else:
             raise spectrumtranslate.SpectrumTranslateError(
@@ -925,7 +909,11 @@ class DiscipleImage:
         data at the end to save any changes.
         """
 
-        _checkisvalidbytes(data, "data must be 512 bytes long, and")
+        # validate and prepare data
+        data = _validateandpreparebytes(data, "data must be a \
+512 bytes in length, and a list or tuple of int or long, or a byte string in \
+python 2, or of type 'byte' or 'bytearray' in python 3.")
+
         if(len(data) != 512):
             raise spectrumtranslate.SpectrumTranslateError("data must be a \
 512 bytes in length, and a list or tuple of int or long, or a byte string in \
@@ -935,14 +923,10 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         if(self.ImageSource == "Undefined"):
             self.setbytes([0] * 819200)
 
-        # convert data to list of ints
-        data = _validbytestointlist(data)
-
         # where is sector we're after
         pos = self.getsectorposition(track, sector, head)
         if(self.ImageSource == "Bytes"):
-            self.bytedata = self.bytedata[:pos] + data + self.bytedata[
-                pos + 512:]
+            self.bytedata[pos:pos + 512] = data
 
         elif(self.ImageSource == "File" or self.ImageSource == "FileName"):
             # have we got overwrite access?
@@ -952,16 +936,8 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                 raise spectrumtranslate.SpectrumTranslateError(
                     'DiscipleImage not opened with access mode rb+')
 
-            # memory map the sector in the file
-            mm = _mmap(self.filehandle.fileno(), 0)
-            # write the data
-            if(_PYTHON_VERSION_HEX > 0x03000000):
-                mm[pos:pos + 512] = bytes("".join([chr(x) for x in data]),
-                                          'utf-8')
-            else:
-                mm[pos:pos + 512] = "".join([chr(x) for x in data])
-            mm.flush()
-            mm.close()
+            self.filehandle.seek(pos)
+            self.filehandle.write(data)
 
         # this should not happen, but be cautious
         else:
@@ -1017,7 +993,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             return False
 
         # create empty sector map
-        sectorMap = [0] * 195
+        sectorMap = bytearray(195)
 
         track = -1
         sector = -1
@@ -1187,8 +1163,9 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             raise spectrumtranslate.SpectrumTranslateError(
                 "Header block must be 256 bytes long.")
 
-        _checkisvalidbytes(headder, "headder")
-        _checkisvalidbytes(filedata, "filedata")
+        # validate and prepare data
+        headder = _validateandpreparebytes(headder, "headder")
+        filedata = _validateandpreparebytes(filedata, "filedata")
 
         if(position != -1 and position < 1 and position > 80):
             raise spectrumtranslate.SpectrumTranslateError(
@@ -1198,7 +1175,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         i = 1
         sectorcount = 0
         # create empty sector map
-        sectorMap = [0] * 195
+        sectorMap = bytearray(195)
         while(i <= 80):
             t, s = GetDirectoryEntryPosition(i)
             sector = self.getsector(t, s)
@@ -1258,9 +1235,6 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
 
             raise spectrumtranslate.SpectrumTranslateError("Image full.")
 
-        # make copy of headder localy to alter
-        headder = _validbytestointlist(headder)
-
         # clear FAT table for file headder
         for i in range(195):
             headder[i + 15] = 0
@@ -1296,8 +1270,8 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
 
             # create sector padding with 0 and finishing off with next
             # sector
-            sectordata = filedata[l:l + chunklength] + \
-                [0] * (510 - chunklength) + nextsector
+            sectordata = filedata[l:l + chunklength] + bytearray(
+                510 - chunklength) + bytearray(nextsector)
             self.writesector(sectordata, t, s)
 
             # update counters and next sectors
@@ -1310,8 +1284,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         track, sector = GetDirectoryEntryPosition(position)
 
         sectordata = self.getsector(track, sector)
-        sectordata = sectordata[:headderstart] + headder + sectordata[
-            headderstart + 256:]
+        sectordata[headderstart:headderstart + 256] = headder
         self.writesector(sectordata, track, sector)
 
     def fileindexfromname(self, filename, wantdeleted=False):
@@ -1373,12 +1346,12 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             raise spectrumtranslate.SpectrumTranslateError(
                 "Data too big to fit in spectrum memory.")
 
-        # ensure filedata is valid and ready for use
-        _checkisvalidbytes(filedata, "filedata")
-        filedata = _validbytestointlist(filedata)
+        # validate and prepare filedata
+        filedata = _validateandpreparebytes(filedata, "filedata")
 
         # create headder and validate filename
-        headder = [0] + _validateandconvertfilename(filename) + ([0] * 245)
+        headder = bytearray(1) + _validateandconvertfilename(filename) + \
+            bytearray(245)
 
         # set basic file
         headder[0] = 1
@@ -1439,9 +1412,8 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         filename is invalid.
         """
 
-        # ensure filedata is valid and ready for use
-        _checkisvalidbytes(filedata, "filedata")
-        filedata = _validbytestointlist(filedata)
+        # validate and prepare filedata
+        filedata = _validateandpreparebytes(filedata, "filedata")
 
         # validate input
         if(len(filedata) > 65535):
@@ -1449,7 +1421,8 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                 "Data too big to fit in spectrum memory.")
 
         # create headder and validate filename
-        headder = [0] + _validateandconvertfilename(filename) + ([0] * 245)
+        headder = bytearray(1) + _validateandconvertfilename(filename) + \
+            bytearray(245)
 
         # set code file
         headder[0] = 4
@@ -1505,12 +1478,12 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             raise spectrumtranslate.SpectrumTranslateError(
                 "Data too big to fit in spectrum memory.")
 
-        # ensure filedata is valid and ready for use
-        _checkisvalidbytes(filedata, "filedata")
-        filedata = _validbytestointlist(filedata)
+        # validate and prepare filedata
+        filedata = _validateandpreparebytes(filedata, "filedata")
 
         # create headder and validate filename
-        headder = [0] + _validateandconvertfilename(filename) + ([0] * 245)
+        headder = bytearray(1) + _validateandconvertfilename(filename) + \
+            bytearray(245)
 
         # set variable file
         headder[211] = 1 if VariableDescriptor & 192 == 128 else 2
@@ -1557,12 +1530,12 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             raise spectrumtranslate.SpectrumTranslateError(
                 "filedata is wrong length for a spectrum screen file.")
 
-        # ensure filedata is valid and ready for use
-        _checkisvalidbytes(filedata, "filedata")
-        filedata = _validbytestointlist(filedata)
+        # validate and prepare filedata
+        filedata = _validateandpreparebytes(filedata, "filedata")
 
         # create headder and validate filename
-        headder = [0] + _validateandconvertfilename(filename) + ([0] * 245)
+        headder = bytearray(1) + _validateandconvertfilename(filename) + \
+            bytearray(245)
 
         # set screen file
         headder[0] = 7
@@ -1745,7 +1718,6 @@ def usage():
 
 
 def _commandline(args):
-
     def getint(x):
         return int(x, 16 if x.lower().startswith("0x") else 10)
 
@@ -2045,9 +2017,9 @@ character, number or string).'.format(args[i])
         if(mode == 'create'):
             if(not fromstandardinput):
                 with open(inputfile, 'rb') as infile:
-                    datain = infile.read()
+                    datain = bytearray(infile.read())
             else:
-                datain = sys.stdin.read()
+                datain = bytearray(sys.stdin.read(), 'utf8')
 
         else:
             # get disc image
@@ -2114,6 +2086,8 @@ filetypelong}\t{sectors}\t{filelength}".format(**d)
                 else:
                     retdata += str((1560 - sectorsused) * 510) + " bytes free.\
 \n"
+
+            retdata = bytearray(retdata, "utf8")
 
         if(mode == 'extract'):
             df = DiscipleFile(di, entrywanted)
@@ -2227,13 +2201,6 @@ list of options.\n")
             # now set disk image as output
             retdata = diout.bytedata
 
-        # prepare data for output
-        if(_PYTHON_VERSION_HEX > 0x03000000):
-            retdata = bytes(retdata)
-        else:
-            if(not isinstance(retdata, str)):
-                retdata = ''.join([chr(x) for x in retdata])
-
         # output data
         if(not tostandardoutput):
             fo = open(outputfile, "wb")
@@ -2241,16 +2208,17 @@ list of options.\n")
             fo.close()
 
         else:
-            sys.stdout.write(retdata)
+            sys.stdout.write(retdata.decode("utf8"))
 
     # catch and handle expected exceptions nicely
     except spectrumtranslate.SpectrumTranslateError as se:
         sys.stderr.write(se.value + "\n")
 
 if __name__ == "__main__":
-    # set encodeing so can handle non ascii characters
-    from codecs import getwriter
-    sys.stdout = getwriter('utf8')(sys.stdout)
-    sys.stderr = getwriter('utf8')(sys.stderr)
+    if(_PYTHON_VERSION_HEX < 0x03000000):
+        # set encodeing so can handle non ascii characters
+        from codecs import getwriter
+        sys.stdout = getwriter('utf8')(sys.stdout)
+        sys.stderr = getwriter('utf8')(sys.stderr)
 
     _commandline(sys.argv)

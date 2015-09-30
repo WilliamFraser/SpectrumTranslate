@@ -46,82 +46,89 @@ Unit Test for disciplefile file
 import disciplefile
 import spectrumtranslate
 import unittest
+import sys
+import subprocess
+import re
 from os import remove as os_remove
 from sys import hexversion as _PYTHON_VERSION_HEX
 # imported elsewhere for memory reasons are:
 # unicode_escape_decode in the codecs module
+# imported io/StringIO later so get python version specific one
 
 _TEST_DIRECTORY = "test/"
 
 if(_PYTHON_VERSION_HEX > 0x03000000):
-    def _u(x):
-        return x
-
-    def _getfileaslist(name):
-        with open(_TEST_DIRECTORY + name, 'rb') as infile:
-            return [b for b in infile.read()]
+    from io import StringIO
 
 else:
-    from codecs import unicode_escape_decode as _UED
-    # 2to3 will complain about this but won't cause problems in real life
+    # 2to3 will complain but won't cause problems in real life
+    from StringIO import StringIO
 
-    def _u(x):
-        return _UED(x)[0]
 
-    def _getfileaslist(name):
-        with open(_TEST_DIRECTORY + name, 'rb') as infile:
-            return [ord(b) for b in infile.read()]
+def _getfile(name):
+    with open(name, 'r') as f:
+        return f.read()
+
+
+def _getfileasbytes(name):
+    with open(_TEST_DIRECTORY + name, 'rb') as infile:
+        return bytearray(infile.read())
 
 
 class Testutilityfunctions(unittest.TestCase):
     def test_checkisvalidbytes(self):
         if(_PYTHON_VERSION_HEX > 0x03000000):
-            self.assertTrue(disciplefile._checkisvalidbytes(bytes(b"Test"), 0))
-            self.assertTrue(disciplefile._checkisvalidbytes(bytearray(b"Test"),
-                                                            0))
+            self.assertTrue(disciplefile._validateandpreparebytes(bytes(
+                                                                  b"Test"), 0))
             self.assertRaises(spectrumtranslate.SpectrumTranslateError,
-                              disciplefile._checkisvalidbytes, "Wrong", 0)
+                              disciplefile._validateandpreparebytes, "Wrong",
+                              0)
         else:
-            self.assertTrue(disciplefile._checkisvalidbytes("Hello", 0))
+            self.assertTrue(disciplefile._validateandpreparebytes("Hello", 0))
             # 2to3 will complain but is ok as won't run in python 3
-            self.assertTrue(disciplefile._checkisvalidbytes([long(1), long(2)],
-                                                            0))
+            self.assertTrue(disciplefile._validateandpreparebytes([long(1),
+                                                                   long(2)],
+                                                                  0))
             # bytes is valid in python 2 as it looks like a string
             # so not checked
-            self.assertRaises(spectrumtranslate.SpectrumTranslateError,
-                              disciplefile._checkisvalidbytes,
-                              bytearray(b"Test"), 0)
 
+        self.assertTrue(disciplefile._validateandpreparebytes(bytearray(
+                                                              b"Test"), 0))
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
-                          disciplefile._checkisvalidbytes, 1, 0)
+                          disciplefile._validateandpreparebytes, 1, 0)
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
-                          disciplefile._checkisvalidbytes, ["Wrong", "input"],
+                          disciplefile._validateandpreparebytes, ["Wrong",
+                                                                  "input"],
                           0)
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
-                          disciplefile._checkisvalidbytes, [0.1, 0.2], 0)
-        self.assertTrue(disciplefile._checkisvalidbytes([1, 2], 0))
+                          disciplefile._validateandpreparebytes, [0.1, 0.2], 0)
+        self.assertTrue(disciplefile._validateandpreparebytes([1, 2], 0))
 
     def test_validbytestointlist(self):
-        self.assertEqual(disciplefile._validbytestointlist([1, 2]), [1, 2])
+        self.assertEqual(disciplefile._validateandpreparebytes([1, 2], ""),
+                         bytearray([1, 2]))
         if(_PYTHON_VERSION_HEX > 0x03000000):
-            self.assertEqual(disciplefile._validbytestointlist(bytearray(
-                                                                   b"Test")),
-                             [84, 101, 115, 116])
-            self.assertEqual(disciplefile._validbytestointlist(bytes(b"Test")),
-                             [84, 101, 115, 116])
+            self.assertEqual(disciplefile._validateandpreparebytes(bytearray(
+                                                                   b"Test"),
+                                                                   ""),
+                             bytearray([84, 101, 115, 116]))
+            self.assertEqual(disciplefile._validateandpreparebytes(bytes(
+                                                                   b"Test"),
+                                                                   ""),
+                             bytearray([84, 101, 115, 116]))
         else:
-            self.assertEqual(disciplefile._validbytestointlist("Test"),
-                             [84, 101, 115, 116])
+            self.assertEqual(disciplefile._validateandpreparebytes("Test", ""),
+                             bytearray([84, 101, 115, 116]))
 
     def test_validateandconvertfilename(self):
         self.assertEqual(disciplefile._validateandconvertfilename(
                          [65, 66, 67]),
-                         [65, 66, 67, 32, 32, 32, 32, 32, 32, 32])
+                         bytearray([65, 66, 67, 32, 32, 32, 32, 32, 32, 32]))
         self.assertEqual(disciplefile._validateandconvertfilename("ABC"),
-                         [65, 66, 67, 32, 32, 32, 32, 32, 32, 32])
+                         bytearray([65, 66, 67, 32, 32, 32, 32, 32, 32, 32]))
         self.assertEqual(disciplefile._validateandconvertfilename(
                          ["A", "B", "C"]),
-                         [65, 66, 67, 32, 32, 32, 32, 32, 32, 32])
+                         bytearray([65, 66, 67, 32, 32, 32, 32, 32, 32, 32]))
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           disciplefile._validateandconvertfilename, [0.1, 0.2])
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
@@ -130,7 +137,7 @@ class Testutilityfunctions(unittest.TestCase):
             # 2to3 will complain but is ok as won't run in python 3
             self.assertEqual(disciplefile._validateandconvertfilename(
                              [long(65), long(66), long(67)]),
-                             [65, 66, 67, 32, 32, 32, 32, 32, 32, 32])
+                             bytearray(b'ABC       '))
 
     def test_GetDirectoryEntryPosition(self):
         entry = 1
@@ -156,21 +163,20 @@ class TestDiscipleFile(unittest.TestCase):
     def test_getheadder(self):
         di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
-        self.assertEqual(df.getheadder(),
+        self.assertEqual(df.getheadder(), bytearray(
                          [1, 66, 65, 83, 73, 67, 32, 116, 101, 115, 116, 0, 1,
                           4, 1, 1] +
                          [0] * 195 +
                          [0, 190, 0, 203, 92, 78, 0, 255, 255] +
-                         [0] * 36)
+                         [0] * 36))
 
     def test_getfiledata(self):
         di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
-        self.assertEqual(df.getfiledata(),
-                         _getfileaslist("basictest.dat"))
+        self.assertEqual(df.getfiledata(), _getfileasbytes("basictest.dat"))
         self.assertEqual(df.getfiledata(wantheadder=True),
-                         [0, 190, 0, 203, 92, 78, 0, 255, 255] +
-                         _getfileaslist("basictest.dat"))
+                         bytearray([0, 190, 0, 203, 92, 78, 0, 255, 255]) +
+                         _getfileasbytes("basictest.dat"))
 
     def test_isempty(self):
         di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
@@ -246,13 +252,13 @@ class TestDiscipleFile(unittest.TestCase):
     def test_getrawfilename(self):
         di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
-        self.assertEqual(df.getrawfilename(), [ord(x) for x in "BASIC test"])
+        self.assertEqual(df.getrawfilename(), bytearray(b'BASIC test'))
         df = disciplefile.DiscipleFile(di, 2)
-        self.assertEqual(df.getrawfilename(), [ord(x) for x in "Array C   "])
+        self.assertEqual(df.getrawfilename(), bytearray(b'Array C   '))
         df = disciplefile.DiscipleFile(di, 3)
-        self.assertEqual(df.getrawfilename(), [ord(x) for x in "Array X   "])
+        self.assertEqual(df.getrawfilename(), bytearray(b'Array X   '))
         df = disciplefile.DiscipleFile(di, 4)
-        self.assertEqual(df.getrawfilename(), [ord(x) for x in "Screen    "])
+        self.assertEqual(df.getrawfilename(), bytearray(b'Screen    '))
 
     def test_getfiledetails(self):
         di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
@@ -261,7 +267,7 @@ class TestDiscipleFile(unittest.TestCase):
                          {'filenumber': 1,
                           'filetype': 1,
                           'filename': 'BASIC test',
-                          'rawfilename': [ord(x) for x in "BASIC test"],
+                          'rawfilename': bytearray(b'BASIC test'),
                           'filetypelong': 'Basic',
                           'filetypeshort': 'BAS',
                           'filelength': 190,
@@ -274,7 +280,7 @@ class TestDiscipleFile(unittest.TestCase):
                          {'filenumber': 2,
                           'filetype': 3,
                           'filename': 'Array C   ',
-                          'rawfilename': [ord(x) for x in "Array C   "],
+                          'rawfilename': bytearray(b'Array C   '),
                           'filetypelong': 'String Array',
                           'filetypeshort': '$.ARRAY',
                           'filelength': 31,
@@ -288,7 +294,7 @@ class TestDiscipleFile(unittest.TestCase):
                          {'filenumber': 3,
                           'filetype': 2,
                           'filename': 'Array X   ',
-                          'rawfilename': [ord(x) for x in "Array X   "],
+                          'rawfilename': bytearray(b'Array X   '),
                           'filetypelong': 'Number Array',
                           'filetypeshort': 'D.ARRAY',
                           'filelength': 1005,
@@ -302,7 +308,7 @@ class TestDiscipleFile(unittest.TestCase):
                          {'filenumber': 4,
                           'filetype': 7,
                           'filename': 'Screen    ',
-                          'rawfilename': [ord(x) for x in "Screen    "],
+                          'rawfilename': bytearray(b'Screen    '),
                           'filetypelong': 'SCREEN$',
                           'filetypeshort': 'SCREEN$',
                           'sectors': 14,
@@ -313,7 +319,7 @@ class TestDiscipleFile(unittest.TestCase):
                          {'filenumber': 5,
                           'filetype': 0,
                           'filename': '^00^00^00^00^00^00^00^00^00^00',
-                          'rawfilename': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          'rawfilename': bytearray([0] * 10),
                           'filetypelong': 'Free/Erased',
                           'filetypeshort': 'ERASED',
                           'sectors': 0,
@@ -463,7 +469,7 @@ class TestDiscipleImage(unittest.TestCase):
         di = disciplefile.DiscipleImage()
         di.setbytes(bytes(b"ABC"))
         self.assertEqual(di.ImageSource, "Bytes")
-        self.assertEqual(di.bytedata, [65, 66, 67])
+        self.assertEqual(di.bytedata, bytearray([65, 66, 67]))
 
     def test_setimageformat(self):
         di = disciplefile.DiscipleImage()
@@ -510,9 +516,9 @@ class TestDiscipleImage(unittest.TestCase):
 
     def test_getsector(self):
         di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
-        self.assertEqual(di.getsector(4, 1),
-                         [0, 190, 0, 203, 92, 78, 0, 255, 255] +
-                         _getfileaslist("basictest.dat") + [0] * 313)
+        self.assertEqual(di.getsector(4, 1), bytearray(
+                         [0, 190, 0, 203, 92, 78, 0, 255, 255]) +
+                         _getfileasbytes("basictest.dat") + bytearray(313))
 
         # test for reading uninitiated image
         di = disciplefile.DiscipleImage()
@@ -561,8 +567,8 @@ class TestDiscipleImage(unittest.TestCase):
                                   _TEST_DIRECTORY + "diskimagetest.mgt"))
         # check changes have happened
         self.assertEqual(len(diff), 2)
-        self.assertEqual(diff[0][0:3], [0, 1, [0] * 512])
-        self.assertEqual(diff[1][0:3], [4, 2, [1] * 512])
+        self.assertEqual(diff[0][0:3], [0, 1, bytearray([0] * 512)])
+        self.assertEqual(diff[1][0:3], [4, 2, bytearray([1] * 512)])
 
         # tidy up
         os_remove(_TEST_DIRECTORY + "diskimagecopy.mgt")
@@ -577,8 +583,10 @@ class TestDiscipleImage(unittest.TestCase):
 
         diff = self.compareimages(di1, di2)
         self.assertEqual(len(diff), 2)
-        self.assertEqual(diff[0], [10, 10, [0] * 512, [3] * 512])
-        self.assertEqual(diff[1], [129, 10, [2] * 512, [0] * 512])
+        self.assertEqual(diff[0], [10, 10, bytearray([0] * 512),
+                                   bytearray([3] * 512)])
+        self.assertEqual(diff[1], [129, 10, bytearray([2] * 512),
+                                   bytearray([0] * 512)])
 
     def test_deleteentry(self):
         # create memory copy to play with
@@ -646,19 +654,19 @@ class TestDiscipleImage(unittest.TestCase):
         # now break image and test
         # have incorrect file type
         sector = di.getsector(0, 1)
-        di.writesector([12] + sector[1:], 0, 1)
+        di.writesector(bytearray([12]) + sector[1:], 0, 1)
         self.assertFalse(di.isimagevalid())
         # corrupt FAT table
-        di.writesector(sector[:271] + [3] + sector[272:], 0, 1)
+        di.writesector(sector[:271] + bytearray([3]) + sector[272:], 0, 1)
         self.assertFalse(di.isimagevalid())
         # sector not matching sectors owned
-        di.writesector(sector[:15] + [2] + sector[16:], 0, 1)
+        di.writesector(sector[:15] + bytearray([2]) + sector[16:], 0, 1)
         self.assertFalse(di.isimagevalid())
         # sector map not matching number of sectors used
-        di.writesector(sector[:15] + [3] + sector[16:], 0, 1)
+        di.writesector(sector[:15] + bytearray([3]) + sector[16:], 0, 1)
         self.assertFalse(di.isimagevalid())
         # number of sectors not matching file size
-        di.writesector(sector[:212] + [10, 10] + sector[214:], 0, 1)
+        di.writesector(sector[:212] + bytearray([10, 10]) + sector[214:], 0, 1)
         self.assertFalse(di.isimagevalid())
         # premature file chain end
         di.writesector(sector, 0, 1)
@@ -702,21 +710,24 @@ class TestDiscipleImage(unittest.TestCase):
         self.assertEqual(len(diff), 5)
         # check changes to directory entries
         self.assertEqual(diff[0][:2], [0, 1])
-        self.assertEqual(diff[0][2][256:], [3] * 11 + [0, 1, 4, 2, 2] +
-                                           [0] * 194 + [3] * 46)
+        self.assertEqual(diff[0][2][256:], bytearray([3] * 11 +
+                                                     [0, 1, 4, 2, 2] +
+                                                     [0] * 194 + [3] * 46))
         self.assertEqual(diff[1][:2], [0, 3])
-        self.assertEqual(diff[1][2][:256], [1] * 11 + [0, 2, 5, 9, 0, 0, 12] +
-                                           [0] * 192 + [1] * 46)
+        self.assertEqual(diff[1][2][:256], bytearray([1] * 11 +
+                                                     [0, 2, 5, 9, 0, 0, 12] +
+                                                     [0] * 192 + [1] * 46))
         # test data saved
-        self.assertEqual(diff[2][:3], [4, 2, [4] * 100 + [0] * 412])
-        self.assertEqual(diff[3][:3], [5, 9, [2] * 510 + [5, 10]])
-        self.assertEqual(diff[4][:3], [5, 10, [2] * 90 + [0] * 422])
+        self.assertEqual(diff[2][:3], [4, 2, bytearray([4] * 100 + [0] * 412)])
+        self.assertEqual(diff[3][:3], [5, 9, bytearray([2] * 510 + [5, 10])])
+        self.assertEqual(diff[4][:3], [5, 10, bytearray([2] * 90 + [0] * 422)])
 
         # test for corrupt FAT table
         di.setbytes(imagedata)
         sectordata = di.getsector(0, 1)
         # create fat table useing all sectors
-        di.writesector(sectordata[:15] + [255] * 195 + sectordata[210:], 0, 1)
+        di.writesector(sectordata[:15] + bytearray([255]) * 195 +
+                       sectordata[210:], 0, 1)
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           di.writefile, [0] * 256, [0] * 100, -1)
 
@@ -754,7 +765,7 @@ class TestDiscipleImage(unittest.TestCase):
                           di.writebasicfile, [0] * (65535 - 23755 + 1), "Test")
 
         # get basic file data
-        basicdata = _getfileaslist("basictest.dat")
+        basicdata = _getfileasbytes("basictest.dat")
         di.writebasicfile(basicdata, "Test")
         # create test compare image
         di2 = disciplefile.DiscipleImage()
@@ -764,17 +775,17 @@ class TestDiscipleImage(unittest.TestCase):
         diff = self.compareimages(di, di2)
         self.assertEqual(len(diff), 2)
         self.assertEqual(diff[0][0:2], [0, 1])
-        self.assertEqual(diff[0][2][:256],
+        self.assertEqual(diff[0][2][:256], bytearray(
                          [1] + [ord(x) for x in "Test      "] +
                          [0, 1, 4, 1, 1] + [0] * 195 +
                          [0, len(basicdata) & 255, len(basicdata) // 256,
                           0xCB, 0x5C, 78, 0, 0, 128] +
-                         [0] * 36)
+                         [0] * 36))
         self.assertEqual(diff[1][0:2], [4, 1])
-        self.assertEqual(diff[1][2],
+        self.assertEqual(diff[1][2], bytearray(
                          [0, len(basicdata) & 255, len(basicdata) // 256,
-                          0xCB, 0x5C, 78, 0, 0, 128] + basicdata +
-                         [0] * (503 - len(basicdata)))
+                          0xCB, 0x5C, 78, 0, 0, 128]) + basicdata +
+                         bytearray([0] * (503 - len(basicdata))))
 
         # check overwrite
         di.writebasicfile(basicdata, "Test", overwritename=True,
@@ -782,12 +793,12 @@ class TestDiscipleImage(unittest.TestCase):
         diff = self.compareimages(di, di2)
         self.assertEqual(len(diff), 2)
         self.assertEqual(diff[0][0:2], [0, 1])
-        self.assertEqual(diff[0][2][:256],
+        self.assertEqual(diff[0][2][:256], bytearray(
                          [1] + [ord(x) for x in "Test      "] +
                          [0, 1, 4, 1, 1] + [0] * 195 +
                          [0, len(basicdata) & 255, len(basicdata) // 256,
                           0xCB, 0x5C, 0xFF, 0xFF, 10, 0] +
-                         [0] * 36)
+                         [0] * 36))
 
         # check autostartline sanity check
         di.writebasicfile(basicdata, "Test", overwritename=True,
@@ -795,12 +806,12 @@ class TestDiscipleImage(unittest.TestCase):
         diff = self.compareimages(di, di2)
         self.assertEqual(len(diff), 2)
         self.assertEqual(diff[0][0:2], [0, 1])
-        self.assertEqual(diff[0][2][:256],
+        self.assertEqual(diff[0][2][:256], bytearray(
                          [1] + [ord(x) for x in "Test      "] +
                          [0, 1, 4, 1, 1] + [0] * 195 +
                          [0, len(basicdata) & 255, len(basicdata) // 256,
                           0xCB, 0x5C, 0xFF, 0xFF, 0, 128] +
-                         [0] * 36)
+                         [0] * 36))
 
     def test_writecodefile(self):
         di = disciplefile.DiscipleImage()
@@ -820,14 +831,14 @@ class TestDiscipleImage(unittest.TestCase):
         diff = self.compareimages(di, di2)
         self.assertEqual(len(diff), 2)
         self.assertEqual(diff[0][0:2], [0, 1])
-        self.assertEqual(diff[0][2][:256],
+        self.assertEqual(diff[0][2][:256], bytearray(
                          [4] + [ord(x) for x in "Test      "] +
                          [0, 1, 4, 1, 1] + [0] * 195 +
                          [3, 100, 0, 0, 0, 0, 0, 0, 0] +
-                         [0] * 36)
+                         [0] * 36))
         self.assertEqual(diff[1][0:2], [4, 1])
-        self.assertEqual(diff[1][2],
-                         [3, 100, 0, 0, 0, 0, 0, 0, 0] + [1] * 100 + [0] * 403)
+        self.assertEqual(diff[1][2], bytearray([3, 100, 0, 0, 0, 0, 0, 0, 0] +
+                                               [1] * 100 + [0] * 403))
 
         # check overwrite, and aditional parameters
         di.writecodefile(data, "Test", overwritename=True,
@@ -835,11 +846,11 @@ class TestDiscipleImage(unittest.TestCase):
         diff = self.compareimages(di, di2)
         self.assertEqual(len(diff), 2)
         self.assertEqual(diff[0][0:2], [0, 1])
-        self.assertEqual(diff[0][2][:256],
+        self.assertEqual(diff[0][2][:256], bytearray(
                          [4] + [ord(x) for x in "Test      "] +
                          [0, 1, 4, 1, 1] + [0] * 195 +
                          [3, 100, 0, 0x34, 0x12, 0, 0, 0x78, 0x56] +
-                         [0] * 36)
+                         [0] * 36))
 
     def test_writearrayfile(self):
         di = disciplefile.DiscipleImage()
@@ -852,39 +863,39 @@ class TestDiscipleImage(unittest.TestCase):
         di2 = disciplefile.DiscipleImage()
         di2.setbytes([0] * 819200)
 
-        stringdata = _getfileaslist("arraytest_char.dat")
+        stringdata = _getfileasbytes("arraytest_char.dat")
         di.writearrayfile(stringdata, "Char", (ord("C") & 63) | 192)
-        numberdata = _getfileaslist("arraytest_number.dat")
+        numberdata = _getfileasbytes("arraytest_number.dat")
         di.writearrayfile(numberdata, "Number", (ord("N") & 63) | 128)
 
         # check changes have happened
         diff = self.compareimages(di, di2)
         self.assertEqual(len(diff), 4)
         self.assertEqual(diff[0][0:2], [0, 1])
-        self.assertEqual(diff[0][2][:256],
+        self.assertEqual(diff[0][2][:256], bytearray(
                          [3] + [ord(x) for x in "Char      "] +
                          [0, 1, 4, 1, 1] + [0] * 195 +
                          [2, len(stringdata) & 255, len(stringdata) // 256,
-                         0, 0, 195, 0, 0, 0] +
-                         [0] * 36)
-        self.assertEqual(diff[0][2][256:],
+                          0, 0, 195, 0, 0, 0] +
+                         [0] * 36))
+        self.assertEqual(diff[0][2][256:], bytearray(
                          [2] + [ord(x) for x in "Number    "] +
                          [0, 2, 4, 2, 6] + [0] * 195 +
                          [1, len(numberdata) & 255, len(numberdata) // 256,
                           0, 0, 142, 0, 0, 0] +
-                         [0] * 36)
+                         [0] * 36))
         self.assertEqual(diff[1][0:2], [4, 1])
-        self.assertEqual(diff[1][2],
-                         [2, len(stringdata) & 255, len(stringdata) // 256,
-                          0, 0, 195, 0, 0, 0] + stringdata +
-                         [0] * (503 - len(stringdata)))
+        self.assertEqual(diff[1][2], bytearray([2, len(stringdata) & 255,
+                                                len(stringdata) // 256, 0, 0,
+                                                195, 0, 0, 0]) +
+                         stringdata + bytearray(503 - len(stringdata)))
         self.assertEqual(diff[2][0:2], [4, 2])
-        self.assertEqual(diff[2][2],
+        self.assertEqual(diff[2][2], bytearray(
                          [1, len(numberdata) & 255, len(numberdata) // 256,
-                          0, 0, 142, 0, 0, 0] + numberdata[:501] + [4, 3])
+                          0, 0, 142, 0, 0, 0]) + numberdata[:501] +
+                         bytearray([4, 3]))
         self.assertEqual(diff[3][0:2], [4, 3])
-        self.assertEqual(diff[3][2],
-                         numberdata[501:] + [0] * (512 - 504))
+        self.assertEqual(diff[3][2], numberdata[501:] + bytearray(512 - 504))
 
     def test_writescreenfile(self):
         di = disciplefile.DiscipleImage()
@@ -897,18 +908,18 @@ class TestDiscipleImage(unittest.TestCase):
         di2 = disciplefile.DiscipleImage()
         di2.setbytes([0] * 819200)
 
-        data = _getfileaslist("screentest.dat")
+        data = _getfileasbytes("screentest.dat")
         di.writescreenfile(data, "Screen")
 
         # check changes have happened
         diff = self.compareimages(di, di2)
         self.assertEqual(len(diff), 15)
         self.assertEqual(diff[0][0:2], [0, 1])
-        self.assertEqual(diff[0][2][:256],
+        self.assertEqual(diff[0][2][:256], bytearray(
                          [7] + [ord(x) for x in "Screen    "] +
                          [0, 14, 4, 1, 255, 63] + [0] * 194 +
                          [3, 0, 27, 0, 64, 0, 0, 0, 0] +
-                         [0] * 36)
+                         [0] * 36))
 
         # check overwrite
         di.writescreenfile(data, "Screen", overwritename=True)
@@ -920,6 +931,111 @@ class TestDiscipleImage(unittest.TestCase):
 
         entries = [df for df in di.iteratedisciplefiles()]
         self.assertEqual(len(entries), 80)
+
+
+class Testformating(unittest.TestCase):
+    def runpep8(self, py_file, errignore, stdoutignore):
+        p = subprocess.Popen(["python",
+                              "/usr/local/lib/python2.6/dist-packages/pep8.py",
+                              "--repeat", py_file],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = p.communicate()
+
+        output = output.splitlines()
+        if(len(output) > 0 and isinstance(output[0], bytes)):
+            output = [x.decode("utf-8") for x in output]
+        if(stdoutignore):
+            output = [x for x in output if x not in stdoutignore]
+
+        error = error.splitlines()
+        if(len(error) > 0 and isinstance(error[0], bytes)):
+            error = [x.decode("utf-8") for x in error]
+        if(errignore):
+            error = [x for x in error if x not in errignore]
+
+        return "\n".join(output), "\n".join(error)
+
+    def test_pep8(self):
+        output, error = self.runpep8("disciplefile.py", [], [])
+        self.assertEqual(output, "",
+                         "disciplefile.py pep8 formatting errors:\n" + output)
+        self.assertEqual(error, "",
+                         "disciplefile.py pep8 format check had errors:\n" +
+                         error)
+
+        output, error = self.runpep8("test_disciplefile.py", [], [])
+        self.assertEqual(output, "",
+                         "test_disciplefile.py pep8 formatting errors:\n" +
+                         output)
+        self.assertEqual(error, "",
+                         """test_disciplefile.py pep8 format check had errors:
+""" + error)
+
+
+class Test2_3compatibility(unittest.TestCase):
+    def run2to3(self, py_file, errignore, stdoutignore):
+        p = subprocess.Popen(["/usr/bin/2to3", py_file],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = p.communicate()
+
+        # remove refactoring info
+        output = output.splitlines()
+        if(len(output) > 0 and isinstance(output[0], bytes)):
+            output = [x.decode("utf-8") for x in output]
+        refactorignore = ["--- " + py_file + " (original)",
+                          "+++ " + py_file + " (refactored)"]
+        output = "\n".join([x for x in output if x not in refactorignore])
+        # split into diffs
+        chunks = re.compile(
+            "^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
+            re.MULTILINE).split(output)
+        chunks = [x for x in chunks if len(x) > 0]
+        # prepare matcher if is problem commented to ignore
+        commentmatcher = re.compile("^([^\-\+].*?\n)*(\s*# 2to3 will complain \
+but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
+        # filter out stuff want to ignore
+        output = []
+        for x in range(0, len(chunks), 2):
+            if(commentmatcher.match(chunks[x + 1])):
+                continue
+            if(chunks[x + 1] not in stdoutignore):
+                output += [chunks[x], chunks[x + 1]]
+
+        error = error.splitlines()
+        if(len(error) > 0 and isinstance(error[0], bytes)):
+            error = [x.decode("utf-8") for x in error]
+        if(not errignore):
+            errignore = []
+        errignore += [
+            "AssertionError: {0} 2to3 check had errors:".format(py_file),
+            "RefactoringTool: Skipping implicit fixer: buffer",
+            "RefactoringTool: Skipping implicit fixer: idioms",
+            "RefactoringTool: Skipping implicit fixer: set_literal",
+            "RefactoringTool: Skipping implicit fixer: ws_comma",
+            "RefactoringTool: Refactored {0}".format(py_file),
+            "RefactoringTool: Files that need to be modified:",
+            "RefactoringTool: {0}".format(py_file),
+            "RefactoringTool: No changes to {0}".format(py_file)]
+
+        error = [x for x in error if x not in errignore]
+
+        return output, "".join(error)
+
+    def test_2to3(self):
+        output, error = self.run2to3("disciplefile.py", [], [])
+        self.assertEqual(output, [], "disciplefile.py 2to3 errors:\n" +
+                         "".join(output))
+        self.assertEqual(error, "",
+                         "disciplefile.py 2to3 check had errors:\n" + error)
+
+        output, error = self.run2to3("test_disciplefile.py", [], [])
+        self.assertEqual(output, [],
+                         "test_disciplefile.py 2to3 errors:\n" +
+                         "".join(output))
+        self.assertEqual(error, "",
+                         "test_disciplefile.py 2to3 check had errors:\n" +
+                         error)
+
 
 # todo test command line
 

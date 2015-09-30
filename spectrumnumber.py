@@ -51,6 +51,7 @@ from sys import hexversion as _PYTHON_VERSION_HEX
 if(_PYTHON_VERSION_HEX > 0x03000000):
     _longint = int
 else:
+    # 2to3 will complain but won't cause problems in real life
     _longint = long
 
 
@@ -114,17 +115,18 @@ class SpectrumNumber:
     # initialise or set a SpectrumNumber.
     MIN_VALUE = (0x01, 0x00, 0x00, 0x00, 0x00)
 
-    def __init__(self, data=None, listContainsBytes=False):
+    def __init__(self, data=None, listContainsSignedBytes=False):
         """
         Creates a SpectrumNumber object.
         optional argument data is a 1-5 number list to initialise the
-        Spectrumnumber, or another SpectrumNUmber, or an int, or a
+        Spectrumnumber, or another SpectrumNumber, or an int, or a
         float, or a long.  This raises an Exception if the float value
         is too big or too small to be represented by a SpectrumNumber,
         or the number list contains numbers not in the range 0-255, and
-        not 1-5 numbers.  The optional argument listContainsBytes is
-        used if a list is supplied as a constructor, in which case the
-        list contains numbers in the range -128 to +127
+        not 1-5 numbers.  The optional argument listContainsSignedBytes
+        is used if a list is supplied as a constructor, in which case
+        the list contains numbers in the range -128 to +127 (-1 being
+        FF hexadecimal, -2 being FE, ... -128 being 80 hexadecimal).
         """
         # array to hold 8bit exponent, 1 bit sign, and 31 bit mantissa
         # 1st byte is exponent+128
@@ -135,23 +137,27 @@ class SpectrumNumber:
         # byte1=0positive/FFnegative, bytes 2&3 16 bit value
         self.data = [0, 0, 0, 0, 0]
 
-        self.SetValue(data, listContainsBytes)
+        self.SetValue(data, listContainsSignedBytes)
 
     # IO Methods
 
-    def SetValue(self, data=None, listContainsBytes=False):
+    def SetValue(self, data=None, listContainsSignedBytes=False):
         """
         sets the value of a SpectrumNumber object.
         Argument data is a 1-5 number list, another SpectrumNumber, an
         int, a float, or a tuple.  This raises an Exception if the float
         value is too big or too small to be represented by a
         SpectrumNumber, or the number list contains numbers not in the
-        range 0-255, and not 1-5 numbers.
+        range 0-255, and not 1-5 numbers.  The optional argument
+        listContainsSignedBytes is used if a list is supplied as a
+        constructor, in which case the list contains numbers in the
+        range -128 to +127 (-1 being FF hexadecimal, -2 being FE, ...
+        -128 being 80 hexadecimal).
         """
         if(data is None):
             return
 
-        # if is tuple, then cast to list
+        # if is tuple, then recast it so can be worked with
         if(data is ()):
             data = list(data)
 
@@ -167,16 +173,16 @@ class SpectrumNumber:
  numbers")
 
             # check and correct if bytes supplied in list
-            if(listContainsBytes):
+            if(listContainsSignedBytes):
                 if(all(val >= -128 and val <= 127 for val in data) is False):
                     raise SpectrumNumberError("List or Tuple argument must \
-contain numbers from 0 to 255 inclusive (or -128 to +127 if bytes)")
+contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
                 # convert byte to unsigned int
                 data = [(byte + 256) & 255 for byte in data]
 
             if(all(val >= 0 and val <= 255 for val in data) is False):
                 raise SpectrumNumberError("List or Tuple argument must contain\
- numbers from 0 to 255 inclusive (or -128 to +127 if bytes)")
+ numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
 
             # set to 0 in case doesn't contain 5 numbers
             self.data = [0, 0, 0, 0, 0]
@@ -224,6 +230,10 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if bytes)")
 
         if(type(data) is str):
             self.SetValue(get_SpectrumNumber_from_string(data))
+            return
+
+        if(isinstance(data, (bytes, bytearray))):
+            self.data = list(data)
             return
 
         raise SpectrumNumberError(
@@ -317,7 +327,7 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if bytes)")
         """
 
         if(isinstance(other, (_INT_OR_LONG, SpectrumNumber, float, str, list,
-                              tuple))):
+                              tuple, bytes, bytearray))):
             try:
                 # first subtract one from the other (convert other to a
                 # Spectrum Number just in case)
@@ -438,6 +448,7 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if bytes)")
 
     # for comparison reasons
     # have both nonzero and bool to cover python 2 and 3
+    # 2to3 will complain but won't cause problems in real life
     def __nonzero__(self):
         """Returns true if the SpectrumNumber is non zero."""
         return (not self.IsZero())
