@@ -75,12 +75,12 @@ def _validateandconvertfilename(filename):
     # check filename is valid
     if(isinstance(filename, list)):
         # if is list of numbers convert to list of strings
-        if(False not in [isinstance(x, _INT_OR_LONG) for x in filename]):
+        if(all(isinstance(x, _INT_OR_LONG) for x in filename)):
             filename = bytearray(filename)
 
         # if there are only strings in the list then convert list to
         # a string
-        if(False not in [isinstance(x, str) for x in filename]):
+        if(all(isinstance(x, str) for x in filename)):
             filename = "".join(filename)
 
     if(isinstance(filename, str)):
@@ -236,10 +236,9 @@ class DiscipleFile:
 
         # sectorMap should now be blank
         # otherwise there are unused sectors
-        for i in sectorMap:
-            if(i != 0):
-                raise spectrumtranslate.SpectrumTranslateError(
-                    "Unused sectors in FAT")
+        if(any(i != 0 for i in sectorMap)):
+            raise spectrumtranslate.SpectrumTranslateError(
+                "Unused sectors in FAT")
 
         return data
 
@@ -1140,9 +1139,8 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                 # sectors in the FAT table with the number stated in the
                 # directory entry that this file uses.
                 # Still just in case...
-                for i in sm:
-                    if(i != 0):
-                        return False
+                if(any(i != 0 for i in sm)):
+                    return False
 
         return True
 
@@ -1741,478 +1739,439 @@ def _commandline(args):
         except:
             return None
 
-    try:
-        i = 0
-        mode = None
-        error = None
-        wantdetails = False
-        fromstandardinput = False
-        tostandardoutput = False
-        inputfile = None
-        outputfile = None
-        entrywanted = None
-        specifiedfiles = None
-        listempty = False
-        copyposition = []
-        wantdiskcapacity = False
-        capacityformat = "Bytes"
-        creating = None
-        creatingfilename = None
-        creatingautostart = -1
-        creatingvariableoffset = -1
-        creatingoverwritename = True
-        creatingorigin = 0
-        creatingarraytype = None
-        creatingarrayname = None
+    i = 0
+    mode = None
+    wantdetails = False
+    fromstandardinput = False
+    tostandardoutput = False
+    inputfile = None
+    outputfile = None
+    entrywanted = None
+    specifiedfiles = None
+    listempty = False
+    copyposition = []
+    wantdiskcapacity = False
+    capacityformat = "Bytes"
+    creating = None
+    creatingfilename = None
+    creatingautostart = -1
+    creatingvariableoffset = -1
+    creatingoverwritename = True
+    creatingorigin = 0
+    creatingarraytype = None
+    creatingarrayname = None
 
-        # handle no arguments
-        if(len(args) == 1):
-            mode = 'help'
+    # handle no arguments
+    if(len(args) == 1):
+        mode = 'help'
 
-        # go through arguments analysing them
-        while(i < len(args)-1):
+    # go through arguments analysing them
+    while(i < len(args)-1):
+        i += 1
+
+        arg = args[i]
+        if(arg == 'help' or arg == 'extract' or arg == 'list' or
+           arg == 'delete' or arg == 'copy' or arg == 'create'):
+            if(mode is not None):
+                raise spectrumtranslate.SpectrumTranslateError(
+                    "Can't have multiple commands.")
+
+            mode = arg
+            continue
+
+        if(mode == 'create' and creating is None):
+            if(arg != 'basic' and arg != 'code' and arg != 'array' and
+               arg != 'screen'):
+                raise spectrumtranslate.SpectrumTranslateError('Must specify \
+what type of file to create. Valid options are basic, code, array, and \
+screen.')
+
+            creating = arg
+            continue
+
+        if(arg == '-filename' or arg == '--filename'):
             i += 1
+            creatingfilename = spectrumtranslate.stringtospectrum(args[i])
+            continue
 
-            arg = args[i]
-            if(arg == 'help' or arg == 'extract' or arg == 'list' or
-               arg == 'delete' or arg == 'copy' or arg == 'create'):
-                if(mode is not None):
-                    error = "Can't have multiple commands."
-                    break
-
-                mode = arg
+        if(arg == '-autostart' or arg == '--autostart'):
+            i += 1
+            try:
+                creatingautostart = getint(args[i])
                 continue
 
-            if(mode == 'create' and creating is None):
-                if(arg != 'basic' and arg != 'code' and arg != 'array' and
-                   arg != 'screen'):
-                    error = 'Must specify what type of file to create. Valid \
-options are basic, code, array, and screen.'
-                    break
+            except:
+                raise spectrumtranslate.SpectrumTranslateError(
+                    '{0} is not a valid autostart number.'.format(args[i]))
 
-                creating = arg
+        if(arg == '-variableoffset' or arg == '--variableoffset'):
+            i += 1
+            try:
+                creatingvariableoffset = getint(args[i])
                 continue
 
-            if(arg == '-filename' or arg == '--filename'):
-                i += 1
-                creatingfilename = spectrumtranslate.stringtospectrum(args[i])
+            except:
+                raise spectrumtranslate.SpectrumTranslateError(
+                    '{0} is not a valid variable offset.'.format(args[i]))
+
+        if(arg == '-donotoverwriteexisting' or
+           arg == '--donotoverwriteexisting'):
+            creatingoverwritename = False
+            continue
+
+        if(arg == '-origin' or arg == '--origin'):
+            i += 1
+            try:
+                creatingorigin = getint(args[i])
+                if(creatingorigin < 0 or creatingorigin > 65535):
+                    raise spectrumtranslate.SpectrumTranslateError(
+                        'code origin must be 0-65535 inclusive.')
+
                 continue
 
-            if(arg == '-autostart' or arg == '--autostart'):
-                i += 1
-                try:
-                    creatingautostart = getint(args[i])
-                    continue
-
-                except:
-                    error = '{0} is not a valid autostart number.'.format(
-                        args[i])
-                    break
-
-            if(arg == '-variableoffset' or arg == '--variableoffset'):
-                i += 1
-                try:
-                    creatingvariableoffset = getint(args[i])
-                    continue
-
-                except:
-                    error = '{0} is not a valid variable offset.'.format(
-                        args[i])
-                    break
-
-            if(arg == '-donotoverwriteexisting' or
-               arg == '--donotoverwriteexisting'):
-                creatingoverwritename = False
-                continue
-
-            if(arg == '-origin' or arg == '--origin'):
-                i += 1
-                try:
-                    creatingorigin = getint(args[i])
-                    if(creatingorigin < 0 or creatingorigin > 65535):
-                        error = 'code origin must be 0-65535 inclusive.'
-                        break
-
-                    continue
-
-                except:
-                    error = '{0} is not a valid code origin.'.format(
-                        args[i])
-                    break
-
-            if(arg == '-arraytype' or arg == '--arraytype'):
-                i += 1
-                if(args[i] == 'character' or args[i] == 'c'):
-                    creatingarraytype = 192
-                    continue
-
-                elif(args[i] == 'number' or args[i] == 'n'):
-                    creatingarraytype = 128
-                    continue
-
-                elif(args[i] == 'string' or args[i] == 's'):
-                    creatingarraytype = 64
-                    continue
-
-                else:
-                    error = '{0} is not a valid array type (must be \
-character, number or string).'.format(args[i])
-                    break
-
-            if(arg == '-arrayname' or arg == '--arrayname'):
-                i += 1
-                creatingarrayname = args[i]
-                if(len(creatingarrayname) == 1 and
-                   creatingarrayname.isalpha()):
-                    continue
-
-                error = '{0} is not a valid variable name.'.format(args[i])
+            except:
+                raise spectrumtranslate.SpectrumTranslateError(
+                    '{0} is not a valid code origin.'.format(args[i]))
                 break
 
-            if(arg == '-i' or arg == '-fromstandardinput' or arg == '--i' or
-               arg == '--fromstandardinput'):
-                fromstandardinput = True
+        if(arg == '-arraytype' or arg == '--arraytype'):
+            i += 1
+            if(args[i] == 'character' or args[i] == 'c'):
+                creatingarraytype = 192
                 continue
 
-            if(arg == '-o' or arg == '-tostandardoutput' or arg == '--o' or
-               arg == '--tostandardoutput'):
-                tostandardoutput = True
+            elif(args[i] == 'number' or args[i] == 'n'):
+                creatingarraytype = 128
                 continue
 
-            if(arg == '-d' or arg == '-details' or arg == '--d' or
-               arg == '--details'):
-                wantdetails = True
+            elif(args[i] == 'string' or args[i] == 's'):
+                creatingarraytype = 64
                 continue
 
-            if(arg == '-l' or arg == '-listempty' or arg == '--l' or
-               arg == '--listempty'):
-                listempty = True
+            else:
+                raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
+valid array type (must be character, number or string).'.format(args[i]))
+
+        if(arg == '-arrayname' or arg == '--arrayname'):
+            i += 1
+            creatingarrayname = args[i]
+            if(len(creatingarrayname) == 1 and
+               creatingarrayname.isalpha()):
                 continue
 
-            if(arg == '-c' or arg == '-capacity' or arg == '--c' or
-               arg == '--capacity'):
-                wantdiskcapacity = True
-                continue
-
-            if(arg == '-cs' or arg == '--cs'):
-                wantdiskcapacity = True
-                capacityformat = "Sector"
-                continue
-
-            if(arg == '-ck' or arg == '--ck'):
-                wantdiskcapacity = True
-                capacityformat = "K"
-                continue
-
-            if(arg == '-s' or arg == '-specifyfiles' or
-               arg == '-specificfiles' or arg == '--s' or
-               arg == '--specifyfiles' or arg == '--specificfiles'):
-                i += 1
-                specifiedfiles = getindices(args[i])
-                if(specifiedfiles is None):
-                    error = '"' + args[i] + '" is invalid list of file indexes\
-.'
-                    break
-
-                continue
-
-            if(arg == '-p' or arg == '-position' or arg == '-pos' or
-               arg == '--p' or arg == '--position' or arg == '--pos'):
-                i += 1
-                try:
-                    copyposition = getindices(args[i])
-                    continue
-
-                except:
-                    error = '{0} is not a valid index for the output file\.'.\
-                        format(args[i])
-                    break
-
-            # have unrecognised argument.
-
-            # check if is what entry we want to extract
-            if(mode == 'extract' and entrywanted is None):
-                try:
-                    entrywanted = getint(arg)
-                    continue
-
-                except:
-                    error = '{0} is not a valid index in the input file.'.\
-                        format(arg)
-                    break
-
-            # check if is what entry we want to delete or copy
-            if((mode == 'delete' or mode == 'copy') and
-               entrywanted is None and specifiedfiles is None):
-                try:
-                    specifiedfiles = getindices(arg)
-                    continue
-
-                except:
-                    error = '{0} is not a valid index in the input file.'.\
-                        format(arg)
-                    break
-
-            # check if is input or output file
-            # will be inputfile if not already defined, and
-            # fromstandardinput is False
-            if(inputfile is None and not fromstandardinput):
-                inputfile = arg
-                continue
-
-            # will be outputfile if not already defined, tostandardoutput
-            # is False, and is last
-            # argument
-            if(outputfile is None and not tostandardoutput and
-               i == len(args)-1):
-                outputfile = arg
-                continue
-
-            error = '"{0}" is unrecognised argument.'.format(arg)
+            raise spectrumtranslate.SpectrumTranslateError(
+                '{0} is not a valid variable name.'.format(args[i]))
             break
 
-        # check we have all needed arguments
-        if(error is None and mode is None):
-            error = 'No command (list, extract, delete, copy, create, or help)\
- specified.'
+        if(arg == '-i' or arg == '-fromstandardinput' or arg == '--i' or
+           arg == '--fromstandardinput'):
+            fromstandardinput = True
+            continue
 
-        if(error is None and inputfile is None and not fromstandardinput and
-           mode != 'help'):
-            error = 'No input file specified.'
+        if(arg == '-o' or arg == '-tostandardoutput' or arg == '--o' or
+           arg == '--tostandardoutput'):
+            tostandardoutput = True
+            continue
 
-        if(error is None and outputfile is None and not tostandardoutput and
-           mode != 'help'):
-            error = 'No output file specified.'
+        if(arg == '-d' or arg == '-details' or arg == '--d' or
+           arg == '--details'):
+            wantdetails = True
+            continue
 
-        if(error is None and entrywanted is None and mode == 'extract'):
-            error = 'No file index specified to extract.'
+        if(arg == '-l' or arg == '-listempty' or arg == '--l' or
+           arg == '--listempty'):
+            listempty = True
+            continue
 
-        if(error is None and specifiedfiles is None and entrywanted is None and
-           mode == 'delete'):
-            error = 'No file index(s) specified to delete.'
+        if(arg == '-c' or arg == '-capacity' or arg == '--c' or
+           arg == '--capacity'):
+            wantdiskcapacity = True
+            continue
 
-        if(error is None and mode == 'create' and creating is None):
-            error = 'You have to specify file type to create.'
+        if(arg == '-cs' or arg == '--cs'):
+            wantdiskcapacity = True
+            capacityformat = "Sector"
+            continue
 
-        if(error is None and mode == 'create' and creatingfilename is None):
-            error = 'You have to specify file name to create.'
+        if(arg == '-ck' or arg == '--ck'):
+            wantdiskcapacity = True
+            capacityformat = "K"
+            continue
 
-        if(error is None and mode == 'create' and creating == 'array' and
-           (creatingarraytype is None or creatingarrayname is None)):
-            error = 'You have to specify array type and name.'
+        if(arg == '-s' or arg == '-specifyfiles' or
+           arg == '-specificfiles' or arg == '--s' or
+           arg == '--specifyfiles' or arg == '--specificfiles'):
+            i += 1
+            specifiedfiles = getindices(args[i])
+            if(specifiedfiles is None):
+                raise spectrumtranslate.SpectrumTranslateError(
+                    '"' + args[i] + '" is invalid list of file indexes.')
 
-        # handle error with arguments
-        if(error is not None):
-            sys.stderr.write(error + "\n")
-            sys.stdout.write(
-                "Use 'python disciplefile.py' to see full list of options.\n")
-            sys.exit(2)
+            continue
 
-        # if help is needed display it
-        if(mode == 'help'):
-            sys.stdout.write(usage())
-            return
+        if(arg == '-p' or arg == '-position' or arg == '-pos' or
+           arg == '--p' or arg == '--position' or arg == '--pos'):
+            i += 1
+            copyposition = getindices(args[i])
+            if(not copyposition):
+                raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
+valid index for the output file.'.format(args[i]))
+            continue
 
-        # get input data
-        if(mode == 'create'):
-            if(not fromstandardinput):
+        # have unrecognised argument.
+
+        # check if is what entry we want to extract
+        if(mode == 'extract' and entrywanted is None):
+            try:
+                entrywanted = getint(arg)
+                continue
+
+            except:
+                raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
+valid index in the input file.'.format(arg))
+
+        # check if is what entry we want to delete or copy
+        if((mode == 'delete' or mode == 'copy') and
+           entrywanted is None and specifiedfiles is None):
+            specifiedfiles = getindices(arg)
+            if(not specifiedfiles):
+                raise spectrumtranslate.SpectrumTranslateError('{0} is \
+not a valid index in the input file.'.format(arg))
+            continue
+
+        # check if is input or output file
+        # will be inputfile if not already defined, and
+        # fromstandardinput is False
+        if(inputfile is None and not fromstandardinput):
+            inputfile = arg
+            continue
+
+        # will be outputfile if not already defined, tostandardoutput
+        # is False, and is last
+        # argument
+        if(outputfile is None and not tostandardoutput and i == len(args)-1):
+            outputfile = arg
+            continue
+
+        raise spectrumtranslate.SpectrumTranslateError('"{0}" is unrecognised \
+argument.'.format(arg))
+
+    # check we have all needed arguments
+    if(mode is None):
+        raise spectrumtranslate.SpectrumTranslateError('No command (list, \
+extract, delete, copy, create, or help) specified.')
+
+    if(inputfile is None and not fromstandardinput and mode != 'help'):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'No input file specified.')
+
+    if(outputfile is None and not tostandardoutput and mode != 'help'):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'No output file specified.')
+
+    if(entrywanted is None and mode == 'extract'):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'No file index specified to extract.')
+
+    if(specifiedfiles is None and entrywanted is None and
+       (mode == 'delete' or mode == 'copy')):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'No file index(s) specified to {0}.'.format(mode))
+
+    if(mode == 'extract' and (entrywanted > 80 or entrywanted < 1)):
+        raise spectrumtranslate.SpectrumTranslateError(
+            str(entrywanted) + " is not a valid entry number (should be 1 to \
+80).")
+
+    if(mode == 'delete' or mode == 'copy'):
+        if(specifiedfiles is None):
+            specifiedfiles = [entrywanted]
+
+        if(any(i > 80 or i < 1 for i in specifiedfiles)):
+            raise spectrumtranslate.SpectrumTranslateError(
+                str(specifiedfiles) + " is not a valid entry number (should \
+be 1 to 80).")
+
+    if(mode == 'create' and creatingfilename is None):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'You have to specify file name to create.')
+
+    if(mode == 'create' and creating == 'array' and
+       (creatingarraytype is None or creatingarrayname is None)):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'You have to specify array type and name.')
+
+    # if help is needed display it
+    if(mode == 'help'):
+        sys.stdout.write(usage())
+        return
+
+    # get input data
+    if(mode == 'create'):
+        if(not fromstandardinput):
+            with open(inputfile, 'rb') as infile:
+                datain = bytearray(infile.read())
+        else:
+            datain = bytearray(sys.stdin.read(), 'utf8')
+
+    else:
+        # get disc image
+        if(not fromstandardinput):
+            # if we're deleteing then we need to work with a copy of
+            # the input file
+            if(mode == 'delete'):
                 with open(inputfile, 'rb') as infile:
-                    datain = bytearray(infile.read())
+                    di = DiscipleImage()
+                    di.setbytes(infile.read())
+
             else:
-                datain = bytearray(sys.stdin.read(), 'utf8')
+                di = DiscipleImage(inputfile)
 
         else:
-            # get disc image
-            if(not fromstandardinput):
-                # if we're deleteing then we need to work with a copy of
-                # the input file
-                if(mode == 'delete'):
-                    with open(inputfile, 'rb') as infile:
-                        di = DiscipleImage()
-                        di.setbytes(infile.read())
+            di = DiscipleImage()
+            di.setbytes(sys.stdin.read())
 
-                else:
-                    di = DiscipleImage(inputfile)
+    # now do command
+    if(mode == 'list'):
+        retdata = '' if wantdetails else "  pos   filename  sectors   type\n"
+        sectorsused = 0
+        for df in di.iteratedisciplefiles():
+            if(specifiedfiles is not None and
+               df.filenumber not in specifiedfiles):
+                continue
 
-            else:
-                di = DiscipleImage()
-                di.setbytes(sys.stdin.read())
+            if(not listempty and df.isempty()):
+                continue
 
-        # now do command
-        if(mode == 'list'):
-            retdata = '' if wantdetails else "  pos   filename  sectors   \
-type\n"
-            sectorsused = 0
-            for df in di.iteratedisciplefiles():
-                if(specifiedfiles is not None and
-                   df.filenumber not in specifiedfiles):
-                    continue
+            if(wantdetails):
+                d = df.getfiledetails()
 
-                if(not listempty and df.isempty()):
-                    continue
-
-                if(wantdetails):
-                    d = df.getfiledetails()
-
-                    retdata += "{filenumber}\t{filename}\t{filetype}\t{\
+                retdata += "{filenumber}\t{filename}\t{filetype}\t{\
 filetypelong}\t{sectors}\t{filelength}".format(**d)
 
-                    if(d["filetype"] == 1):
-                        retdata += "\t{autostartline}\t{variableoffset}".\
-                            format(**d)
+                if(d["filetype"] == 1):
+                    retdata += "\t{autostartline}\t{variableoffset}".\
+                        format(**d)
 
-                    if(d["filetype"] == 4):
-                        retdata += "\t" + str(d["codeaddress"]) + "\t" + \
-                            str(d["coderunaddress"])
+                if(d["filetype"] == 4):
+                    retdata += "\t" + str(d["codeaddress"]) + "\t" + \
+                        str(d["coderunaddress"])
 
-                    if(d["filetype"] == 2 or d["filetype"] == 3):
-                        retdata += "\t" + str(d["variableletter"]) + "\t" + \
-                            str(d["variablename"]) + "\t" + \
-                            str(d["arraydescriptor"])
+                if(d["filetype"] == 2 or d["filetype"] == 3):
+                    retdata += "\t" + str(d["variableletter"]) + "\t" + \
+                        str(d["variablename"]) + "\t" + \
+                        str(d["arraydescriptor"])
 
-                else:
-                    retdata += df.getfiledetailsstring()
+            else:
+                retdata += df.getfiledetailsstring()
 
-                sectorsused += df.getsectorsused()
+            sectorsused += df.getsectorsused()
 
-                retdata += "\n"
+            retdata += "\n"
 
-            if(wantdiskcapacity):
-                if(capacityformat == "Sector"):
-                    retdata += str(1560 - sectorsused) + " sectors free.\n"
-                elif(capacityformat == "K"):
-                    retdata += str(((1560 - sectorsused) * 510) / 1024.0) + "K\
+        if(wantdiskcapacity):
+            if(capacityformat == "Sector"):
+                retdata += str(1560 - sectorsused) + " sectors free.\n"
+            elif(capacityformat == "K"):
+                retdata += str(((1560 - sectorsused) * 510) / 1024.0) + "K\
  free.\n"
-                else:
-                    retdata += str((1560 - sectorsused) * 510) + " bytes free.\
-\n"
-
-            retdata = bytearray(retdata, "utf8")
-
-        if(mode == 'extract'):
-            df = DiscipleFile(di, entrywanted)
-            if(entrywanted > 80 or entrywanted < 1):
-                sys.stderr.write(
-                    str(entrywanted) + " is not a valid entry number (should \
-be 1 to 80).\n")
-                sys.stdout.write("Use 'python disciplefile.py' to see full \
-list of options.\n")
-                sys.exit(2)
-
-            retdata = df.getfiledata()
-
-        if(mode == 'delete'):
-            if(specifiedfiles is None):
-                specifiedfiles = [entrywanted]
-
-            for i in specifiedfiles:
-                if(i > 80 or i < 1):
-                    sys.stderr.write(str(i) + " is not a valid entry number \
-(should be 1 to 80).\n")
-                    sys.stdout.write("Use 'python disciplefile.py' to see full\
- list of options.\n")
-                    sys.exit(2)
-
-                di.deleteentry(i)
-
-            # now set disk image as output
-            retdata = di.bytedata
-
-        if(mode == 'copy'):
-            # create output image to copy into
-            diout = DiscipleImage()
-            # if we're writing to an existing file then load it into our
-            # image
-            if(not tostandardoutput and _isfile(outputfile)):
-                with open(outputfile, 'rb') as outfile:
-                    diout.setbytes(outfile.read())
             else:
-                diout.setbytes([0] * 819200)
+                retdata += str((1560 - sectorsused) * 510) + " bytes free.\n"
 
-            if(specifiedfiles is None):
-                specifiedfiles = [entrywanted]
+        retdata = bytearray(retdata, "utf8")
 
-            copypositionindex = 0
+    if(mode == 'extract'):
+        df = DiscipleFile(di, entrywanted)
+        retdata = df.getfiledata()
 
-            for i in specifiedfiles:
-                if(i > 80 or i < 1):
-                    sys.stderr.write(str(i) + " is not a valid entry number \
-(should be 1 to 80).\n")
-                    sys.stdout.write("Use 'python disciplefile.py' to see full\
- list of options.\n")
-                    sys.exit(2)
+    if(mode == 'delete'):
+        for i in specifiedfiles:
+            di.deleteentry(i)
 
-                # get file and it's details
-                df = DiscipleFile(di, i)
-                headder = df.getheadder()
-                filedata = df.getfiledata(wantheadder=True,
-                                          headderdata=headder)
-                # write file
-                diout.writefile(headder, filedata,
-                                -1 if copypositionindex >= len(
-                                    copyposition) else
-                                copyposition[copypositionindex])
+        # now set disk image as output
+        retdata = di.bytedata
 
-                copypositionindex += 1
-
-            # now set disk image as output
-            retdata = diout.bytedata
-
-        if(mode == 'create'):
-            # create output image to copy into
-            diout = DiscipleImage()
-            # if we're writing to an existing file then load it into our
-            # image
-            if(not tostandardoutput and _isfile(outputfile)):
-                with open(outputfile, 'rb') as outfile:
-                    diout.setbytes(outfile.read())
-            else:
-                diout.setbytes([0] * 819200)
-
-            # get where to save to or go for first available slot
-            copyposition = -1 if len(copyposition) == 0 else copyposition[0]
-
-            if(creating == 'basic'):
-                diout.writebasicfile(datain, creatingfilename,
-                                     position=copyposition,
-                                     autostartline=creatingautostart,
-                                     varposition=creatingvariableoffset,
-                                     overwritename=creatingoverwritename)
-
-            elif(creating == 'code'):
-                diout.writecodefile(datain, creatingfilename,
-                                    position=copyposition,
-                                    codestartaddress=creatingorigin,
-                                    overwritename=creatingoverwritename,
-                                    coderunaddress=creatingautostart)
-
-            elif(creating == 'array'):
-                diout.writearrayfile(datain, creatingfilename,
-                                     creatingarraytype + (ord(
-                                         creatingarrayname) & 0x3F),
-                                     position=copyposition,
-                                     overwritename=creatingoverwritename)
-
-            elif(creating == 'screen'):
-                diout.writescreenfile(datain, creatingfilename,
-                                      position=copyposition,
-                                      overwritename=creatingoverwritename)
-
-            # now set disk image as output
-            retdata = diout.bytedata
-
-        # output data
-        if(not tostandardoutput):
-            fo = open(outputfile, "wb")
-            fo.write(retdata)
-            fo.close()
-
+    if(mode == 'copy'):
+        # create output image to copy into
+        diout = DiscipleImage()
+        # if we're writing to an existing file then load it into our
+        # image
+        if(not tostandardoutput and _isfile(outputfile)):
+            with open(outputfile, 'rb') as outfile:
+                diout.setbytes(outfile.read())
         else:
-            sys.stdout.write(retdata.decode("utf8"))
+            diout.setbytes([0] * 819200)
 
-    # catch and handle expected exceptions nicely
-    except spectrumtranslate.SpectrumTranslateError as se:
-        sys.stderr.write(se.value + "\n")
+        copypositionindex = 0
+
+        for i in specifiedfiles:
+            # get file and it's details
+            df = DiscipleFile(di, i)
+            headder = df.getheadder()
+            filedata = df.getfiledata(wantheadder=True,
+                                      headderdata=headder)
+            # write file
+            diout.writefile(headder, filedata,
+                            -1 if copypositionindex >= len(
+                                copyposition) else
+                            copyposition[copypositionindex])
+
+            copypositionindex += 1
+
+        # now set disk image as output
+        retdata = diout.bytedata
+
+    if(mode == 'create'):
+        # create output image to copy into
+        diout = DiscipleImage()
+        # if we're writing to an existing file then load it into our
+        # image
+        if(not tostandardoutput and _isfile(outputfile)):
+            with open(outputfile, 'rb') as outfile:
+                diout.setbytes(outfile.read())
+        else:
+            diout.setbytes([0] * 819200)
+
+        # get where to save to or go for //first available slot
+        copyposition = -1 if len(copyposition) == 0 else copyposition[0]
+
+        if(creating == 'basic'):
+            diout.writebasicfile(datain, creatingfilename,
+                                 position=copyposition,
+                                 autostartline=creatingautostart,
+                                 varposition=creatingvariableoffset,
+                                 overwritename=creatingoverwritename)
+
+        elif(creating == 'code'):
+            diout.writecodefile(datain, creatingfilename,
+                                position=copyposition,
+                                codestartaddress=creatingorigin,
+                                overwritename=creatingoverwritename,
+                                coderunaddress=creatingautostart)
+
+        elif(creating == 'array'):
+            diout.writearrayfile(datain, creatingfilename,
+                                 creatingarraytype + (ord(creatingarrayname) &
+                                                      0x3F),
+                                 position=copyposition,
+                                 overwritename=creatingoverwritename)
+
+        elif(creating == 'screen'):
+            diout.writescreenfile(datain, creatingfilename,
+                                  position=copyposition,
+                                  overwritename=creatingoverwritename)
+
+        # now set disk image as output
+        retdata = diout.bytedata
+
+    # output data
+    if(not tostandardoutput):
+        fo = open(outputfile, "wb")
+        fo.write(retdata)
+        fo.close()
+
+    else:
+        sys.stdout.write(retdata.decode("utf8"))
 
 if __name__ == "__main__":
     if(_PYTHON_VERSION_HEX < 0x03000000):
@@ -2221,4 +2180,10 @@ if __name__ == "__main__":
         sys.stdout = getwriter('utf8')(sys.stdout)
         sys.stderr = getwriter('utf8')(sys.stderr)
 
-    _commandline(sys.argv)
+    try:
+        _commandline(sys.argv)
+    except spectrumtranslate.SpectrumTranslateError as se:
+        sys.stderr.write(se.value + "\n")
+        sys.stdout.write(
+            "Use 'python disciplefile.py' to see full list of options.\n")
+        sys.exit(2)

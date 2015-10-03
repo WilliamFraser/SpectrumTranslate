@@ -1037,7 +1037,339 @@ but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
                          error)
 
 
-# todo test command line
+class Testcommandline(unittest.TestCase):
+    def runtest(self, command, stdindata):
+        saved_output = sys.stdout
+        saved_input = sys.stdin
+        sys.stdin = StringIO(stdindata)
+        output = StringIO()
+        sys.stdout = output
+        try:
+            disciplefile._commandline(["disciplefile.py"] + command.split())
+
+        finally:
+            sys.stdout = saved_output
+            sys.stdin = saved_input
+
+        out = output.getvalue()
+        output.close()
+        return out
+
+    def setUp(self):
+        # tidy up
+        try:
+            os_remove(_TEST_DIRECTORY + "temp.img")
+        except:
+            pass
+
+        try:
+            os_remove(_TEST_DIRECTORY + "temp.txt")
+        except:
+            pass
+
+        try:
+            os_remove(_TEST_DIRECTORY + "temp.bin")
+        except:
+            pass
+
+    def test_list(self):
+        self.assertEqual(self.runtest("", ""), disciplefile.usage())
+
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "diskimagetest.img", ""),
+                         """\
+  pos   filename  sectors   type
+    1   BASIC test   1      BAS
+    2   Array C      1      $.ARRAY
+    3   Array X      2      D.ARRAY
+    4   Screen      14      SCREEN$
+""")
+
+        self.assertEqual(self.runtest("list --details --listempty " +
+                                      _TEST_DIRECTORY + "diskimagetest.img " +
+                                      _TEST_DIRECTORY + "temp.txt", ""), "")
+        self.assertEqual(_getfile(_TEST_DIRECTORY + "temp.txt"), """\
+1	BASIC test	1	Basic	1	190	-1	78
+2	Array C   	3	String Array	1	31	C	C$	195
+3	Array X   	2	Number Array	2	1005	X	X	152
+4	Screen    	7	SCREEN$	14	6912
+5	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+6	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+7	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+8	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+9	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+10	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+11	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+12	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+13	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+14	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+15	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+16	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+17	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+18	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+19	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+20	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+21	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+22	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+23	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+24	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+25	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+26	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+27	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+28	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+29	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+30	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+31	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+32	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+33	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+34	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+35	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+36	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+37	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+38	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+39	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+40	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+41	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+42	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+43	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+44	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+45	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+46	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+47	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+48	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+49	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+50	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+51	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+52	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+53	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+54	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+55	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+56	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+57	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+58	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+59	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+60	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+61	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+62	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+63	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+64	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+65	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+66	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+67	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+68	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+69	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+70	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+71	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+72	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+73	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+74	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+75	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+76	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+77	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+78	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+79	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+80	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
+""")
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.txt")
+
+    def test_delete(self):
+        self.assertEqual(self.runtest("delete 1 " + _TEST_DIRECTORY +
+                                      "diskimagetest.img " + _TEST_DIRECTORY +
+                                      "temp.img", ""), "")
+
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.img", ""),
+                         """\
+  pos   filename  sectors   type
+    2   Array C      1      $.ARRAY
+    3   Array X      2      D.ARRAY
+    4   Screen      14      SCREEN$
+""")
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.img")
+
+        # create copy
+        with open(_TEST_DIRECTORY + "temp.img", "wb") as f:
+            f.write(_getfileasbytes("diskimagetest.img"))
+        self.assertEqual(self.runtest("delete -s 1-2,0x4 " + _TEST_DIRECTORY +
+                                      "temp.img " + _TEST_DIRECTORY +
+                                      "temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.img", ""),
+                         """\
+  pos   filename  sectors   type
+    3   Array X      2      D.ARRAY
+""")
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.img")
+
+    def test_extract(self):
+        self.assertEqual(self.runtest("extract 2 " + _TEST_DIRECTORY +
+                                      "diskimagetest.img " + _TEST_DIRECTORY +
+                                      "temp.bin", ""), "")
+        self.assertEqual(_getfileasbytes("temp.bin"),
+                         _getfileasbytes("arraytest_char.dat"))
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.bin")
+
+    def test_copy(self):
+        self.assertEqual(self.runtest("copy --pos 0x10-0x11 -s 2-3 " +
+                                      _TEST_DIRECTORY + "diskimagetest.img " +
+                                      _TEST_DIRECTORY + "temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.img", ""),
+                         """\
+  pos   filename  sectors   type
+   16   Array C      1      $.ARRAY
+   17   Array X      2      D.ARRAY
+""")
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.img")
+
+        self.assertEqual(self.runtest("copy --pos 11-14 -s 1-2 " +
+                                      _TEST_DIRECTORY + "diskimagetest.img " +
+                                      _TEST_DIRECTORY + "temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.img", ""),
+                         """\
+  pos   filename  sectors   type
+   11   BASIC test   1      BAS
+   12   Array C      1      $.ARRAY
+""")
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.img")
+
+        self.assertEqual(self.runtest("copy --pos 11-12 -s 1-4 " +
+                                      _TEST_DIRECTORY + "diskimagetest.img " +
+                                      _TEST_DIRECTORY + "temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.img", ""),
+                         """\
+  pos   filename  sectors   type
+    1   Array X      2      D.ARRAY
+    2   Screen      14      SCREEN$
+   11   BASIC test   1      BAS
+   12   Array C      1      $.ARRAY
+""")
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.img")
+
+    def test_create(self):
+        self.assertEqual(self.runtest(
+            "create basic --filename TEST --autostart 10 " + _TEST_DIRECTORY +
+            "basictest.dat " + _TEST_DIRECTORY + "temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.img", ""),
+                         """\
+  pos   filename  sectors   type
+    1   TEST         1      BAS            10
+""")
+
+        self.assertEqual(self.runtest("create code --filename TEST \
+--donotoverwriteexisting --origin 0x8000 " + _TEST_DIRECTORY +
+                                      "screentest.dat " + _TEST_DIRECTORY +
+                                      "temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.img", ""),
+                         """\
+  pos   filename  sectors   type
+    1   TEST         1      BAS            10
+    2   TEST        14      CDE         32768,6912
+""")
+
+        self.assertEqual(self.runtest("create array --filename ARRAY -p 10 \
+--arraytype string --arrayname S -i " + _TEST_DIRECTORY + "temp.img",
+                                      "Test1\nTest2\nTest3"), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.img", ""),
+                         """\
+  pos   filename  sectors   type
+    1   TEST         1      BAS            10
+    2   TEST        14      CDE         32768,6912
+   10   ARRAY        1      $.ARRAY
+""")
+        self.assertEqual(disciplefile.DiscipleFile(disciplefile.DiscipleImage(
+            _TEST_DIRECTORY + "temp.img"), 10).getfiledata(),
+                        bytearray(b"Test1\nTest2\nTest3"))
+
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.img")
+
+    def checkinvalidcommand(self, command, message):
+        try:
+            disciplefile._commandline(["disciplefile.py"] + command.split())
+            self.fail("No SpectrumTranslateError raised")
+        except spectrumtranslate.SpectrumTranslateError as se:
+            if(se.value == message):
+                return
+            self.fail("Wrong exception message. Got:\n{0}\nExpected:\n{1}".
+                      format(se.value, message))
+
+    def test_invalidcommands(self):
+        # incorrect action
+        self.checkinvalidcommand("hello", "No command (list, extract, \
+delete, copy, create, or help) specified.")
+        # multiple actions
+        self.checkinvalidcommand("create list",
+                                 "Can't have multiple commands.")
+        # no input file
+        self.checkinvalidcommand("list", "No input file specified.")
+        # no output file
+        self.checkinvalidcommand("list infile", "No output file specified.")
+        # invalid autostart
+        self.checkinvalidcommand("create basic --autostart notnumber",
+                                 "notnumber is not a valid autostart number.")
+        # invalid variable offset
+        self.checkinvalidcommand("create basic --variableoffset notnumber",
+                                 "notnumber is not a valid variable offset.")
+        # invalid origin
+        self.checkinvalidcommand("create code --origin notnumber",
+                                 "notnumber is not a valid code origin.")
+        self.checkinvalidcommand("create code --origin 65537",
+                                 "65537 is not a valid code origin.")
+        # invalid arrayname
+        self.checkinvalidcommand("create array --arrayname wrong",
+                                 "wrong is not a valid variable name.")
+        # invalid arraytype
+        self.checkinvalidcommand("create array --arraytype wrong", "wrong is \
+not a valid array type (must be character, number or string).")
+        # invalid argument to -p
+        self.checkinvalidcommand("copy -p wrong in out", "wrong is not a \
+valid index for the output file.")
+        # invalid argument to -s
+        self.checkinvalidcommand("copy -s wrong in out", '"wrong" is invalid \
+list of file indexes.')
+        # invalid index to extract
+        self.checkinvalidcommand("extract wrong in out", "wrong is not a \
+valid index in the input file.")
+        # invalid index to copy or delete
+        self.checkinvalidcommand("copy wrong in out", "wrong is not a valid \
+index in the input file.")
+        # unrecognised argument
+        self.checkinvalidcommand("list -o -i extra",
+                                 '"extra" is unrecognised argument.')
+        # no specified file to extract
+        self.checkinvalidcommand("extract -i -o",
+                                 "No file index specified to extract.")
+        # unspecidied file to copy or delete
+        self.checkinvalidcommand("copy -i -o",
+                                 "No file index(s) specified to copy.")
+        # create without filename
+        self.checkinvalidcommand("create basic -i -o",
+                                 "You have to specify file name to create.")
+        # create array without name or type
+        self.checkinvalidcommand("create array --filename X --arraytype s in \
+out", "You have to specify array type and name.")
+        self.checkinvalidcommand("create array --filename X --arrayname X in \
+out", "You have to specify array type and name.")
+        # invalid index to extract
+        self.checkinvalidcommand("extract 88 in out", "88 is not a valid \
+entry number (should be 1 to 80).")
+        # invalid index to copy & delete single or -s
+        self.checkinvalidcommand("delete 80-88 in out", "[80, 81, 82, 83, 84, \
+85, 86, 87, 88] is not a valid entry number (should be 1 to 80).")
+
 
 if __name__ == "__main__":
     unittest.main()
