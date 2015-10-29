@@ -34,7 +34,8 @@
 # profits; or business interruption) however caused and on any theory of
 # liability, whether in contract, strict liability, or tort (including
 # negligence or otherwise) arising in any way out of the use of this
-# software, even if advised of the possibility of such damage.
+# software, even if advised of the possibility of such damage.  By using
+# this software you agree to these terms.
 #
 # Author: william.fraser@virgin.net
 # Date: 14th January 2015
@@ -48,6 +49,14 @@ import unittest
 import sys
 import subprocess
 import re
+
+# 2to3 will complain about these lines but is 2 & 3 compatible
+if(sys.hexversion > 0x03000000):
+    _longint = int
+else:
+    # 2to3 will complain but won't cause problems in real life
+    _longint = long
+
 
 """
 Test SpectrumNumber
@@ -65,16 +74,26 @@ class TestSpectrumNumberComponentsCreate(unittest.TestCase):
 
         # Check copy creation
         snc = spectrumnumber.SpectrumNumberComponents()
-        snc.mantissa = [0, 20]
+        snc.mantissa = 20
         snc.negative = True
         snc.exponent = 4000
         testsnc = spectrumnumber.SpectrumNumberComponents(snc)
-        self.assertEqual([0, 20], testsnc.mantissa)
+        self.assertEqual(20, testsnc.mantissa)
         self.assertTrue(testsnc.negative)
         self.assertEqual(4000, testsnc.exponent)
 
-# todo
-        # check SpectrumNumber creation
+        # Check spectrumnumber creation
+        snc = spectrumnumber.SpectrumNumberComponents(
+            spectrumnumber.SpectrumNumber(1))
+        self.assertEqual(_longint(0x80000000), snc.mantissa)
+        self.assertFalse(snc.negative)
+        self.assertEqual(129, snc.exponent)
+
+        snc = spectrumnumber.SpectrumNumberComponents(
+            spectrumnumber.SpectrumNumber(-0.25))
+        self.assertEqual(_longint(0xFFFFFFFF), snc.mantissa)
+        self.assertTrue(snc.negative)
+        self.assertEqual(126, snc.exponent)
 
         # ensure falls over with bad input
         self.assertRaises(spectrumnumber.SpectrumNumberError,
@@ -86,21 +105,83 @@ class TestSpectrumNumberComponentsCreate(unittest.TestCase):
 
 
 class TestSpectrumNumberComponentsMethods(unittest.TestCase):
-    # todo
     def testShiftMantissa(self):
-        pass
+        snc = spectrumnumber.SpectrumNumberComponents()
+        snc.mantissa = _longint(0xFFFFFFFF)
+        snc.negative = False
+        snc.exponent = 0
 
-    # todo
+        snc.shift_mantissa(33, 0)
+        self.assertEqual(_longint(0), snc.mantissa)
+        self.assertFalse(snc.negative)
+        self.assertEqual(0, snc.exponent)
+
+        snc.mantissa = _longint(0xFFFFFFFF)
+        snc.shift_mantissa(2, 1)
+        self.assertEqual(_longint(0x80000000), snc.mantissa)
+
     def testTwosComplementMantissa(self):
-        pass
+        snc = spectrumnumber.SpectrumNumberComponents()
+        snc.mantissa = _longint(0xFFFFFFFF)
+        snc.twos_complement_mantissa()
+        self.assertEqual(_longint(1), snc.mantissa)
+        snc.mantissa = _longint(2)
+        snc.twos_complement_mantissa()
+        self.assertEqual(_longint(0xFFFFFFFE), snc.mantissa)
 
-    # todo
     def testNormalise(self):
-        pass
+        snc = spectrumnumber.SpectrumNumberComponents()
+        snc.mantissa = _longint(0xFF)
+        snc.negative = False
+        snc.exponent = 128
 
-    # todo
+        snc.normalise(0xE)
+        self.assertEqual(_longint(0xFF0E0000), snc.mantissa)
+        self.assertEqual(104, snc.exponent)
+
+        snc.mantissa = _longint(0)
+        snc.normalise(0)
+        self.assertEqual(_longint(0), snc.mantissa)
+        self.assertEqual(0, snc.exponent)
+
+        snc.mantissa = _longint(0xFF)
+        snc.exponent = 2
+        snc.normalise(0)
+        self.assertEqual(_longint(0), snc.mantissa)
+        self.assertEqual(0, snc.exponent)
+        snc.mantissa = _longint(0x40000000)
+        snc.exponent = 1
+        snc.normalise(1)
+        self.assertEqual(_longint(0x80000000), snc.mantissa)
+        self.assertEqual(1, snc.exponent)
+
+        snc.mantissa = _longint(0x7FFFFFFF)
+        snc.exponent = 128
+        snc.normalise(0xFF)
+        self.assertEqual(_longint(0x80000000), snc.mantissa)
+        self.assertEqual(128, snc.exponent)
+        snc.mantissa = _longint(0x7FFFFFFF)
+        snc.exponent = 128
+        snc.normalise(0)
+        self.assertEqual(_longint(0xFFFFFFFE), snc.mantissa)
+        self.assertEqual(127, snc.exponent)
+        snc.mantissa = _longint(0xFFFFFFFF)
+        snc.exponent = 255
+        self.assertRaises(spectrumnumber.SpectrumNumberError, snc.normalise,
+                          0xFF)
+
     def testGetSpectrumNumber(self):
-        pass
+        snc = spectrumnumber.SpectrumNumberComponents()
+        snc.mantissa = _longint(0x80000000)
+        snc.negative = False
+        snc.exponent = 128
+        self.assertEqual("0.5", str(snc.get_SpectrumNumber()))
+        snc.negative = True
+        self.assertEqual("-0.5", str(snc.get_SpectrumNumber()))
+        snc.mantissa = _longint(0xC0000000)
+        self.assertEqual("-0.75", str(snc.get_SpectrumNumber()))
+        snc.exponent = 127
+        self.assertEqual("-0.375", str(snc.get_SpectrumNumber()))
 
     def testStr(self):
         snc = spectrumnumber.SpectrumNumberComponents()

@@ -34,7 +34,8 @@
 # profits; or business interruption) however caused and on any theory of
 # liability, whether in contract, strict liability, or tort (including
 # negligence or otherwise) arising in any way out of the use of this
-# software, even if advised of the possibility of such damage.
+# software, even if advised of the possibility of such damage.  By using
+# this software you agree to these terms.
 #
 # Author: william.fraser@virgin.net
 # Date: 14th January 2015
@@ -1802,7 +1803,7 @@ class SpectrumNumberComponents:
                 self.exponent = int(self.mantissa >> 31)
                 return
 
-            # check to see if moved 32 bits: if have won't ever find set
+            # check to see if moved 32 bits: if so, won't ever find set
             # bit, so stop
             count -= 1
             if(count == 0):
