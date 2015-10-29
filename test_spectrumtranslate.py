@@ -34,7 +34,8 @@
 # profits; or business interruption) however caused and on any theory of
 # liability, whether in contract, strict liability, or tort (including
 # negligence or otherwise) arising in any way out of the use of this
-# software, even if advised of the possibility of such damage.
+# software, even if advised of the possibility of such damage.  By using
+# this software you agree to these terms.
 #
 # Author: william.fraser@virgin.net
 # Date: 14th January 2015
@@ -53,10 +54,13 @@ from PIL import Image
 from sys import hexversion as _PYTHON_VERSION_HEX
 from codecs import unicode_escape_decode as _UED
 from io import BytesIO
+from os import remove as os_remove
 
 _TEST_DIRECTORY = "test/"
 
 if(_PYTHON_VERSION_HEX > 0x03000000):
+    from io import StringIO
+
     def _u(x):
         return x
 
@@ -65,12 +69,25 @@ if(_PYTHON_VERSION_HEX > 0x03000000):
             return [b for b in infile.read()]
 
 else:
+    # 2to3 will complain but won't cause problems in real life
+    from StringIO import StringIO
+
     def _u(x):
         return _UED(x)[0]
 
     def _getfileaslist(name):
         with open(_TEST_DIRECTORY + name, 'rb') as infile:
             return [ord(b) for b in infile.read()]
+
+
+def _getfile(name):
+    with open(name, 'r') as f:
+        return f.read()
+
+
+def _getfileasbytes(name):
+    with open(_TEST_DIRECTORY + name, 'rb') as infile:
+        return bytearray(infile.read())
 
 
 class Testbasicconversion(unittest.TestCase):
@@ -95,6 +112,28 @@ d$[2][2]={
 FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
 z$="testing"
 """))
+
+        self.assertEqual(spectrumtranslate.basictotext(data,
+                                                       hexfornonascii=True),
+                         """\
+10 REM ^16^00^00^87^11^05^84^11^03hello123^11^01^10^05^11^06
+15 PRINT ^10^00^11^07"80"
+20 DATA 1(number without value),2(1024),3,4: LIST : NEW 
+
+
+Variables:
+a=-2.2
+test=65537
+b[10]={
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+}
+d$[2][2]={
+  "AB",
+  "  "
+}
+FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
+z$="testing"
+""")
 
     def test_basictoxml(self):
         data = _getfileaslist("basictest.dat")
@@ -190,6 +229,101 @@ z$="testing"
   </variables>
 </basiclisting>
 """))
+
+        self.assertEqual(spectrumtranslate.basictoxml(data,
+                                                      hexfornonascii=True),
+                         """\
+<?xml version="1.0" encoding="UTF-8" ?>
+<basiclisting>
+  <line>
+    <linenumber>10</linenumber>
+    <instruction>
+      <keyword>REM</keyword>
+      <argument>^16^00^00^87^11^05^84^11^03hello123^11^01^10^05^11^06</argument>
+    </instruction>
+  </line>
+  <line>
+    <linenumber>15</linenumber>
+    <instruction>
+      <keyword>PRINT</keyword>
+      <argument><format>INK 0</format><format>PAPER 7</format>"80"</argument>
+    </instruction>
+  </line>
+  <line>
+    <linenumber>20</linenumber>
+    <instruction>
+      <keyword>DATA</keyword>
+      <argument><number>1<realvalue>number without value</realvalue></number>,\
+<number>2<realvalue>1024</realvalue></number>,<number>3</number>,<number>4\
+</number></argument>
+    </instruction>
+    <instructionseperator>:</instructionseperator>
+    <instruction>
+      <keyword>LIST</keyword>
+    </instruction>
+    <instructionseperator>:</instructionseperator>
+    <instruction>
+      <keyword>NEW</keyword>
+    </instruction>
+  </line>
+  <variables>
+    <variable>
+      <name>a</name>
+      <type>number</type>
+      <value>-2.2</value>
+    </variable>
+    <variable>
+      <name>test</name>
+      <type>number</type>
+      <value>65537</value>
+    </variable>
+    <variable>
+      <name>b</name>
+      <type>numberarray</type>
+      <value>
+        <dimension>
+          <number>1</number>
+          <number>2</number>
+          <number>3</number>
+          <number>4</number>
+          <number>5</number>
+          <number>6</number>
+          <number>7</number>
+          <number>8</number>
+          <number>9</number>
+          <number>10</number>
+        </dimension>
+      </value>
+    </variable>
+    <variable>
+      <name>d$</name>
+      <type>characterarray</type>
+      <value>
+        <dimension>
+          <string>AB</string>
+          <string>  </string>
+        </dimension>
+      </value>
+    </variable>
+    <variable>
+      <name>c</name>
+      <type>fornext</type>
+      <value>11</value>
+      <limit>10</limit>
+      <step>1</step>
+      <loopbackto>
+        <line>65534</line>
+        <statement>6</statement>
+      </loopback>
+    </variable>
+    <variable>
+      <name>z$</name>
+      <type>string</type>
+      <value>testing</value>
+    </variable>
+  </variables>
+</basiclisting>
+""")
 
 
 class TestArrayConversion(unittest.TestCase):
@@ -292,6 +426,18 @@ class TestArrayConversion(unittest.TestCase):
     "thre"
   }
 }""")
+
+        data = [2, 2, 0, 1, 0, 0xFF, 0x7F]
+        self.assertEqual(spectrumtranslate.arraytotext(data, 0xD3), _u("""{
+  "COPY ",
+  "\u00A9"
+}"""))
+
+        self.assertEqual(spectrumtranslate.arraytotext(data, 0xD3, True),
+                         _u("""{
+  "^FF",
+  "^7F"
+}"""))
 
     def test_arraytoxml(self):
         data = _getfileaslist("arraytest_number.dat")
@@ -554,6 +700,20 @@ class TestArrayConversion(unittest.TestCase):
   </dimension>
 </dimension>""")
 
+        data = [2, 2, 0, 1, 0, 0xFF, 0x7F]
+        self.assertEqual(spectrumtranslate.arraytoxml(data, 0xD3), _u("""\
+<dimension>
+  <string>COPY </string>
+  <string>\u00A9</string>
+</dimension>"""))
+
+        self.assertEqual(spectrumtranslate.arraytoxml(data, 0xD3, True),
+                         _u("""\
+<dimension>
+  <string>^FF</string>
+  <string>^7F</string>
+</dimension>"""))
+
 
 class TestUtilityFunctions(unittest.TestCase):
     def test_sn_to_string(self):
@@ -646,16 +806,56 @@ class TestTextConvert(unittest.TestCase):
                      "POKE ", "PRINT ", "PLOT ", "RUN ",
                      "SAVE ", "RANDOMIZE ", "IF ", "CLS ",
                      "DRAW ", "CLEAR ", "RETURN ", "COPY ")
+    spectrumchars2 = ("^00", "^01", "^02", "^03", "^04", "^05", "^06", "^07",
+                      "^08", "^09", "^0A", "^0B", "^0C", "^0D", "^0E", "^0F",
+                      "^10", "^11", "^12", "^13", "^14", "^15", "^16", "^17",
+                      "^18", "^19", "^1A", "^1B", "^1C", "^1D", "^1E", "^1F",
+                      " ", "!", '"', "#", "$", "%", "&", "'",
+                      "(", ")", "*", "+", ",", "-", ".", "/",
+                      "0", "1", "2", "3", "4", "5", "6", "7",
+                      "8", "9", ":", ";", "<", "=", ">", "?",
+                      "@", "A", "B", "C", "D", "E", "F", "G",
+                      "H", "I", "J", "K", "L", "M", "N", "O",
+                      "P", "Q", "R", "S", "T", "U", "V", "W",
+                      "X", "Y", "Z", "[", "\\", "]", "^5E", "_",
+                      "^60", "a", "b", "c", "d", "e", "f", "g",
+                      "h", "i", "j", "k", "l", "m", "n", "o",
+                      "p", "q", "r", "s", "t", "u", "v", "w",
+                      "x", "y", "z", "{", "|", "}", "~", "^7F",
+                      '^80', '^81', '^82', '^83', '^84', '^85', '^86', '^87',
+                      "^88", "^89", "^8A", "^8B", "^8C", "^8D", "^8E", "^8F",
+                      "^90", "^91", "^92", "^93", "^94", "^95", "^96", "^97",
+                      "^98", "^99", "^9A", "^9B", "^9C", "^9D", "^9E", "^9F",
+                      "^A0", "^A1", "^A2", "^A3", "^A4", "^A5", "^A6", "^A7",
+                      "^A8", "^A9", "^AA", "^AB", "^AC", "^AD", "^AE", "^AF",
+                      "^B0", "^B1", "^B2", "^B3", "^B4", "^B5", "^B6", "^B7",
+                      "^B8", "^B9", "^BA", "^BB", "^BC", "^BD", "^BE", "^BF",
+                      "^C0", "^C1", "^C2", "^C3", "^C4", "^C5", "^C6", "^C7",
+                      "^C8", "^C9", "^CA", "^CB", "^CC", "^CD", "^CE", "^CF",
+                      "^D0", "^D1", "^D2", "^D3", "^D4", "^D5", "^D6", "^D7",
+                      "^D8", "^D9", "^DA", "^DB", "^DC", "^DD", "^DE", "^DF",
+                      "^E0", "^E1", "^E2", "^E3", "^E4", "^E5", "^E6", "^E7",
+                      "^E8", "^E9", "^EA", "^EB", "^EC", "^ED", "^EE", "^EF",
+                      "^F0", "^F1", "^F2", "^F3", "^F4", "^F5", "^F6", "^F7",
+                      "^F8", "^F9", "^FA", "^FB", "^FC", "^FD", "^FE", "^FF")
 
     def test_getspectrumchar(self):
         for code, character in enumerate(self.spectrumchars):
             self.assertEqual(spectrumtranslate.getspectrumchar(code),
                              character)
 
+        for code, character in enumerate(self.spectrumchars2):
+            self.assertEqual(spectrumtranslate.getspectrumchar(code, True),
+                             character)
+
     def test_getspectrumstring(self):
         self.assertEqual(
             spectrumtranslate.getspectrumstring([x for x in range(256)]),
             ''.join(self.spectrumchars))
+
+        self.assertEqual(
+            spectrumtranslate.getspectrumstring([x for x in range(256)], True),
+            ''.join(self.spectrumchars2))
 
     def test_chartospectrum(self):
         for code, character in enumerate(self.spectrumchars):
@@ -693,10 +893,26 @@ class TestImageConvert(unittest.TestCase):
         self.assertEqual(gifimage.info["duration"], 320)
         # ensure only 2 images
         self.assertRaises(EOFError, gifimage.seek, 2)
-
         # compare images now
         self.assertEqual(refimage1, gifimage1)
         self.assertEqual(refimage2, gifimage2)
+
+        # test getting individual images
+        # get image created by spectrumtranslate
+        gifscreen = spectrumtranslate.getgiffromscreen(
+            _getfileaslist("screentest.dat"), -1)
+        # should have valid gif now
+        gifimage = Image.open(BytesIO(gifscreen))
+        # compare images now
+        self.assertEqual(refimage1, self.imageto32bitlist(gifimage))
+
+        # test flash image
+        gifscreen = spectrumtranslate.getgiffromscreen(
+            _getfileaslist("screentest.dat"), -2)
+        # should have valid gif now
+        gifimage = Image.open(BytesIO(gifscreen))
+        # compare images now
+        self.assertEqual(refimage2, self.imageto32bitlist(gifimage))
 
     def test_getrgbfromscreen(self):
         # get reference images
@@ -708,14 +924,58 @@ class TestImageConvert(unittest.TestCase):
         gifscreen = spectrumtranslate.getrgbfromscreen(
             _getfileaslist("screentest.dat"), alphamask=0)
         # should have valid list of RGB values
-
         # should be 2 images
         self.assertEqual(type(gifscreen), list)
         self.assertEqual(len(gifscreen), 2)
         self.assertEqual(type(gifscreen[0]), list)
+        self.assertEqual(len(gifscreen[0]), 256 * 192)
         self.assertEqual(type(gifscreen[1]), list)
-
+        self.assertEqual(len(gifscreen[1]), 256 * 192)
         # compare images now
+        self.assertEqual(refimage1, gifscreen[0])
+        self.assertEqual(refimage2, gifscreen[1])
+
+        # test ignore RBG list
+        gifscreen = spectrumtranslate.getrgbfromscreen(
+            _getfileaslist("screentest.dat"), imageformat=1)
+        # should be 2 images
+        self.assertEqual(type(gifscreen), list)
+        self.assertEqual(len(gifscreen), 2)
+        self.assertEqual(type(gifscreen[0]), list)
+        self.assertEqual(len(gifscreen[0]), 256 * 192)
+        self.assertEqual(type(gifscreen[0][0]), list)
+        self.assertEqual(len(gifscreen[0][0]), 4)
+        self.assertEqual(type(gifscreen[1]), list)
+        self.assertEqual(len(gifscreen[1]), 256 * 192)
+        self.assertEqual(type(gifscreen[1][0]), list)
+        self.assertEqual(len(gifscreen[1][0]), 4)
+        # compare images now
+        irReference.seek(0)
+        refimage1 = [list(x) for x in irReference.convert("RGBA").getdata()]
+        irReference.seek(1)
+        refimage2 = [list(x) for x in irReference.convert("RGBA").getdata()]
+        self.assertEqual(refimage1, gifscreen[0])
+        self.assertEqual(refimage2, gifscreen[1])
+
+        # test ignore RBG list without alpha
+        gifscreen = spectrumtranslate.getrgbfromscreen(
+            _getfileaslist("screentest.dat"), imageformat=1, alphamask=-1)
+        # should be 2 images
+        self.assertEqual(type(gifscreen), list)
+        self.assertEqual(len(gifscreen), 2)
+        self.assertEqual(type(gifscreen[0]), list)
+        self.assertEqual(len(gifscreen[0]), 256 * 192)
+        self.assertEqual(type(gifscreen[0][0]), list)
+        self.assertEqual(len(gifscreen[0][0]), 3)
+        self.assertEqual(type(gifscreen[1]), list)
+        self.assertEqual(len(gifscreen[1]), 256 * 192)
+        self.assertEqual(type(gifscreen[1][0]), list)
+        self.assertEqual(len(gifscreen[1][0]), 3)
+        # compare images now
+        irReference.seek(0)
+        refimage1 = [list(x) for x in irReference.convert("RGB").getdata()]
+        irReference.seek(1)
+        refimage2 = [list(x) for x in irReference.convert("RGB").getdata()]
         self.assertEqual(refimage1, gifscreen[0])
         self.assertEqual(refimage2, gifscreen[1])
 
@@ -823,7 +1083,8 @@ data"""
                     "ADDRESSOUTPUT": 0,
                     "NUMBEROUTPUT": 0,
                     "COMMANDOUTPUT": 0,
-                    "XMLOutput": 0}
+                    "XMLOutput": 0,
+                    "HexForNonASCII": 0}
 
         data = (65, 66, 67, 127, 22, 0, 0, 49, 50)
 
@@ -916,7 +1177,8 @@ data"""
                     "ADDRESSOUTPUT": 0,
                     "NUMBEROUTPUT": 0,
                     "COMMANDOUTPUT": 0,
-                    "XMLOutput": 0}
+                    "XMLOutput": 0,
+                    "HexForNonASCII": 0}
         Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x4000, 0, 0, 0x4000, 0x4001]
 
         # check tests
@@ -1016,12 +1278,14 @@ data"""
             spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES[
                 "Mark Undocumented Command On"],
             spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES[
-                "XML Output On"]),
-            '7A078E4~')
+                "XML Output On"],
+            spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES[
+                "Hex instead of non-ASCII On"]),
+            'FA078E4~')
 
     def test_get_custom_format_values(self):
         self.assertEqual(
-            spectrumtranslate.get_custom_format_values('7A078E4~', True),
+            spectrumtranslate.get_custom_format_values('FA078E4~', True),
             {'NumberOutput': spectrumtranslate.DisassembleInstruction.
                 DISASSEMBLE_CODES["Number Output Format Decimal"],
              'TreatDataNumbersAsLineReferences': spectrumtranslate.
@@ -1051,10 +1315,12 @@ data"""
              'Seperator': '~',
              'XMLOutput': spectrumtranslate.DisassembleInstruction.
              DISASSEMBLE_CODES["XML Output On"],
+             'HexForNonASCII': spectrumtranslate.DisassembleInstruction.
+             DISASSEMBLE_CODES["Hex instead of non-ASCII On"],
              'ListEveryXLines': 7})
 
         self.assertEqual(
-            spectrumtranslate.get_custom_format_values('7A078E4~'),
+            spectrumtranslate.get_custom_format_values('FA078E4~'),
             {'NumberOutput': 1,
              'TreatDataNumbersAsLineReferences': 1,
              'OutputTStates': 3,
@@ -1069,6 +1335,7 @@ data"""
              'CommandOutput': 2,
              'Seperator': '~',
              'XMLOutput': 1,
+             'HexForNonASCII': 1,
              'ListEveryXLines': 7})
 
     def test_getpartsofpatterndatablock(self):
@@ -1630,6 +1897,28 @@ After Line2</comment></line>
 4000  21,03,40     LD HL,#4003
 4003  CD,C2,04     CALL #04C2           ;Save IX,DE bytes
 4006  00           NOP
+"""]],
+            # Hex instead of non-ASCII On/Off
+            [[0xFF, 0x41, 0x7F],
+             [["Hex instead of non-ASCII Off",
+               """10000#4000#4002##%F0004%ACA%S%SDM%S%X01000000%L%(%?LE%V\
+0F%V0E%)%(%I%(%(%?EQ%V000001%?BA%(%?LT%MV0F0020%?BO%(%?MT%MV0F007F%?BA%?LT%MV0\
+F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
+0F0080%)%)%)%)%("%X03000001%V00%)%C0F%)%I%(%?EQ%V000001%)%("%)"""],
+              ["Hex instead of non-ASCII On",
+               """10000#4000#4002##%F0004%ACA%S%SDM%S%X01000000%L%(%?LE%V\
+0F%V0E%)%(%I%(%(%?EQ%V000001%?BA%(%?LT%MV0F0020%?BO%(%?MT%MV0F007F%?BA%?LT%MV0\
+F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
+0F0080%)%)%)%)%("%X03000001%V00%)%C0F%)%I%(%?EQ%V000001%)%("%)"""]],
+             [_u("""ORG #4000
+
+4000    DM  "COPY A\u00A9"
+
+"""),
+              """ORG #4000
+
+4000    DM  "^FFA^7F"
+
 """]]
         ]
 
@@ -1726,8 +2015,12 @@ errors:\n" + output)
 had errors:\n" + error)
 
         output, error = self.runpep8("test_spectrumtranslate.py", [], [
-            "test_spectrumtranslate.py:82:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:1209:9: W291 trailing whitespace"])
+            "test_spectrumtranslate.py:99:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:121:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:1476:9: W291 trailing whitespace",
+            "test_spectrumtranslate.py:2138:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:2159:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:2181:56: W291 trailing whitespace"])
         self.assertEqual(output, "", "test_spectrumtranslate.py pep8 \
 formatting errors:\n" + output)
         self.assertEqual(error, "", "test_spectrumtranslate.py pep8 format \
@@ -1797,7 +2090,485 @@ errors:\n" + error)
 errors:\n" + error)
 
 
-# todo test command line
+class Testcommandline(unittest.TestCase):
+    def runtest(self, command, stdindata):
+        saved_output = sys.stdout
+        saved_input = sys.stdin
+        sys.stdin = StringIO(stdindata)
+        output = StringIO()
+        sys.stdout = output
+        try:
+            spectrumtranslate._commandline(["x.py"] + command.split())
+
+        finally:
+            sys.stdout = saved_output
+            sys.stdin = saved_input
+
+        out = output.getvalue()
+        output.close()
+        return out
+
+    def setUp(self):
+        # tidy up
+        try:
+            os_remove(_TEST_DIRECTORY + "temp.txt")
+        except:
+            pass
+
+        try:
+            os_remove(_TEST_DIRECTORY + "temp.gif")
+        except:
+            pass
+
+        try:
+            os_remove(_TEST_DIRECTORY + "temp.bin")
+        except:
+            pass
+
+    def test_help(self):
+        self.assertEqual(self.runtest("", ""), spectrumtranslate.usage())
+        self.assertEqual(self.runtest("help", ""), spectrumtranslate.usage())
+
+    def test_basic(self):
+        self.assertEqual(self.runtest("basic -o " + _TEST_DIRECTORY +
+                                      "basictest.dat", ""),
+                         _u("""\
+10 REM ^16^00^00\u259c^11^05\u2597^11^03hello123^11^01^10^05^11^06
+15 PRINT ^10^00^11^07"80"
+20 DATA 1(number without value),2(1024),3,4: LIST : NEW 
+
+
+Variables:
+a=-2.2
+test=65537
+b[10]={
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+}
+d$[2][2]={
+  "AB",
+  "  "
+}
+FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
+z$="testing"
+"""))
+        self.assertEqual(self.runtest("basic -o -a " + _TEST_DIRECTORY +
+                                      "basictest.dat", ""),
+                         _u("""\
+10 REM ^16^00^00^87^11^05^84^11^03hello123^11^01^10^05^11^06
+15 PRINT ^10^00^11^07"80"
+20 DATA 1(number without value),2(1024),3,4: LIST : NEW 
+
+
+Variables:
+a=-2.2
+test=65537
+b[10]={
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+}
+d$[2][2]={
+  "AB",
+  "  "
+}
+FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
+z$="testing"
+"""))
+        self.assertEqual(self.runtest("basic -o -s 10 " + _TEST_DIRECTORY +
+                                      "basictest.dat", ""),
+                         _u("""\
+Autostart at line:10
+10 REM ^16^00^00\u259c^11^05\u2597^11^03hello123^11^01^10^05^11^06
+15 PRINT ^10^00^11^07"80"
+20 DATA 1(number without value),2(1024),3,4: LIST : NEW 
+
+
+Variables:
+a=-2.2
+test=65537
+b[10]={
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+}
+d$[2][2]={
+  "AB",
+  "  "
+}
+FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
+z$="testing"
+"""))
+        self.assertEqual(self.runtest("basic -o --xml " + _TEST_DIRECTORY +
+                                      "basictest.dat", ""),
+                         _u("""\
+<?xml version="1.0" encoding="UTF-8" ?>
+<basiclisting>
+  <line>
+    <linenumber>10</linenumber>
+    <instruction>
+      <keyword>REM</keyword>
+      <argument>^16^00^00\u259C^11^05\u2597^11^03hello123^11^01^10^05^11^06</argument>
+    </instruction>
+  </line>
+  <line>
+    <linenumber>15</linenumber>
+    <instruction>
+      <keyword>PRINT</keyword>
+      <argument><format>INK 0</format><format>PAPER 7</format>"80"</argument>
+    </instruction>
+  </line>
+  <line>
+    <linenumber>20</linenumber>
+    <instruction>
+      <keyword>DATA</keyword>
+      <argument><number>1<realvalue>number without value</realvalue></number>,\
+<number>2<realvalue>1024</realvalue></number>,<number>3</number>,<number>4\
+</number></argument>
+    </instruction>
+    <instructionseperator>:</instructionseperator>
+    <instruction>
+      <keyword>LIST</keyword>
+    </instruction>
+    <instructionseperator>:</instructionseperator>
+    <instruction>
+      <keyword>NEW</keyword>
+    </instruction>
+  </line>
+  <variables>
+    <variable>
+      <name>a</name>
+      <type>number</type>
+      <value>-2.2</value>
+    </variable>
+    <variable>
+      <name>test</name>
+      <type>number</type>
+      <value>65537</value>
+    </variable>
+    <variable>
+      <name>b</name>
+      <type>numberarray</type>
+      <value>
+        <dimension>
+          <number>1</number>
+          <number>2</number>
+          <number>3</number>
+          <number>4</number>
+          <number>5</number>
+          <number>6</number>
+          <number>7</number>
+          <number>8</number>
+          <number>9</number>
+          <number>10</number>
+        </dimension>
+      </value>
+    </variable>
+    <variable>
+      <name>d$</name>
+      <type>characterarray</type>
+      <value>
+        <dimension>
+          <string>AB</string>
+          <string>  </string>
+        </dimension>
+      </value>
+    </variable>
+    <variable>
+      <name>c</name>
+      <type>fornext</type>
+      <value>11</value>
+      <limit>10</limit>
+      <step>1</step>
+      <loopbackto>
+        <line>65534</line>
+        <statement>6</statement>
+      </loopback>
+    </variable>
+    <variable>
+      <name>z$</name>
+      <type>string</type>
+      <value>testing</value>
+    </variable>
+  </variables>
+</basiclisting>
+"""))
+        self.assertEqual(self.runtest("basic -o --xml -s 10 " +
+                                      _TEST_DIRECTORY + "basictest.dat", ""),
+                         _u("""\
+<?xml version="1.0" encoding="UTF-8" ?>
+<basiclisting>
+  <autostart>10</autostart>
+  <line>
+    <linenumber>10</linenumber>
+    <instruction>
+      <keyword>REM</keyword>
+      <argument>^16^00^00\u259C^11^05\u2597^11^03hello123^11^01^10^05^11^06</argument>
+    </instruction>
+  </line>
+  <line>
+    <linenumber>15</linenumber>
+    <instruction>
+      <keyword>PRINT</keyword>
+      <argument><format>INK 0</format><format>PAPER 7</format>"80"</argument>
+    </instruction>
+  </line>
+  <line>
+    <linenumber>20</linenumber>
+    <instruction>
+      <keyword>DATA</keyword>
+      <argument><number>1<realvalue>number without value</realvalue></number>,\
+<number>2<realvalue>1024</realvalue></number>,<number>3</number>,<number>4\
+</number></argument>
+    </instruction>
+    <instructionseperator>:</instructionseperator>
+    <instruction>
+      <keyword>LIST</keyword>
+    </instruction>
+    <instructionseperator>:</instructionseperator>
+    <instruction>
+      <keyword>NEW</keyword>
+    </instruction>
+  </line>
+  <variables>
+    <variable>
+      <name>a</name>
+      <type>number</type>
+      <value>-2.2</value>
+    </variable>
+    <variable>
+      <name>test</name>
+      <type>number</type>
+      <value>65537</value>
+    </variable>
+    <variable>
+      <name>b</name>
+      <type>numberarray</type>
+      <value>
+        <dimension>
+          <number>1</number>
+          <number>2</number>
+          <number>3</number>
+          <number>4</number>
+          <number>5</number>
+          <number>6</number>
+          <number>7</number>
+          <number>8</number>
+          <number>9</number>
+          <number>10</number>
+        </dimension>
+      </value>
+    </variable>
+    <variable>
+      <name>d$</name>
+      <type>characterarray</type>
+      <value>
+        <dimension>
+          <string>AB</string>
+          <string>  </string>
+        </dimension>
+      </value>
+    </variable>
+    <variable>
+      <name>c</name>
+      <type>fornext</type>
+      <value>11</value>
+      <limit>10</limit>
+      <step>1</step>
+      <loopbackto>
+        <line>65534</line>
+        <statement>6</statement>
+      </loopback>
+    </variable>
+    <variable>
+      <name>z$</name>
+      <type>string</type>
+      <value>testing</value>
+    </variable>
+  </variables>
+</basiclisting>
+"""))
+
+    def test_text(self):
+        self.assertEqual(self.runtest("text -i -o",
+                                      _u("\x7F\x60\x5E\x01\x41\u0080\u00FF")),
+                         _u('\xa9\xa3\u2191^01A\u2003COPY '))
+        self.assertEqual(self.runtest("text -i -o -a",
+                                      _u("\x7F\x60\x5E\x01\x41\u0080\u00FF")),
+                         _u('^7F^60^5E^01A^80^FF'))
+
+    def test_array(self):
+        self.assertEqual(self.runtest("array -t 0x98 " + _TEST_DIRECTORY +
+                                      "arraytest_number.dat " +
+                                      _TEST_DIRECTORY + "temp.txt", ""), "")
+        self.assertEqual(_getfile(_TEST_DIRECTORY + "temp.txt"),
+                         spectrumtranslate.arraytotext(
+                             _getfileaslist("arraytest_number.dat"), 0x98))
+
+        self.assertEqual(self.runtest("array -t 0x98 -xml " + _TEST_DIRECTORY +
+                                      "arraytest_number.dat " +
+                                      _TEST_DIRECTORY + "temp.txt", ""), "")
+        self.assertEqual(_getfile(_TEST_DIRECTORY + "temp.txt"),
+                         spectrumtranslate.arraytoxml(
+                             _getfileaslist("arraytest_number.dat"), 0x98))
+
+        self.assertEqual(self.runtest("array -t 0x98 -d -o " +
+                                      _TEST_DIRECTORY +
+                                      "arraytest_number.dat ", ""), "2")
+
+        self.assertEqual(self.runtest("array -t 0xC0 -i -o",
+                                      "\x02\x02\x00\x01\x00\xFF\x7F"),
+                         _u("""{
+  "COPY ",
+  "\u00A9"
+}"""))
+
+        self.assertEqual(self.runtest("array -t 0xC0 -i -o -a",
+                                      "\x02\x02\x00\x01\x00\xFF\x7F"),
+                         _u("""{
+  "^FF",
+  "^7F"
+}"""))
+
+        self.assertEqual(self.runtest("array -t 0xC0 -i -o -x",
+                                      "\x02\x02\x00\x01\x00\xFF\x7F"),
+                         _u("""\
+<dimension>
+  <string>COPY </string>
+  <string>\u00A9</string>
+</dimension>"""))
+
+        self.assertEqual(self.runtest("array -t 0xC0 -i -o -a -x",
+                                      "\x02\x02\x00\x01\x00\xFF\x7F"),
+                         """\
+<dimension>
+  <string>^FF</string>
+  <string>^7F</string>
+</dimension>""")
+
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.txt")
+
+    def test_screen(self):
+        def imageto32bitlist(im):
+            return [(xy[0] << 16) + (xy[1] << 8) + xy[2] for xy in
+                    im.convert("RGB").getdata()]
+
+        def imagetobytearray(im):
+            return bytearray([x[i] for x in im.convert("RGB").getdata() for i
+                              in (0, 1, 2)])
+
+        self.assertEqual(self.runtest("screen -g -o " + _TEST_DIRECTORY +
+                                      "screentest.dat", "").encode('latin-1'),
+                         _getfileasbytes("screentest.gif"))
+
+        self.assertEqual(self.runtest("screen -g -f -1 " + _TEST_DIRECTORY +
+                                      "screentest.dat " + _TEST_DIRECTORY +
+                                      "temp.gif", ""), "")
+        irReference = Image.open(_TEST_DIRECTORY + "screentest.gif")
+        refimage = imageto32bitlist(irReference)
+        irTemp = Image.open(_TEST_DIRECTORY + "temp.gif")
+        tempimg = imageto32bitlist(irTemp)
+        self.assertEqual(refimage, tempimg)
+        # ensure only 1 image
+        self.assertRaises(EOFError, irTemp.seek, 2)
+
+        irReference.seek(1)
+        self.assertEqual(self.runtest("screen -g -f -2 " + _TEST_DIRECTORY +
+                                      "screentest.dat " + _TEST_DIRECTORY +
+                                      "temp.gif", ""), "")
+        refimage1 = imageto32bitlist(irReference)
+        irTemp = Image.open(_TEST_DIRECTORY + "temp.gif")
+        tempimg = imageto32bitlist(irTemp)
+        self.assertEqual(refimage1, tempimg)
+        # ensure only 1 image
+        self.assertRaises(EOFError, irTemp.seek, 2)
+
+        irReference.seek(0)
+        self.assertEqual(self.runtest("screen -o " + _TEST_DIRECTORY +
+                                      "screentest.dat", "").encode('latin-1'),
+                         imagetobytearray(irReference))
+
+        self.assertEqual(self.runtest("screen -f -2 " + _TEST_DIRECTORY +
+                                      "screentest.dat " + _TEST_DIRECTORY +
+                                      "temp.bin", ""), "")
+        irReference.seek(1)
+        refimage = imagetobytearray(irReference)
+        self.assertEqual(refimage, _getfileasbytes("temp.bin"))
+
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.gif")
+        os_remove(_TEST_DIRECTORY + "temp.bin")
+
+    def test_code(self):
+        self.assertEqual(self.runtest("code -i -o",
+                                      "\x21\x12\x34"),
+                         """ORG #0000
+
+0000  21,12,34     LD HL,#3412
+""")
+
+        self.assertEqual(self.runtest("code -i -o -base 0x4000",
+                                      "\x21\x12\x34"),
+                         """ORG #4000
+
+4000  21,12,34     LD HL,#3412
+""")
+
+        self.assertEqual(self.runtest("code -i -o -b 32768",
+                                      "\x21\x12\x34"),
+                         """ORG #8000
+
+8000  21,12,34     LD HL,#3412
+""")
+
+        self.assertEqual(self.runtest("code -i -o --xml",
+                                      "\x21\x12\x34"),
+                         """\
+<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#0000</org>
+  <line><address>0000</address><bytes>21,12,34</bytes><instruction>LD HL,#3412\
+</instruction><flags>S- Z- H- PV- N- C-</flags><timeing><cycles>10</cycles>\
+<tstates>4,3,3</tstates></timeing></line>
+</z80code>""")
+
+        self.assertEqual(self.runtest("code -b 16384 -c f " + _TEST_DIRECTORY +
+                                      "instructions.txt " + _TEST_DIRECTORY +
+                                      "code.dat " + _TEST_DIRECTORY +
+                                      "temp.txt", ""), "")
+        self.assertEqual(_getfile(_TEST_DIRECTORY + "temp.txt"), """ORG #4000
+
+4000  21,03,40     LD HL,16387
+4003  C3,06,40     JP #4006
+4006  00           NOP
+""")
+
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.txt")
+
+    def test_instruction(self):
+        self.assertEqual(self.runtest("instruction -i -o", "0100#0000#FFFF##"),
+                         "100#0#FFFF#")
+        self.assertEqual(self.runtest("instruction -i -o -mo",
+                                      "0100#0000#FFFF##"),
+                         "100\n0\nFFFF\n")
+        self.assertEqual(self.runtest("instruction -i -o -n",
+                                      "0100#0000#FFFF##"),
+                         "100#0#FFFF#")
+        self.assertEqual(self.runtest("instruction -i -o -mo -n",
+                                      "0100#0000#FFFF##"),
+                         "Address Output Format Hex\n0\nFFFF\n")
+        self.assertEqual(self.runtest("instruction -i -o -mi",
+                         "Address Output Format Hex\n0\n0xFFFF"),
+                         "100#0#FFFF#")
+        self.assertEqual(self.runtest("instruction -i -o -mi",
+                                      "256\n0\n65535"),
+                         "100#0#FFFF#")
+        self.assertEqual(self.runtest("instruction -i -o -m",
+                         "Address Output Format Hex\n0\n0xFFFF"),
+                         "100\n0\nFFFF\n")
+        self.assertEqual(self.runtest("instruction -i -o -mi",
+                                      "512\n0\n65535\nHello\nTest"),
+                         "200#0#FFFF#5#HelloTest")
+        self.assertEqual(self.runtest("instruction -i -o -mo",
+                                      "200#0#FFFF#5#HelloTest"),
+                         "200\n0\nFFFF\nHello\nTest")
 
 if __name__ == "__main__":
     unittest.main()

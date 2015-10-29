@@ -34,7 +34,8 @@
 # profits; or business interruption) however caused and on any theory of
 # liability, whether in contract, strict liability, or tort (including
 # negligence or otherwise) arising in any way out of the use of this
-# software, even if advised of the possibility of such damage.
+# software, even if advised of the possibility of such damage.  By using
+# this software you agree to these terms.
 #
 # Author: william.fraser@virgin.net
 # Date: 14th January 2015
@@ -987,6 +988,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                 return False
 
         # todo handle non 80 track, 2 sided disks
+        # for now just say not valid
         if(self.ImageSource == "Bytes" and (not hasattr(self, "bytedata") or
            len(self.bytedata) != 819200)):
             return False
@@ -1779,6 +1781,10 @@ def _commandline(args):
             mode = arg
             continue
 
+        if(mode is None):
+            raise spectrumtranslate.SpectrumTranslateError('No command (list, \
+extract, delete, copy, create, or help) specified as first argument.')
+
         if(mode == 'create' and creating is None):
             if(arg != 'basic' and arg != 'code' and arg != 'array' and
                arg != 'screen'):
@@ -1955,11 +1961,6 @@ not a valid index in the input file.'.format(arg))
 
         raise spectrumtranslate.SpectrumTranslateError('"{0}" is unrecognised \
 argument.'.format(arg))
-
-    # check we have all needed arguments
-    if(mode is None):
-        raise spectrumtranslate.SpectrumTranslateError('No command (list, \
-extract, delete, copy, create, or help) specified.')
 
     if(inputfile is None and not fromstandardinput and mode != 'help'):
         raise spectrumtranslate.SpectrumTranslateError(

@@ -34,7 +34,8 @@
 # profits; or business interruption) however caused and on any theory of
 # liability, whether in contract, strict liability, or tort (including
 # negligence or otherwise) arising in any way out of the use of this
-# software, even if advised of the possibility of such damage.
+# software, even if advised of the possibility of such damage.  By using
+# this software you agree to these terms.
 #
 # Author: william.fraser@virgin.net
 # Date: 14th January 2015
@@ -48,6 +49,7 @@ import spectrumtranslate
 import subprocess
 import unittest
 import re
+import sys
 from os import remove as os_remove
 from sys import hexversion as _PYTHON_VERSION_HEX
 # imported elsewhere for memory reasons are:
@@ -69,6 +71,11 @@ else:
 
     def _u(x):
         return _UED(x)[0]
+
+
+def _getfile(name):
+    with open(name, 'r') as f:
+        return f.read()
 
 
 def _getfileasbytes(name):
@@ -498,7 +505,298 @@ but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
                          error)
 
 
-# todo test command line
+class Testcommandline(unittest.TestCase):
+    def runtest(self, command, stdindata):
+        saved_output = sys.stdout
+        saved_input = sys.stdin
+        sys.stdin = StringIO(stdindata)
+        output = StringIO()
+        sys.stdout = output
+        try:
+            spectrumtapblock._commandline(["spectrumtapblock.py"] +
+                                          command.split())
+
+        finally:
+            sys.stdout = saved_output
+            sys.stdin = saved_input
+
+        out = output.getvalue()
+        output.close()
+        return out
+
+    def setUp(self):
+        # tidy up
+        try:
+            os_remove(_TEST_DIRECTORY + "temp.tap")
+        except:
+            pass
+
+        try:
+            os_remove(_TEST_DIRECTORY + "temp.txt")
+        except:
+            pass
+
+        try:
+            os_remove(_TEST_DIRECTORY + "temp.bin")
+        except:
+            pass
+
+    def test_help(self):
+        self.assertEqual(self.runtest("", ""), spectrumtapblock.usage())
+        self.assertEqual(self.runtest("help", ""), spectrumtapblock.usage())
+
+    def test_list(self):
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "basictest.tap", ""),
+                         """position type    information
+  0      Headder "BASIC     " Program
+  1      Data    Flag:255, block length:190
+""")
+
+        self.assertEqual(self.runtest("list --details " +
+                                      _TEST_DIRECTORY + "basictest.tap " +
+                                      _TEST_DIRECTORY + "temp.txt", ""), "")
+        self.assertEqual(_getfile(_TEST_DIRECTORY + "temp.txt"), """\
+0\tHeadder\tBASIC     \tProgram\t190\t0\t78
+1\tData\t255\t190
+""")
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.txt")
+
+    def test_extract(self):
+        self.assertEqual(self.runtest("extract 1 " + _TEST_DIRECTORY +
+                                      "arraytest_char.tap " + _TEST_DIRECTORY +
+                                      "temp.bin", ""), "")
+        self.assertEqual(_getfileasbytes("temp.bin"),
+                         _getfileasbytes("arraytest_char.dat"))
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.bin")
+
+    def test_copy(self):
+        self.assertEqual(self.runtest("copy -s 0-1 " +
+                                      _TEST_DIRECTORY + "screentest.tap " +
+                                      _TEST_DIRECTORY + "temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.tap", ""),
+                         """position type    information
+  0      Headder "SCREENTEST" Bytes 16384,6912
+  1      Data    Flag:255, block length:6912
+""")
+        # ensure overwrite existing works
+        self.assertEqual(self.runtest("copy 0 " +
+                                      _TEST_DIRECTORY + "basictest.tap " +
+                                      _TEST_DIRECTORY + "temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.tap", ""),
+                         """position type    information
+  0      Headder "BASIC     " Program
+""")
+
+        # ensure append works
+        self.assertEqual(self.runtest("copy -a 0-1 " +
+                                      _TEST_DIRECTORY + "screentest.tap " +
+                                      _TEST_DIRECTORY + "temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.tap", ""),
+                         """position type    information
+  0      Headder "BASIC     " Program
+  1      Headder "SCREENTEST" Bytes 16384,6912
+  2      Data    Flag:255, block length:6912
+""")
+
+        # ensure copy to specified position works
+        self.assertEqual(self.runtest("copy -p 1 0 " +
+                                      _TEST_DIRECTORY + "arraytest_char.tap " +
+                                      _TEST_DIRECTORY + "temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.tap", ""),
+                         """position type    information
+  0      Headder "BASIC     " Program
+  1      Headder "c         " Character array S$
+  2      Headder "SCREENTEST" Bytes 16384,6912
+  3      Data    Flag:255, block length:6912
+""")
+
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.tap")
+
+    def test_delete(self):
+        self.assertEqual(self.runtest("delete 0 " + _TEST_DIRECTORY +
+                                      "basictest.tap " + _TEST_DIRECTORY +
+                                      "temp.tap", ""), "")
+
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.tap", ""),
+                         """position type    information
+  0      Data    Flag:255, block length:190
+""")
+
+        # create copy
+        with open(_TEST_DIRECTORY + "temp.tap", "wb") as f:
+            f.write(_getfileasbytes("basictest.tap"))
+        self.assertEqual(self.runtest("delete -s 0-1 " + _TEST_DIRECTORY +
+                                      "temp.tap " + _TEST_DIRECTORY +
+                                      "temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.tap", ""),
+                         """position type    information\n""")
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.tap")
+
+    def test_create(self):
+        self.assertEqual(self.runtest(
+            "create basic --filename TEST --autostart 10 " + _TEST_DIRECTORY +
+            "basictest.dat " + _TEST_DIRECTORY + "temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.tap", ""),
+                         """position type    information
+  0      Headder "TEST      " Program Line:10
+  1      Data    Flag:255, block length:190
+""")
+
+        self.assertEqual(self.runtest("create code --filename TEST --origin \
+0x8000 -a " + _TEST_DIRECTORY + "screentest.dat " + _TEST_DIRECTORY +
+                                      "temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.tap", ""),
+                         """position type    information
+  0      Headder "TEST      " Program Line:10
+  1      Data    Flag:255, block length:190
+  2      Headder "TEST      " Bytes 32768,6912
+  3      Data    Flag:255, block length:6912
+""")
+
+        self.assertEqual(self.runtest("create array --filename ARRAY \
+--arraytype string --arrayname S -i " + _TEST_DIRECTORY + "temp.tap",
+                                      "Test1\nTest2\nTest3"), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.tap", ""),
+                         """position type    information
+  0      Headder "ARRAY     " Character array S$
+  1      Data    Flag:255, block length:17
+""")
+        self.assertEqual(self.runtest("extract 1 -o " + _TEST_DIRECTORY +
+                                      "temp.tap", ""), "Test1\nTest2\nTest3")
+
+        self.assertEqual(self.runtest("create array --filename ARRAYnum \
+--arraytype n --arrayname N " + _TEST_DIRECTORY + "arraytest_number.dat " +
+                                      _TEST_DIRECTORY + "temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.tap", ""),
+                         """position type    information
+  0      Headder "ARRAYnum  " Number array N
+  1      Data    Flag:255, block length:1005
+""")
+        self.assertEqual(self.runtest("extract 1 " + _TEST_DIRECTORY +
+                                      "temp.tap " + _TEST_DIRECTORY +
+                                      "temp.bin", ""), "")
+        self.assertEqual(_getfileasbytes("temp.bin"),
+                         _getfileasbytes("arraytest_number.dat"))
+
+        self.assertEqual(self.runtest("create screen --filename SCR " +
+                                      _TEST_DIRECTORY + "screentest.dat " +
+                                      _TEST_DIRECTORY + "temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.tap", ""),
+                         """position type    information
+  0      Headder "SCR       " Bytes 16384,6912
+  1      Data    Flag:255, block length:6912
+""")
+
+        # tidy up
+        os_remove(_TEST_DIRECTORY + "temp.tap")
+        os_remove(_TEST_DIRECTORY + "temp.bin")
+
+    def checkinvalidcommand(self, command, message):
+        try:
+            spectrumtapblock._commandline(["x.py"] + command.split())
+            self.fail("No SpectrumTranslateError raised")
+        except spectrumtranslate.SpectrumTranslateError as se:
+            if(se.value == message):
+                return
+            self.fail("Wrong exception message. Got:\n{0}\nExpected:\n{1}".
+                      format(se.value, message))
+
+    def test_invalidcommands(self):
+        # incorrect command
+        self.checkinvalidcommand("hello", "No command (list, extract, delete, \
+copy, create, or help) specified as first argument.")
+        # multiple actions
+        self.checkinvalidcommand("create list",
+                                 "Can't have multiple commands.")
+        # no input file
+        self.checkinvalidcommand("list", "No input file specified.")
+        # no output file
+        self.checkinvalidcommand("list infile", "No output file specified.")
+        # invalid create command
+        self.checkinvalidcommand("create wrong", "Must specify what type of \
+file to create. Valid options are basic, code, array, screen, and block.")
+        # invalid autostart
+        self.checkinvalidcommand("create basic --autostart notnumber",
+                                 "notnumber is not a valid autostart number.")
+        # invalid variable offset
+        self.checkinvalidcommand("create basic --variableoffset notnumber",
+                                 "notnumber is not a valid variable offset.")
+        # invalid origin
+        self.checkinvalidcommand("create code --origin notnumber",
+                                 "notnumber is not a valid code origin.")
+        self.checkinvalidcommand("create code --origin 65537",
+                                 "code origin must be 0-65535 inclusive.")
+        # invalid flag
+        self.checkinvalidcommand("create block --flag notnumber",
+                                 "notnumber is not a valid flag value.")
+        self.checkinvalidcommand("create block --flag 256",
+                                 "flag value must be 0-255 inclusive.")
+        # invalid arrayname
+        self.checkinvalidcommand("create array --arrayname wrong",
+                                 "wrong is not a valid variable name.")
+        # invalid arraytype
+        self.checkinvalidcommand("create array --arraytype wrong", "wrong is \
+not a valid array type (must be character, number or string).")
+        # invalid argument to -p
+        self.checkinvalidcommand("copy -p wrong in out", "wrong is not a \
+valid index for the output file.")
+        # invalid argument to -s
+        self.checkinvalidcommand("copy -s wrong in out",
+                                 '"wrong" is invalid list of file indexes.')
+        # invalid index to extract
+        self.checkinvalidcommand("extract wrong in out", "wrong is not a \
+valid index in the input file.")
+        # no index to extract
+        self.checkinvalidcommand("extract -o -i",
+                                 "No file index specified to extract.")
+        # invalid index to copy or delete
+        self.checkinvalidcommand("copy wrong in out",
+                                 '"wrong" is invalid list of file indexes.')
+        # no index to copy or delete
+        self.checkinvalidcommand("delete -o -i",
+                                 "No file index(s) specified to delete.")
+        # unrecognised argument
+        self.checkinvalidcommand("list -o -i extra",
+                                 '"extra" is unrecognised argument.')
+        # no specified file to extract
+        self.checkinvalidcommand("extract -i -o",
+                                 "No file index specified to extract.")
+        # unspecidied file to copy or delete
+        self.checkinvalidcommand("copy -i -o",
+                                 "No file index(s) specified to copy.")
+        # create without filename
+        self.checkinvalidcommand("create basic -i -o",
+                                 "You have to specify file name to create.")
+        # create array without name or type
+        self.checkinvalidcommand("create array --filename X --arraytype s in \
+out", "You have to specify array type and name.")
+        self.checkinvalidcommand("create array --filename X --arrayname X in \
+out", "You have to specify array type and name.")
+        # invalid index to extract
+        self.checkinvalidcommand("extract 88 " + _TEST_DIRECTORY +
+                                 "screentest.tap out", "88 is greater than \
+the number of entries in the source data.")
+        # invalid index to copy
+        self.checkinvalidcommand("copy 88 " + _TEST_DIRECTORY +
+                                 "screentest.tap out", "88 is greater than \
+the number of entries in the source data.")
+
 
 if __name__ == "__main__":
     unittest.main()

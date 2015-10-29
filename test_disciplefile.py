@@ -34,7 +34,8 @@
 # profits; or business interruption) however caused and on any theory of
 # liability, whether in contract, strict liability, or tort (including
 # negligence or otherwise) arising in any way out of the use of this
-# software, even if advised of the possibility of such damage.
+# software, even if advised of the possibility of such damage.  By using
+# this software you agree to these terms.
 #
 # Author: william.fraser@virgin.net
 # Date: 14th January 2015
@@ -1072,9 +1073,11 @@ class Testcommandline(unittest.TestCase):
         except:
             pass
 
-    def test_list(self):
+    def test_help(self):
         self.assertEqual(self.runtest("", ""), disciplefile.usage())
+        self.assertEqual(self.runtest("help", ""), disciplefile.usage())
 
+    def test_list(self):
         self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
                                       "diskimagetest.img", ""),
                          """\
@@ -1293,6 +1296,19 @@ class Testcommandline(unittest.TestCase):
             _TEST_DIRECTORY + "temp.img"), 10).getfiledata(),
                         bytearray(b"Test1\nTest2\nTest3"))
 
+        self.assertEqual(self.runtest("create screen --filename SCR " +
+                                      _TEST_DIRECTORY + "screentest.dat " +
+                                      _TEST_DIRECTORY + "temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
+                                      "temp.img", ""),
+                         """\
+  pos   filename  sectors   type
+    1   TEST         1      BAS            10
+    2   TEST        14      CDE         32768,6912
+    3   SCR         14      SCREEN$
+   10   ARRAY        1      $.ARRAY
+""")
+
         # tidy up
         os_remove(_TEST_DIRECTORY + "temp.img")
 
@@ -1309,7 +1325,7 @@ class Testcommandline(unittest.TestCase):
     def test_invalidcommands(self):
         # incorrect action
         self.checkinvalidcommand("hello", "No command (list, extract, \
-delete, copy, create, or help) specified.")
+delete, copy, create, or help) specified as first argument.")
         # multiple actions
         self.checkinvalidcommand("create list",
                                  "Can't have multiple commands.")

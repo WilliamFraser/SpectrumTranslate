@@ -34,7 +34,8 @@
 # profits; or business interruption) however caused and on any theory of
 # liability, whether in contract, strict liability, or tort (including
 # negligence or otherwise) arising in any way out of the use of this
-# software, even if advised of the possibility of such damage.
+# software, even if advised of the possibility of such damage.  By using
+# this software you agree to these terms.
 #
 # Author: william.fraser@virgin.net
 # Date: 14th January 2015
@@ -43,7 +44,7 @@ import spectrumtranslate
 import sys
 from sys import hexversion as _PYTHON_VERSION_HEX
 from numbers import Integral as _INT_OR_LONG
-# codecs imported elsewhere so only used for command line
+# codecs, and os.path imported elsewhere so only used for command line
 
 
 if(_PYTHON_VERSION_HEX > 0x03000000):
@@ -79,12 +80,12 @@ def _validateandconvertfilename(filename):
     # check filename is valid
     if(isinstance(filename, list)):
         # if is list of numbers convert to list of strings
-        if(False not in [isinstance(x, _INT_OR_LONG) for x in filename]):
+        if(all(isinstance(x, _INT_OR_LONG) for x in filename)):
             filename = bytearray(filename)
 
         # if there are only strings in the list then convert list to
         # a string
-        if(False not in [isinstance(x, str) for x in filename]):
+        if(all(isinstance(x, str) for x in filename)):
             filename = "".join(filename)
 
     if(isinstance(filename, str)):
@@ -508,7 +509,7 @@ def tapblockfrombytes(data, position=0):
     data = _validateandpreparebytes(data[position:], "data")
 
     while (position < len(data)):
-        tb = gettapblockfrombytes(data, position)
+        tb = gettapblockfrombytes(data[position:], position)
         if(tb):
             # 2 bytes block length, 1 byte flag, 1 byte checksum, and
             # the rest for the block data
@@ -752,424 +753,416 @@ def _commandline(args):
         except:
             return None
 
-    try:
-        i = 0
-        mode = None
-        error = None
-        wantdetails = False
-        fromstandardinput = False
-        tostandardoutput = False
-        inputfile = None
-        outputfile = None
-        entrywanted = None
-        specifiedfiles = None
-        append = False
-        copyposition = False
-        creating = None
-        creatingfilename = None
-        creatingautostart = -1
-        creatingvariableoffset = -1
-        creatingorigin = 0
-        creatingarraytype = None
-        creatingarrayname = None
-        creatingblockflag = 0xFF
+    i = 0
+    mode = None
+    wantdetails = False
+    fromstandardinput = False
+    tostandardoutput = False
+    inputfile = None
+    outputfile = None
+    entrywanted = None
+    specifiedfiles = None
+    append = False
+    copyposition = False
+    creating = None
+    creatingfilename = None
+    creatingautostart = -1
+    creatingvariableoffset = -1
+    creatingorigin = 0
+    creatingarraytype = None
+    creatingarrayname = None
+    creatingblockflag = 0xFF
 
-        # handle no arguments
-        if(len(args) == 1):
-            mode = 'help'
+    # handle no arguments
+    if(len(args) == 1):
+        mode = 'help'
 
-        # go through arguments analysing them
-        while(i < len(args) - 1):
+    # go through arguments analysing them
+    while(i < len(args) - 1):
+        i += 1
+
+        arg = args[i]
+        if(arg == 'help' or arg == 'extract' or arg == 'list' or
+           arg == 'copy' or arg == 'delete' or arg == 'create'):
+            if(mode is not None):
+                raise spectrumtranslate.SpectrumTranslateError(
+                    "Can't have multiple commands.")
+
+            mode = arg
+            continue
+
+        if(mode is None):
+            raise spectrumtranslate.SpectrumTranslateError('No command (list, \
+extract, delete, copy, create, or help) specified as first argument.')
+
+        if(mode == 'create' and creating is None):
+            if(arg != 'basic' and arg != 'code' and arg != 'array' and
+               arg != 'screen' and arg != 'block'):
+                raise spectrumtranslate.SpectrumTranslateError('Must specify \
+what type of file to create. Valid options are basic, code, array, screen, \
+and block.')
+
+            creating = arg
+            continue
+
+        if(arg == '-filename' or arg == '--filename'):
             i += 1
+            creatingfilename = spectrumtranslate.stringtospectrum(args[i])
+            continue
 
-            arg = args[i]
-            if(arg == 'help' or arg == 'extract' or arg == 'list' or
-               arg == 'copy' or arg == 'delete' or arg == 'create'):
-                if(mode is not None):
-                    error = "Can't have multiple commands."
-                    break
-
-                mode = arg
+        if(arg == '-autostart' or arg == '--autostart'):
+            i += 1
+            try:
+                creatingautostart = getint(args[i])
                 continue
 
-            if(mode == 'create' and creating is None):
-                if(arg != 'basic' and arg != 'code' and arg != 'array' and
-                   arg != 'screen' and arg != 'block'):
-                    error = 'Must specify what type of file to create. Valid \
-options are basic, code, array, screen, and block.'
-                    break
+            except:
+                raise spectrumtranslate.SpectrumTranslateError(
+                    '{0} is not a valid autostart number.'.format(args[i]))
 
-                creating = arg
+        if(arg == '-variableoffset' or arg == '--variableoffset'):
+            i += 1
+            try:
+                creatingvariableoffset = getint(args[i])
                 continue
 
-            if(arg == '-filename' or arg == '--filename'):
-                i += 1
-                creatingfilename = spectrumtranslate.stringtospectrum(args[i])
+            except:
+                raise spectrumtranslate.SpectrumTranslateError(
+                    '{0} is not a valid variable offset.'.format(args[i]))
+
+        if(arg == '-origin' or arg == '--origin'):
+            i += 1
+            try:
+                creatingorigin = getint(args[i])
+            except:
+                raise spectrumtranslate.SpectrumTranslateError(
+                    '{0} is not a valid code origin.'.format(args[i]))
+
+            if(creatingorigin < 0 or creatingorigin > 65535):
+                raise spectrumtranslate.SpectrumTranslateError(
+                    'code origin must be 0-65535 inclusive.')
+
+            continue
+
+        if(arg == '-flag' or arg == '--flag'):
+            i += 1
+            try:
+                creatingblockflag = getint(args[i])
+            except:
+                raise spectrumtranslate.SpectrumTranslateError(
+                    '{0} is not a valid flag value.'.format(args[i]))
+
+            if(creatingblockflag < 0 or creatingblockflag > 255):
+                raise spectrumtranslate.SpectrumTranslateError(
+                    'flag value must be 0-255 inclusive.')
+
+            continue
+
+        if(arg == '-arraytype' or arg == '--arraytype'):
+            i += 1
+            if(args[i] == 'character' or args[i] == 'c'):
+                creatingarraytype = 192
                 continue
 
-            if(arg == '-autostart' or arg == '--autostart'):
-                i += 1
-                try:
-                    creatingautostart = getint(args[i])
-                    continue
-
-                except:
-                    error = '{0} is not a valid autostart number.'.format(
-                        args[i])
-                    break
-
-            if(arg == '-variableoffset' or arg == '--variableoffset'):
-                i += 1
-                try:
-                    creatingvariableoffset = getint(args[i])
-                    continue
-
-                except:
-                    error = '{0} is not a valid variable offset.'.format(
-                        args[i])
-                    break
-
-            if(arg == '-origin' or arg == '--origin'):
-                i += 1
-                try:
-                    creatingorigin = getint(args[i])
-                    if(creatingorigin < 0 or creatingorigin > 65535):
-                        error = 'code origin must be 0-65535 inclusive.'
-                        break
-
-                    continue
-
-                except:
-                    error = '{0} is not a valid code origin.'.format(args[i])
-                    break
-
-            if(arg == '-flag' or arg == '--flag'):
-                i += 1
-                try:
-                    creatingblockflag = getint(args[i])
-                    if(creatingblockflag < 0 or creatingblockflag > 255):
-                        error = 'flag value must be 0-255 inclusive.'
-                        break
-
-                    continue
-
-                except:
-                    error = '{0} is not a valid flag value.'.format(args[i])
-                    break
-
-            if(arg == '-arraytype' or arg == '--arraytype'):
-                i += 1
-                if(args[i] == 'character' or args[i] == 'c'):
-                    creatingarraytype = 192
-                    continue
-
-                elif(args[i] == 'number' or args[i] == 'n'):
-                    creatingarraytype = 128
-                    continue
-
-                elif(args[i] == 'string' or args[i] == 's'):
-                    creatingarraytype = 64
-                    continue
-
-                else:
-                    error = '{0} is not a valid array type (must be character\
-, number or string).'.format(args[i])
-                    break
-
-            if(arg == '-arrayname' or arg == '--arrayname'):
-                i += 1
-                creatingarrayname = args[i]
-                if(len(creatingarrayname) == 1 and
-                   creatingarrayname.isalpha()):
-                    continue
-
-                error = '{0} is not a valid variable name.'.format(args[i])
-                break
-
-            if(arg == '-i' or arg == '-fromstandardinput' or arg == '--i' or
-               arg == '--fromstandardinput'):
-                fromstandardinput = True
+            elif(args[i] == 'number' or args[i] == 'n'):
+                creatingarraytype = 128
                 continue
 
-            if(arg == '-o' or arg == '-tostandardoutput' or arg == '--o' or
-               arg == '--tostandardoutput'):
-                tostandardoutput = True
+            elif(args[i] == 'string' or args[i] == 's'):
+                creatingarraytype = 64
                 continue
 
-            if(arg == '-d' or arg == '-details' or arg == '--d' or
-               arg == '--details'):
-                wantdetails = True
+            else:
+                raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
+valid array type (must be character, number or string).'.format(args[i]))
+
+        if(arg == '-arrayname' or arg == '--arrayname'):
+            i += 1
+            creatingarrayname = args[i]
+            if(len(creatingarrayname) == 1 and
+               creatingarrayname.isalpha()):
                 continue
 
-            if(arg == '-s' or arg == '-specifyfiles' or
-               arg == '-specificfiles' or arg == '--s' or
-               arg == '--specifyfiles' or arg == '--specificfiles'):
-                i += 1
-                specifiedfiles = getindices(args[i])
-                if(specifiedfiles is None):
-                    error = '"' + args[i] + '" is invalid list of file indexes\
-.'
-                    break
+            raise spectrumtranslate.SpectrumTranslateError(
+                '{0} is not a valid variable name.'.format(args[i]))
 
-                continue
+        if(arg == '-i' or arg == '-fromstandardinput' or arg == '--i' or
+           arg == '--fromstandardinput'):
+            fromstandardinput = True
+            continue
 
-            if(arg == '-a' or arg == '-append' or arg == '--a' or
-               arg == '--append'):
-                append = True
-                continue
+        if(arg == '-o' or arg == '-tostandardoutput' or arg == '--o' or
+           arg == '--tostandardoutput'):
+            tostandardoutput = True
+            continue
 
-            if(arg == '-p' or arg == '-position' or arg == '-pos' or
-               arg == '--p' or arg == '--position' or arg == '--pos'):
-                i += 1
-                try:
-                    copyposition = getint(args[i])
-                    continue
+        if(arg == '-d' or arg == '-details' or arg == '--d' or
+           arg == '--details'):
+            wantdetails = True
+            continue
 
-                except:
-                    error = '{0} is not a valid index for the output file.'.\
-                        format(args[i])
-                    break
+        if(arg == '-s' or arg == '-specifyfiles' or
+           arg == '-specificfiles' or arg == '--s' or
+           arg == '--specifyfiles' or arg == '--specificfiles'):
+            i += 1
+            specifiedfiles = getindices(args[i])
+            if(specifiedfiles is None):
+                raise spectrumtranslate.SpectrumTranslateError(
+                    '"' + args[i] + '" is invalid list of file indexes.')
 
-            # have unrecognised argument.
+            continue
 
-            # check if is what entry we want to extract
-            if(mode == 'extract' and entrywanted is None):
-                try:
-                    entrywanted = getint(arg)
-                    continue
+        if(arg == '-a' or arg == '-append' or arg == '--a' or
+           arg == '--append'):
+            append = True
+            continue
 
-                except:
-                    error = '{0} is not a valid index in the input file.'.\
-                        format(arg)
-                    break
+        if(arg == '-p' or arg == '-position' or arg == '-pos' or
+           arg == '--p' or arg == '--position' or arg == '--pos'):
+            i += 1
+            try:
+                copyposition = getint(args[i])
 
-            # if it is what entries we want to copy
-            if((mode == 'copy' or mode == 'delete') and
-               specifiedfiles is None):
-                specifiedfiles = getindices(arg)
-                if(specifiedfiles is None):
-                    error = '"' + arg + '" is invalid list of file indexes.'
-                    break
+            except:
+                raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
+valid index for the output file.'.format(args[i]))
 
-                continue
+            continue
 
-            # check if is input or output file
-            # will be inputfile if not already defined, and
-            # fromstandardinput is False
-            if(inputfile is None and not fromstandardinput):
-                inputfile = arg
-                continue
+        # have unrecognised argument.
 
-            # will be outputfile if not already defined, tostandardoutput
-            # is False, and is last argument
-            if(outputfile is None and not tostandardoutput and
-               i == len(args) - 1):
-                outputfile = arg
-                continue
+        # check if is what entry we want to extract
+        if(mode == 'extract' and entrywanted is None):
+            try:
+                entrywanted = getint(arg)
 
-            error = '"{0}" is unrecognised argument.'.format(arg)
-            break
+            except:
+                raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
+valid index in the input file.'.format(arg))
 
-        if(error is None and mode is None):
-            error = 'No command (list, extract, copy, delete, create, or help)\
- specified.'
+            continue
 
-        if(error is None and inputfile is None and not fromstandardinput and
-           mode != 'help'):
-            error = 'No input file specified.'
-
-        if(error is None and outputfile is None and not tostandardoutput and
-           mode != 'help'):
-            error = 'No output file specified.'
-
-        if(error is None and (mode == 'copy' or mode == 'delete') and
+        # if it is what entries we want to copy
+        if((mode == 'copy' or mode == 'delete') and
            specifiedfiles is None):
-            error = 'No entries specified to ' + mode + '.'
+            specifiedfiles = getindices(arg)
+            if(specifiedfiles is None):
+                raise spectrumtranslate.SpectrumTranslateError(
+                    '"' + arg + '" is invalid list of file indexes.')
 
-        if(error is None and mode == 'create' and creating is None):
-            error = 'You have to specify file type to create.'
+            continue
 
-        if(error is None and mode == 'create' and creatingfilename is None and
-           creating != 'block'):
-            error = 'You have to specify file name to create.'
+        # check if is input or output file
+        # will be inputfile if not already defined, and
+        # fromstandardinput is False
+        if(inputfile is None and not fromstandardinput):
+            inputfile = arg
+            continue
 
-        if(error is None and mode == 'create' and creating == 'array' and
-           (creatingarraytype is None or creatingarrayname is None)):
-            error = 'You have to specify array type and name.'
+        # will be outputfile if not already defined, tostandardoutput
+        # is False, and is last argument
+        if(outputfile is None and not tostandardoutput and
+           i == len(args) - 1):
+            outputfile = arg
+            continue
 
-        # handle error with arguments
-        if(error is not None):
-            sys.stderr.write(error + "\n")
-            sys.stdout.write("Use 'python spectrumtapblock.py' to see full \
-list of options.\n")
-            sys.exit(2)
+        raise spectrumtranslate.SpectrumTranslateError(
+            '"{0}" is unrecognised argument.'.format(arg))
 
-        # if help is needed display it
-        if(mode == 'help'):
-            sys.stdout.write(usage())
-            return
+    if(inputfile is None and not fromstandardinput and mode != 'help'):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'No input file specified.')
 
-        # get data
-        if(not fromstandardinput):
-            with open(inputfile, 'rb') as infile:
-                data = bytearray(infile.read())
+    if(outputfile is None and not tostandardoutput and mode != 'help'):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'No output file specified.')
 
-        else:
-            data = bytearray(sys.stdin.read(), 'utf8')
+    if(specifiedfiles is None and entrywanted is None and
+       (mode == 'delete' or mode == 'copy')):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'No file index(s) specified to {0}.'.format(mode))
 
-        # now do command
-        if(mode == 'list'):
-            pos = 0
-            retdata = '' if wantdetails else 'position type    information\n'
-            for tb in tapblockfrombytes(data):
-                if(specifiedfiles is not None and pos not in specifiedfiles):
-                    pos += 1
-                    continue
+    if(mode == 'delete' or mode == 'copy'):
+        if(specifiedfiles is None):
+            specifiedfiles = [entrywanted]
 
-                if(wantdetails):
-                    if(not tb.isheadder()):
-                        retdata += "{0}\tData\t{1}\t{2}\n".format(pos, tb.flag,
-                                                                  len(tb.data))
+    if(mode == 'create' and creating is None):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'You have to specify file type to create.')
 
-                    else:
-                        filetype = tb.getfiletypestring()
-                        if(filetype == "Program"):
-                            retdata += \
-                                "{0}\tHeadder\t{1}\tProgram\t{2}\t{3}\t{4}\n".\
-                                format(
-                                 pos, tb.getfilename(),
-                                 tb.getheadderdescribeddatalength(),
-                                 0 if tb.getheadderautostartline() < 0 else
-                                 tb.getheadderautostartline(),
-                                 tb.getheaddervariableoffset())
-                        elif(filetype == "Bytes"):
-                            retdata += "{0}\tHeadder\t{1}\tBytes\t{2}\t{3}\n".\
-                                format(
-                                 pos, tb.getfilename(),
-                                 tb.getheaddercodestart(),
-                                 tb.getheadderdescribeddatalength())
-                        elif(filetype == "Number array" or
-                             filetype == "Character array"):
-                            retdata += \
-                              "{0}\tHeadder\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\n".\
-                              format(pos, tb.getfilename(), filetype,
-                                     tb.getheadderdescribeddatalength(),
-                                     tb.getheaddervariableletter(),
-                                     tb.getheaddervariablename(),
-                                     tb.getheadderarraydescriptor() & 192)
-                        else:
-                            retdata += \
-                                "{0}\tHeadder\t{1}\tUnknown\t{2}\t{3}\n".\
-                                format(pos, tb.getfilename(),
-                                       tb.data[0],
-                                       tb.getheadderdescribeddatalength())
+    if(mode == 'create' and creatingfilename is None and creating != 'block'):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'You have to specify file name to create.')
+
+    if(mode == 'create' and creating == 'array' and
+       (creatingarraytype is None or creatingarrayname is None)):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'You have to specify array type and name.')
+
+    if(entrywanted is None and mode == 'extract'):
+        raise spectrumtranslate.SpectrumTranslateError(
+            'No file index specified to extract.')
+
+    # if help is needed display it
+    if(mode == 'help'):
+        sys.stdout.write(usage())
+        return
+
+    # get data
+    if(not fromstandardinput):
+        with open(inputfile, 'rb') as infile:
+            data = bytearray(infile.read())
+
+    else:
+        data = bytearray(sys.stdin.read(), 'utf8')
+
+    # now do command
+    if(mode == 'list'):
+        pos = 0
+        retdata = '' if wantdetails else 'position type    information\n'
+        for tb in tapblockfrombytes(data):
+            if(specifiedfiles is not None and pos not in specifiedfiles):
+                pos += 1
+                continue
+
+            if(wantdetails):
+                if(not tb.isheadder()):
+                    retdata += "{0}\tData\t{1}\t{2}\n".format(pos, tb.flag,
+                                                              len(tb.data))
 
                 else:
-                    retdata += "{0:3}      {1} {2}\n".format(
-                        pos, "Headder" if tb.isheadder() else "Data   ",
-                        tb.getfiledetailsstring() if tb.isheadder() else
-                        str(tb))
+                    filetype = tb.getfiletypestring()
+                    if(filetype == "Program"):
+                        retdata += \
+                            "{0}\tHeadder\t{1}\tProgram\t{2}\t{3}\t{4}\n".\
+                            format(
+                             pos, tb.getfilename(),
+                             tb.getheadderdescribeddatalength(),
+                             0 if tb.getheadderautostartline() < 0 else
+                             tb.getheadderautostartline(),
+                             tb.getheaddervariableoffset())
+                    elif(filetype == "Bytes"):
+                        retdata += "{0}\tHeadder\t{1}\tBytes\t{2}\t{3}\n".\
+                            format(
+                             pos, tb.getfilename(),
+                             tb.getheaddercodestart(),
+                             tb.getheadderdescribeddatalength())
+                    elif(filetype == "Number array" or
+                         filetype == "Character array"):
+                        retdata += \
+                          "{0}\tHeadder\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\n".\
+                          format(pos, tb.getfilename(), filetype,
+                                 tb.getheadderdescribeddatalength(),
+                                 tb.getheaddervariableletter(),
+                                 tb.getheaddervariablename(),
+                                 tb.getheadderarraydescriptor() & 192)
+                    else:
+                        retdata += \
+                            "{0}\tHeadder\t{1}\tUnknown\t{2}\t{3}\n".\
+                            format(pos, tb.getfilename(),
+                                   tb.data[0],
+                                   tb.getheadderdescribeddatalength())
 
-                pos += 1
+            else:
+                retdata += "{0:3}      {1} {2}\n".format(
+                    pos, "Headder" if tb.isheadder() else "Data   ",
+                    tb.getfiledetailsstring() if tb.isheadder() else
+                    str(tb))
 
-            retdata = bytearray(retdata, "utf8")
+            pos += 1
 
-        if(mode == 'extract'):
-            tbs = [tb for tb in tapblockfrombytes(data)]
-            if(entrywanted > len(tbs)):
-                sys.stderr.write(str(entrywanted) + " is greater than the \
-number of entries in the source data.\n")
-                sys.stdout.write("Use 'python spectrumtapblock.py' to see full\
- list of options.\n")
-                sys.exit(2)
+        retdata = bytearray(retdata, "utf8")
 
-            retdata = tbs[entrywanted].data
+    if(mode == 'extract'):
+        tbs = [tb for tb in tapblockfrombytes(data)]
+        if(entrywanted > len(tbs)):
+            raise spectrumtranslate.SpectrumTranslateError(
+                str(entrywanted) + " is greater than the number of entries in \
+the source data.")
 
-        if(mode == 'copy'):
-            tbs = [tb for tb in tapblockfrombytes(data)]
-            retdata = ''
-            for x in specifiedfiles:
-                if(x > len(tbs)):
-                    sys.stderr.write(str(x) + " is greater than the number of \
-entries in the source data.\n")
-                    sys.stdout.write("Use 'python spectrumtapblock.py' to see\
- full list of options.\n")
-                    sys.exit(2)
+        retdata = tbs[entrywanted].data
 
+    if(mode == 'copy'):
+        tbs = [tb for tb in tapblockfrombytes(data)]
+        retdata = bytearray()
+        for x in specifiedfiles:
+            if(x > len(tbs)):
+                raise spectrumtranslate.SpectrumTranslateError(
+                    str(x) + " is greater than the number of entries in the \
+source data.")
+
+            retdata += tbs[x].getpackagedforfile()
+
+    if(mode == 'delete'):
+        tbs = [tb for tb in tapblockfrombytes(data)]
+        retdata = bytearray()
+        for x in range(len(tbs)):
+            if(x not in specifiedfiles):
                 retdata += tbs[x].getpackagedforfile()
 
-        if(mode == 'delete'):
-            tbs = [tb for tb in tapblockfrombytes(data)]
-            retdata = ''
-            for x in range(len(tbs)):
-                if(x not in specifiedfiles):
-                    retdata += tbs[x].getpackagedforfile()
+    if(mode == 'create'):
+        retdata = bytearray()
 
-        if(mode == 'create'):
-            retdata = ''
+        if(creating == 'basic'):
+            if(creatingvariableoffset == -1):
+                # work out position of variables
+                creatingvariableoffset = spectrumtranslate.\
+                    getvariableoffset(data)
 
-            if(creating == 'basic'):
-                if(creatingvariableoffset == -1):
-                    # work out position of variables
-                    creatingvariableoffset = spectrumtranslate.\
-                        getvariableoffset(data)
+            retdata = createbasicheadder(creatingfilename,
+                                         creatingvariableoffset, len(data),
+                                         creatingautostart
+                                         ).getpackagedforfile()
 
-                retdata = createbasicheadder(creatingfilename,
-                                             creatingvariableoffset, len(data),
-                                             creatingautostart
-                                             ).getpackagedforfile()
+        elif(creating == 'code'):
+            retdata = createcodeheadder(creatingfilename, creatingorigin,
+                                        len(data)).getpackagedforfile()
 
-            elif(creating == 'code'):
-                retdata = createcodeheadder(creatingfilename,
-                                            creatingorigin, len(data)
-                                            ).getpackagedforfile()
+        elif(creating == 'array'):
+            retdata = createarrayheadder(creatingfilename,
+                                         creatingarraytype + (ord(
+                                           creatingarrayname) & 0x3F),
+                                         len(data)).getpackagedforfile()
 
-            elif(creating == 'array'):
-                retdata = createarrayheadder(creatingfilename,
-                                             creatingarraytype + (ord(
-                                               creatingarrayname) & 0x3F),
-                                             len(data)).getpackagedforfile()
+        elif(creating == 'screen'):
+            retdata = createscreenheadder(
+                creatingfilename).getpackagedforfile()
 
-            elif(creating == 'screen'):
-                retdata = createscreenheadder(
-                    creatingfilename).getpackagedforfile()
+        retdata += createdatablock(data,
+                                   flag=creatingblockflag if
+                                   creating == 'block' else 0xFF
+                                   ).getpackagedforfile()
 
-            retdata += createdatablock(data,
-                                       flag=creatingblockflag if
-                                       creating == 'block' else 0xFF
-                                       ).getpackagedforfile()
+    # handle copy or create inserting at position
+    if(copyposition and (mode == 'create' or mode == 'copy')):
+        import os.path
+        if(not tostandardoutput and os.path.isfile(outputfile)):
+            # get tapblocks (if any in destination file)
+            with open(outputfile, 'rb') as infile:
+                destinationtbs = [tb for tb in tapblockfrombytes(
+                    infile.read())]
 
-        # handle copy or create inserting at position
-        if(copyposition and (mode == 'create' or mode == 'copy')):
-            import os.path
-            if(not tostandardoutput and os.path.isfile(outputfile)):
-                # get tapblocks (if any in destination file)
-                with open(outputfile, 'rb') as infile:
-                    destinationtbs = [tb for tb in tapblockfrombytes(
-                        infile.read())]
-
-                if(copyposition < len(destinationtbs)):
-                    retdata = "".join(
+            if(copyposition < len(destinationtbs)):
+                retdata = bytearray().join(
+                    [tb.getpackagedforfile() for tb in destinationtbs[
+                        :copyposition]]) + retdata + bytearray().join(
                         [tb.getpackagedforfile() for tb in destinationtbs[
-                            :copyposition]]) + retdata + "".join(
-                            [tb.getpackagedforfile() for tb in destinationtbs[
-                                copyposition:]])
+                            copyposition:]])
 
-                else:
-                    retdata = destinationtbs + retdata
+            else:
+                retdata = bytearray().join([tb.getpackagedforfile() for tb in
+                                            destinationtbs]) + retdata
 
-        # output data
-        if(not tostandardoutput):
-            fo = open(outputfile, "ab" if mode == 'copy' and append else "wb")
-            fo.write(retdata)
-            fo.close()
+    # output data
+    if(not tostandardoutput):
+        fo = open(outputfile, "ab" if (mode == 'copy' or mode == 'create') and
+                  append else "wb")
+        fo.write(retdata)
+        fo.close()
 
-        else:
-            sys.stdout.write(retdata.decode("utf8"))
+    else:
+        sys.stdout.write(retdata.decode("utf8"))
 
-    # catch and handle expected exceptions nicely
-    except spectrumtranslate.SpectrumTranslateError as se:
-        sys.stderr.write(se.value + "\n")
 
 if __name__ == "__main__":
     if(_PYTHON_VERSION_HEX < 0x03000000):
@@ -1178,4 +1171,10 @@ if __name__ == "__main__":
         sys.stdout = getwriter('utf8')(sys.stdout)
         sys.stderr = getwriter('utf8')(sys.stderr)
 
-    _commandline(sys.argv)
+    try:
+        _commandline(sys.argv)
+    except spectrumtranslate.SpectrumTranslateError as se:
+        sys.stderr.write(se.value + "\n")
+        sys.stdout.write(
+            "Use 'python spectrumtranslate.py' to see full list of options.\n")
+        sys.exit(2)

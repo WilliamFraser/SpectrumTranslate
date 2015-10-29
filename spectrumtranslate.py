@@ -34,7 +34,8 @@
 # profits; or business interruption) however caused and on any theory of
 # liability, whether in contract, strict liability, or tort (including
 # negligence or otherwise) arising in any way out of the use of this
-# software, even if advised of the possibility of such damage.
+# software, even if advised of the possibility of such damage.  By using
+# this software you agree to these terms.
 #
 # Author: william.fraser@virgin.net
 # Date: 14th January 2015
@@ -52,14 +53,17 @@ if(sys.hexversion > 0x03000000):
     def _u(x):
         return x
 
-    def _validateandpreparebytes(x):
+    def _validateandpreparebytes(x, m):
         if(isinstance(x, (bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
            all(isinstance(val, int) for val in x))):
             return bytearray(x)
 
-        raise spectrumtranslate.SpectrumTranslateError("data needs to be a \
-list or tuple of ints, or of type 'bytes' or 'bytearray'")
+        if(isinstance(x, str)):
+            return bytearray(x, 'latin-1')
+
+        raise SpectrumTranslateError("{0} needs to be a list or tuple of \
+ints, or of type 'bytes' or 'bytearray'".format(m))
 
 else:
     # 2to3 will complain but this code is python 2 & 3 compatible
@@ -69,7 +73,7 @@ else:
     def _u(x):
         return _UED(x)[0]
 
-    def _validateandpreparebytes(x):
+    def _validateandpreparebytes(x, m):
         # function to convert any valid source to a list of ints and
         # except if not
         if(isinstance(x, (str, bytes, bytearray)) or
@@ -77,9 +81,8 @@ else:
            all(isinstance(val, _INT_OR_LONG) for val in x))):
             return bytearray(x)
 
-        raise spectrumtranslate.SpectrumTranslateError("data needs to be a \
-byte string, or a list or tuple of ints or longs, or of type 'bytes' or \
-'bytearray'")
+        raise SpectrumTranslateError("{0} needs to be a byte string, or a \
+list or tuple of ints or longs, or of type 'bytes' or 'bytearray'".format(m))
 
 
 # tables of all the opcodes
@@ -1025,7 +1028,7 @@ def getvariableoffset(data):
     """
 
     # validate and convert data from string to bytearray if needed
-    data = _validateandpreparebytes(data)
+    data = _validateandpreparebytes(data, "data")
 
     # work out position of variables
     offset = 0
@@ -1044,29 +1047,35 @@ def getvariableoffset(data):
     return offset
 
 
-def basictotext(data, iAutostart=-1, ivariableOffset=-1):
-    """This function returns a string representation of the list or byte
-    string supplied of a basic program.  Due to the way program data was
-    stored, it is possible that non-printable characters were in the
-    line.  In this case these characters are represented by ^ followed
-    by a 2 digit hexadecimal representation of the character. Also
-    floating point numbers are stored after the visible digits.
-    Sometimes for space reasons or to hide the true numbers, these did
-    not match up.  If The true floating point representation of a number
-    differs from the visible one, then the true value is displayed in
-    brackets after the visible number.
+def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
+    """This function returns a string representation of the list of
+    numbers, bytes or bytearray object supplied of a basic program.  Due
+    to the way program data was stored, it is possible that non-
+    printable characters were in the line.  In this case these
+    characters are represented by ^ followed by a 2 digit hexadecimal
+    representation of the character. Also floating point numbers are
+    stored after the visible digits.  Sometimes for space reasons or to
+    hide the true numbers, these did not match up.  If The true floating
+    point representation of a number differs from the visible one, then
+    the true value is displayed in brackets after the visible number.
 
-    data is list of numbers, or byte string in python 2, or of type
-    bytes or bytearray of the data of the program.  The program is
-    assumed to begin at he start of the array to the end of the array.
+    data is list of numbers, or of type bytes or bytearray of the data
+    of the program.  The program is assumed to begin at the start of the
+    array to the end of the array.
     iAutostart is the line number where the program auto starts (less
     than 0 or >9999 if no autostart).  ivariableOffset is the offset
     from the start of the array to where variables are stored.  If not
     specified then this will be worked out.
+
+    hexfornonascii sets if you want the character returned as it would
+    in a spectrum (ie "COPY " for 255, copyright symbol for 127, or
+    blocks for character 129) by setting this to False (the default),
+    or to return any non-ascii character as ^ followed by a 2 digit
+    hexadecimal number.
     """
 
     # validate and convert data from string to bytearray if needed
-    data = _validateandpreparebytes(data)
+    data = _validateandpreparebytes(data, "data")
 
     # if no variable offset supplied then work out where
     if(ivariableOffset == -1):
@@ -1111,7 +1120,7 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
             # if we're in a REM statement display characters.  ignore
             # last character as should be new line character
             if(bPostREM and l < iLineLen - 1):
-                text += getspectrumchar(k)
+                text += getspectrumchar(k, hexfornonascii)
                 l += 1
                 continue
 
@@ -1226,7 +1235,7 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
 
             # printable characters
             if(k > 31 and k < 128):
-                text += getspectrumchar(k)
+                text += getspectrumchar(k, hexfornonascii)
 
             # check for commands
             if(k > 162):
@@ -1260,7 +1269,7 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
         # get indicator of type of variable
         k = (data[i] >> 5) & 0x7
 
-        VarName = getspectrumchar((data[i] & 0x1F) + 0x60)
+        VarName = getspectrumchar((data[i] & 0x1F) + 0x60, hexfornonascii)
 
         # number who's name is one letter only
         if(k == 3):
@@ -1276,7 +1285,7 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
             i += 1
 
             while(True):
-                text += getspectrumchar(data[i] & 0x7F)
+                text += getspectrumchar(data[i] & 0x7F, hexfornonascii)
                 if(data[i] > 127):
                     break
 
@@ -1297,7 +1306,7 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
             for x in range(data[i + 2]):
                 text += "[{0}]".format(data[i+3+x+x] + 256 * data[i+4+x+x])
 
-            text += "=" + arraytotext(data[i+2:], 128) + "\n"
+            text += "=" + arraytotext(data[i+2:], 128, hexfornonascii) + "\n"
             i += 2 + data[i] + 256 * data[i+1]
 
         # for next loop control
@@ -1318,7 +1327,8 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
         elif(k == 2):
             strlen = data[i+1] + 256 * data[i+2]
             text += '{0}$="{1}"\n'.format(
-                VarName, getspectrumstring(data[i+3:i+3+strlen]))
+                VarName, getspectrumstring(data[i+3:i+3+strlen],
+                                           hexfornonascii))
             i += strlen + 3
 
         # array of characters
@@ -1330,7 +1340,7 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
             for x in range(data[i+2]):
                 text += "[{0}]".format(data[i+3+x*2] + 256 * data[i+4+x*2])
 
-            text += "=" + arraytotext(data[i+2:], 192) + "\n"
+            text += "=" + arraytotext(data[i+2:], 192, hexfornonascii) + "\n"
             i += 2 + data[i] + 256 * data[i+1]
 
         else:
@@ -1339,29 +1349,35 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1):
     return text
 
 
-def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
+def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
     """This function returns an XML representation as a string of the
-    list or byte string supplied of a basic program.  Due to the way
-    program data was stored, it is possible that non-printable
-    characters were in the line.  In this case these characters are
-    represented by ^ followed by a 2 digit hexadecimal representation of
-    the character.  Also floating point numbers are stored after the
-    visible digits.  Sometimes for space reasons or to hide the true
-    numbers, these did not match up.  If The true floating point
-    representation of a number differs from the visible one, then the
-    true value is also listed.
+    list or bytes or bytearray object supplied of a basic program.  Due
+    to the way program data was stored, it is possible that non-
+    printable characters were in the line.  In this case these
+    characters are represented by ^ followed by a 2 digit hexadecimal
+    representation of the character.  Also floating point numbers are
+    stored after the visible digits.  Sometimes for space reasons or to
+    hide the true numbers, these did not match up.  If The true floating
+    point representation of a number differs from the visible one, then
+    the true value is also listed.
 
-    data is list of numbers, or byte string in python 2, or of type
-    bytes or bytearray of the data of the program.  The program is
-    assumed to begin at he start of the array to the end of the array.
+    data is list of numbers, or of type bytes or bytearray of the data
+    of the program.  The program is assumed to begin at he start of the
+    array to the end of the array.
     iAutostart is the line number where the program auto starts (less
     than 0 or >9999 if no autostart).  ivariableOffset is the offset
     from the start of the array to where variables are stored.  If not
     specified then this will be worked out.
+
+    hexfornonascii sets if you want the character returned as it would
+    in a spectrum (ie "COPY " for 255, copyright symbol for 127, or
+    blocks for character 129) by setting this to False (the default),
+    or to return any non-ascii character as ^ followed by a 2 digit
+    hexadecimal number.
     """
 
     # validate and convert data from string to bytearray if needed
-    data = _validateandpreparebytes(data)
+    data = _validateandpreparebytes(data, "data")
 
     # if no variable offset supplied then work out where
     if(ivariableOffset == -1):
@@ -1413,7 +1429,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
             # if we're in a REM statement display characters.  ignore
             # last character as should be new line character
             if(bPostREM and l < iLineLen - 1):
-                text += getspectrumchar(k)
+                text += getspectrumchar(k, hexfornonascii)
                 l += 1
                 continue
 
@@ -1559,7 +1575,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
 
             # printable characters not handled elsewhere
             if(k > 31 and k < 128 and k != ord(':')):
-                text += getspectrumchar(k)
+                text += getspectrumchar(k, hexfornonascii)
 
             # check for commands
             if(k > 162):
@@ -1598,7 +1614,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
             # get indicator of type of variable
             k = (data[i] >> 5) & 0x7
 
-            VarName = getspectrumchar((data[i] & 0x1F) + 0x60)
+            VarName = getspectrumchar((data[i] & 0x1F) + 0x60, hexfornonascii)
 
             # number who's name is one letter only
             if(k == 3):
@@ -1616,7 +1632,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
                 i += 1
 
                 while(True):
-                    text += getspectrumchar(data[i] & 0x7F)
+                    text += getspectrumchar(data[i] & 0x7F, hexfornonascii)
                     if(data[i] > 127):
                         break
 
@@ -1637,7 +1653,8 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
                 i += 1
 
                 text += '\n'.join(['        ' + x for x in arraytoxml(
-                                       data[i+2:], 128).splitlines()])
+                                       data[i+2:], 128,
+                                       hexfornonascii).splitlines()])
                 text += '\n      </value>\n    </variable>\n'
                 i += 2 + data[i] + 256*data[i+1]
 
@@ -1670,7 +1687,8 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
                 text += '$</name>\n      <type>string</type>\n'
                 strlen = data[i+1] + 256*data[i+2]
                 text += "      <value>" + getspectrumstring(
-                    data[i+3:i+3+strlen]) + "</value>\n    </variable>\n"
+                    data[i+3:i+3+strlen], hexfornonascii) + \
+                    "</value>\n    </variable>\n"
                 i += strlen + 3
 
             # array of characters
@@ -1680,8 +1698,8 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
                 i += 1
 
                 text += '\n'.join(['        ' + x for x in
-                                   arraytoxml(
-                                       data[i+2:], 192).splitlines()])
+                                   arraytoxml(data[i+2:], 192,
+                                              hexfornonascii).splitlines()])
                 text += '\n      </value>\n    </variable>\n'
                 i += 2 + data[i] + 256*data[i+1]
 
@@ -1699,22 +1717,21 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1):
 def getarraydepth(data, descriptor):
     """This function works out how many dimensions there are in a
     spectrum file array.  data is the spectrum file array data as a list
-    or tuple of ints or longs (or a byte tring in python 2, or of type
-    'bytes' or 'bytearray' in python 3.  descriptor is the file
-    descriptor for the file array.  The lower 6 bits specify the array
-    name (a single character).  The top 2 specify the array type.  You
-    don't have to single out these bits as this function will only
-    consider bits 6 and 7.  The top 2 bits are 128 for a number array,
-    192 for a character array, and 64 for a string array.
-    Returns the number of dimensions in the array, or -1 if not a
-    recognised format.
+    or tuple of ints or longs, or a byte string in python 2, or of type
+    'bytes' or 'bytearray'.  descriptor is the file descriptor for the
+    file array.  The lower 6 bits specify the array name (a single
+    character).  The top 2 specify the array type.  You don't have to
+    single out these bits as this function will only consider bits 6 and
+    7.  The top 2 bits are 128 for a number array, 192 for a character
+    array, and 64 for a string array.  Returns the number of dimensions
+    in the array, or -1 if not a recognised format.
 
     NB strings are an array of characters and thus array such as
     String[] would have depth of 2: array of array of characters.
     """
 
     # validate and convert data from string to bytearray if needed
-    data = _validateandpreparebytes(data)
+    data = _validateandpreparebytes(data, "data")
 
     # number array or character array
     if((descriptor & 192) == 128 or (descriptor & 192) == 192):
@@ -1731,15 +1748,15 @@ def getarraydepth(data, descriptor):
 def extractarray(data, descriptor):
     """This function extracts a spectrum array (number, character, or
     string) from data.  data must be a list or tuple of ints or longs,
-    or a byte string in python 2, or a bytes or bytearray object in
-    python 3.  Note that the data returned if it's string is in
-    raw sepectum bytes, and that it may need to be output through a
-    function to code escape characters and commands (function such as
-    getspectrumstring).  Also numbers are extracted into lists of
-    SpectrumNumber objects.
+    or a byte string in python 2, or a bytes or bytearray object.
+    Note that the data returned if it's string is in raw spectum bytes,
+    and that it may need to be output through a function to code escape
+    characters and commands (function such as getspectrumstring).  Also
+    numbers are extracted into lists of SpectrumNumber objects.
 
-    data is the spectrum file array data supplied as a byte string or
-    list.
+    data is the spectrum file array data supplied as a list or tuple of
+    ints or longs, or a byte string in python 2, or a bytes or bytearray
+    object.
     descriptor is the file descriptor for the file array.
         The lower 6 bits specify the array name (a single character).
         The top 2 specify the array type.
@@ -1775,7 +1792,7 @@ def extractarray(data, descriptor):
                 range(dims[0])]
 
     # validate and convert data from string to bytearray if needed
-    data = _validateandpreparebytes(data)
+    data = _validateandpreparebytes(data, "data")
 
     # number array or character array
     if(descriptor & 128 == 128):
@@ -1794,13 +1811,14 @@ def extractarray(data, descriptor):
     return None
 
 
-def arraytotext(data, descriptor):
+def arraytotext(data, descriptor, hexfornonascii=False):
     """This function converts a spectrum array (number, character, or
     string) to text.  The elements returned are seperated by commas, and
     the individual dimensions are seperated by curly brackets.
 
-    data must be a list or tuple of ints or longs, or a byte string in
-    python 2, or a bytes or bytearray object in python 3.
+    data is the spectrum file array data supplied as a list or tuple of
+    ints or longs, or a byte string in python 2, or a bytes or bytearray
+    object.
     descriptor is the file descriptor for the file array.
         The lower 6 bits specify the array name (a single character).
         The top 2 specify the array type.
@@ -1808,6 +1826,12 @@ def arraytotext(data, descriptor):
         only consider bits 6 and 7.  The
         top 2 bits are 128 for a number array, 192 for a character
         array, and 64 for a string array.
+
+    hexfornonascii sets if you want the character returned as it would
+    in a spectrum (ie "COPY " for 255, copyright symbol for 127, or
+    blocks for character 129) by setting this to False (the default),
+    or to return any non-ascii character as ^ followed by a 2 digit
+    hexadecimal number.
     """
 
     # return array including subarrays with bounding braces, and
@@ -1823,16 +1847,15 @@ def arraytotext(data, descriptor):
             # or a string
             else:
                 return indent + '"' + ('",\n' + indent + '"').join(
-                    [getspectrumstring(s) for s in data]) + '"'
+                    [getspectrumstring(s, hexfornonascii) for s in data]) + '"'
 
         # otherwise we need to return a sub-array
         return indent + '{\n' + ('\n' + indent + '},\n' + indent + '{\n').join(
             [getSubArray(sub, isnumber, indent + "  ") for sub in data]
             ) + '\n' + indent + '}'
 
-    # convert data from string to list of numbers if needed
-    if(isinstance(data, str)):
-        data = [ord(x) for x in data]
+    # validate and convert data from string to bytearray if needed
+    data = _validateandpreparebytes(data, "data")
 
     # number array or character array
     if(descriptor & 128 == 128):
@@ -1841,18 +1864,19 @@ def arraytotext(data, descriptor):
 
     # string
     if(descriptor & 192 == 64):
-        return getspectrumstring(data)
+        return getspectrumstring(data, hexfornonascii)
 
     return None
 
 
-def arraytoxml(data, descriptor):
+def arraytoxml(data, descriptor, hexfornonascii=False):
     """
     This function converts a spectrum array (number, character, or
     string) to XML.
 
-    data must be a list or tuple of ints or longs, or a byte string in
-    python 2, or a bytes or bytearray object in python 3.
+    data is the spectrum file array data supplied as a list or tuple of
+    ints or longs, or a byte string in python 2, or a bytes or bytearray
+    object.
     descriptor is the file descriptor for the file array.
         The lower 6 bits specify the array name (a single character).
         The top 2 specify the array type.
@@ -1860,6 +1884,12 @@ def arraytoxml(data, descriptor):
         only consider bits 6 and 7.  The
         top 2 bits are 128 for a number array, 192 for a character
         array, and 64 for a string array.
+
+    hexfornonascii sets if you want the character returned as it would
+    in a spectrum (ie "COPY " for 255, copyright symbol for 127, or
+    blocks for character 129) by setting this to False (the default),
+    or to return any non-ascii character as ^ followed by a 2 digit
+    hexadecimal number.
     """
 
     # return array including subarrays with bounding braces, and
@@ -1878,7 +1908,9 @@ def arraytoxml(data, descriptor):
             else:
                 return indent + '<string>' + (
                     '</string>\n' + indent + '<string>').join(
-                        [getspectrumstring(s) for s in data]) + '</string>'
+                        [getspectrumstring(s,
+                                           hexfornonascii) for s in data]) + \
+                    '</string>'
 
         # otherwise we need to return a sub-array
         return indent + '<dimension>\n{0}\n{1}</dimension>'.format(
@@ -1886,18 +1918,19 @@ def arraytoxml(data, descriptor):
                 [getSubArray(sub, isnumber, indent + "  ") for sub in data]),
             indent)
 
-    # convert data from string to list of numbers if needed
-    if(isinstance(data, str)):
-        data = [ord(x) for x in data]
+    # validate and convert data from string to bytearray if needed
+    data = _validateandpreparebytes(data, "data")
 
     # number array or character array
     if(descriptor & 128 == 128):
-        return '<dimension>\n{0}\n</dimension>'.format(getSubArray(
-            extractarray(data, descriptor), (descriptor & 192 == 128), "  "))
+        return '<dimension>\n' + getSubArray(extractarray(data, descriptor),
+                                             (descriptor & 192 == 128),
+                                             "  ") + '\n</dimension>'
 
     # string
     if(descriptor & 192 == 64):
-        return '<string>' + getspectrumstring(data) + '</string>'
+        return '<string>' + getspectrumstring(data, hexfornonascii) + \
+               '</string>'
 
     return None
 
@@ -1918,7 +1951,7 @@ def _sn_to_string(data, message=-1):
         return message
 
 
-def getspectrumchar(c):
+def getspectrumchar(c, hexfornonascii=False):
     """This function converts the 8 bit integer value of a spectrum
     character to a string representation of the spectrum character.  The
     lower part is mostly in line with ASCII standard with a couple of
@@ -1933,6 +1966,12 @@ def getspectrumchar(c):
     This function will return the spectrum character of the character,
     the command, or the value in 2 digit hexadecimal preceded by a '^'.
 
+    hexfornonascii sets if you want the character returned as it would
+    in a spectrum (ie "COPY " for 255, copyright symbol for 127, or
+    blocks for character 129) by setting this to False (the default),
+    or to return any non-ascii character as ^ followed by a 2 digit
+    hexadecimal number.
+
     Returns the Spectrum string representation of the int supplied
     """
 
@@ -1941,18 +1980,18 @@ def getspectrumchar(c):
         c = ord(c[0]) & 0xFF
 
     if(c == 127):
-        return _u("\u00A9")
+        return "^7F" if hexfornonascii else _u("\u00A9")
     if(c == 96):
-        return _u("\u00A3")
+        return "^60" if hexfornonascii else _u("\u00A3")
     if(c == 94):
-        return _u("\u2191")
-    if(c >= 128 and c <= 143):
+        return "^5E" if hexfornonascii else _u("\u2191")
+    if(c >= 128 and c <= 143 and not hexfornonascii):
         return (_u('\u2003'), _u('\u259D'), _u('\u2598'), _u('\u2580'),
                 _u('\u2597'), _u('\u2590'), _u('\u259A'), _u('\u259C'),
                 _u('\u2596'), _u('\u259E'), _u('\u258C'), _u('\u259B'),
                 _u('\u2584'), _u('\u259F'), _u('\u2599'), _u('\u2588')
                 )[c-128]
-    if(c >= 163):
+    if(c >= 163 and not hexfornonascii):
         return SPECTRUM_COMMANDS[c-163] + ' '
     if(c < 32 or c > 127):
         return '^{0:02X}'.format(c)
@@ -1960,7 +1999,7 @@ def getspectrumchar(c):
     return chr(c)
 
 
-def getspectrumstring(s):
+def getspectrumstring(s, hexfornonascii=False):
     """This function converts a byte sting of 8 bit integer values to a
     string representation of the spectrum character.  The lower part is
     mostly in line with ASCII standard with a couple of exceptions:
@@ -1975,13 +2014,19 @@ def getspectrumstring(s):
     digit hexadecimal preceded by a '^'.  From 128 to 143 inclusive are
     block characters.
 
+    hexfornonascii sets if you want the character returned as it would
+    in a spectrum (ie "COPY " for 255, copyright symbol for 127, or
+    blocks for character 129) by setting this to False (the default),
+    or to return any non-ascii character as ^ followed by a 2 digit
+    hexadecimal number.
+
     Returns the Spectrum string representation of the bytes supplied
     """
 
     if(isinstance(s, list)):
         s = [chr(x) for x in s]
 
-    return ''.join([getspectrumchar(c) for c in s])
+    return ''.join([getspectrumchar(c, hexfornonascii) for c in s])
 
 
 def chartospectrum(c):
@@ -2085,6 +2130,14 @@ _ZXCOLOURTORGB = (0x000000, 0x0000CD, 0xCD0000, 0xCD00CD,
                   0x00CD00, 0x00CDCD, 0xCDCD00, 0xCDCDCD,
                   0x000000, 0x0000FF, 0xFF0000, 0xFF00FF,
                   0x00FF00, 0x00FFFF, 0xFFFF00, 0xFFFFFF)
+_ZXCOLOURTORGBLIST = ([0x00, 0x00, 0x00], [0x00, 0x00, 0xCD],
+                      [0xCD, 0x00, 0x00], [0xCD, 0x00, 0xCD],
+                      [0x00, 0xCD, 0x00], [0x00, 0xCD, 0xCD],
+                      [0xCD, 0xCD, 0x00], [0xCD, 0xCD, 0xCD],
+                      [0x00, 0x00, 0x00], [0x00, 0x00, 0xFF],
+                      [0xFF, 0x00, 0x00], [0xFF, 0x00, 0xFF],
+                      [0x00, 0xFF, 0x00], [0x00, 0xFF, 0xFF],
+                      [0xFF, 0xFF, 0x00], [0xFF, 0xFF, 0xFF])
 
 
 def getgiffromscreen(data, delay=320):
@@ -2100,19 +2153,21 @@ def getgiffromscreen(data, delay=320):
     being used then it returns a normal static GIF image.
 
     data must be a list or tuple of ints or longs, or a byte string in
-    python 2, or a bytes or bytearray object in python 3.
+    python 2, or a bytes or bytearray object.
 
     delay is the delay between flashing images in milliseconds if the
     image has flashing colours.  If you don't want a flashing image then
     pass -1 for delay and the function will return a static GIF image of
-    the screen effectively with all flash attributes turned off.
+    the screen effectively with all flash attributes turned off.  If you
+    want a static image with the flash attributes in the flashing state,
+    pass -2 to this argument.
 
-    This returns a byte string which holds the screen image in GIF
-    format.  It will be static or 2 frame animated depending on whether
-    there are flashing colours and if you want them.  You can simply
-    save the byte array to a file for it to be used as a GIF image, or
-    pass it on to other functions.  It returns None if the function
-    encounters any problems.
+    This returns a bytearray which holds the screen image in GIF format.
+    It will be static or 2 frame animated depending on whether there are
+    flashing colours and if you want them.  You can simply save the byte
+    array to a file for it to be used as a GIF image, or pass it on to
+    other functions.  It returns None if the function encounters any
+    problems.
     """
 
     class _gif_encoder_stream():
@@ -2137,7 +2192,7 @@ def getgiffromscreen(data, delay=320):
             self.PutByte(4)     # data block size
             self.PutByte(0)     # no transparency
             # delay in 1/100 of seconds
-            self.PutWord(0 if (delay == -1) else delay//10)
+            self.PutWord(0 if (delay == -1 or delay == -2) else delay//10)
             self.PutByte(0)     # transparent color index
             self.PutByte(0)     # block terminator
 
@@ -2163,7 +2218,7 @@ def getgiffromscreen(data, delay=320):
 
             # output compressed image
             # add 1 to code size to accomodate control codes
-            self.compress(not bFirst, 5)
+            self.compress(not bFirst or delay == -2, 5)
 
             # write block terminator
             self.PutByte(0)
@@ -2359,7 +2414,7 @@ def getgiffromscreen(data, delay=320):
         return None
 
     # validate and convert data from string to bytearray if needed
-    data = _validateandpreparebytes(data)
+    data = _validateandpreparebytes(data, "data")
 
     # is there a flash atribute in the screen
     bFlash = False
@@ -2393,8 +2448,8 @@ def getgiffromscreen(data, delay=320):
         ges.PutByte((_ZXCOLOURTORGB[i] >> 8) & 0XFF)
         ges.PutByte(_ZXCOLOURTORGB[i] & 0XFF)
 
-    # put delay if have flash & want image (delay != -1)
-    if(bFlash and delay != -1):
+    # put delay if have flash & want flashing image (delay != -1 and -2)
+    if(bFlash and delay > 0):
         ges.PutByte(0x21)  # extension introducer
         ges.PutByte(0xff)  # app extension label
         ges.PutByte(11)    # block size
@@ -2413,17 +2468,14 @@ def getgiffromscreen(data, delay=320):
     # gif trailer
     ges.PutByte(0x3b)
 
-    if(sys.hexversion > 0x03000000):
-        return bytes(ges.out)
-
-    return b''.join([chr(c) for c in ges.out])
+    return bytearray(ges.out)
 
 
-def getrgbfromscreen(data, alphamask=0xFF):
+def getrgbfromscreen(data, alphamask=0xFF, imageformat=0):
     """This function extracts an Image from spectrum screen format data.
 
     data must be a list or tuple of ints or longs, or a byte string in
-    python 2, or a bytes or bytearray object in python 3.
+    python 2, or a bytes or bytearray object.
 
     This returns a 2 element list.  Because of flashing colours in the
     spectrum, there are efectively 2 images: one for each of the 2
@@ -2432,17 +2484,37 @@ def getrgbfromscreen(data, alphamask=0xFF):
     returned list is None, otherwise it is the image with the flashing
     colours inverted.
 
-    The returned images are in ARGB format ints (bits 24-31 are alpha,
-    bits 16-23 are red, 8-15 are green, and 0-7 are Blue), and are an
-    array for each pixel starting at x=0,y=0, then x=1,y=0, x=2,y=0 etc.
-    The images are 256 pixels wide, and 192 pixels high, so any pixel
-    can be extracted with by useing image[x+y*256].
+    The images are 256 pixels wide, and 192 pixels high, starting at
+    the top left so any pixel can be extracted with by useing
+    image[x+y*256].
 
     The alphamask variable sets what you want the alpha component to be.
+    It should be a number from 0 to 255.  Set it to be -1 if you don't
+    want an alpha component.
+
+    imageformat specifies what format you want the image to be output
+    as.  0 for a list of ARGB integers (bits 24-31 are alpha if wanted,
+    bits 16-23 are red, 8-15 are green, and 0-7 are Blue), or 1 for a
+    list of lists containing [Red, Green, Blue, Alpha] (or [Red, Green,
+    Blue] if alpha isn't wanted).
     """
 
+    # validate inputs
+    if(imageformat < 0 or imageformat > 1):
+        raise SpectrumTranslateError("Invalid imageformat.")
+
+    if(alphamask < -1 or alphamask > 255):
+        raise SpectrumTranslateError("Invalid alphamask.")
+
     # validate and convert data from string to bytearray if needed
-    data = _validateandpreparebytes(data)
+    data = _validateandpreparebytes(data, "data")
+
+    if(imageformat == 0):
+        alpha = 0 if alphamask == -1 else alphamask << 24
+        colourtransform = _ZXCOLOURTORGB
+    else:
+        alpha = [] if alphamask == -1 else [alphamask]
+        colourtransform = _ZXCOLOURTORGBLIST
 
     # calculate number of images needed: is there a flash flag set in
     # the colour area?
@@ -2464,18 +2536,18 @@ def getrgbfromscreen(data, alphamask=0xFF):
         for x in range(0, 256, 8):
             # work out foreground & backgrounc colour
             i = data[c]
-            fg = _ZXCOLOURTORGB[(i & 7) + ((i >> 3) & 8)] + (alphamask << 24)
-            bg = _ZXCOLOURTORGB[(i >> 3) & 15] + (alphamask << 24)
+            fg = colourtransform[(i & 7) + ((i >> 3) & 8)] + alpha
+            bg = colourtransform[(i >> 3) & 15] + alpha
             # get pixel data for 8 pixel row
             i = data[p]
-            image1.append(bg if (i & 128) == 0 else fg)
-            image1.append(bg if (i & 64) == 0 else fg)
-            image1.append(bg if (i & 32) == 0 else fg)
-            image1.append(bg if (i & 16) == 0 else fg)
-            image1.append(bg if (i & 8) == 0 else fg)
-            image1.append(bg if (i & 4) == 0 else fg)
-            image1.append(bg if (i & 2) == 0 else fg)
-            image1.append(bg if (i & 1) == 0 else fg)
+            image1 += [bg if (i & 128) == 0 else fg,
+                       bg if (i & 64) == 0 else fg,
+                       bg if (i & 32) == 0 else fg,
+                       bg if (i & 16) == 0 else fg,
+                       bg if (i & 8) == 0 else fg,
+                       bg if (i & 4) == 0 else fg,
+                       bg if (i & 2) == 0 else fg,
+                       bg if (i & 1) == 0 else fg]
             c += 1
             p += 1
 
@@ -2490,23 +2562,22 @@ def getrgbfromscreen(data, alphamask=0xFF):
             for x in range(0, 256, 8):
                 # work out foreground & backgrounc colour
                 i = data[c]
-                fg = _ZXCOLOURTORGB[(i & 7) + ((i >> 3) & 8)] + (alphamask <<
-                                                                 24)
-                bg = _ZXCOLOURTORGB[(i >> 3) & 15] + (alphamask << 24)
+                fg = colourtransform[(i & 7) + ((i >> 3) & 8)] + alpha
+                bg = colourtransform[(i >> 3) & 15] + alpha
                 if(i >= 128):
                     # swap foreground & background as flashing
                     fg, bg = bg, fg
 
                 # get pixel data for 8 pixel row
                 i = data[p]
-                image2.append(bg if (i & 128) == 0 else fg)
-                image2.append(bg if (i & 64) == 0 else fg)
-                image2.append(bg if (i & 32) == 0 else fg)
-                image2.append(bg if (i & 16) == 0 else fg)
-                image2.append(bg if (i & 8) == 0 else fg)
-                image2.append(bg if (i & 4) == 0 else fg)
-                image2.append(bg if (i & 2) == 0 else fg)
-                image2.append(bg if (i & 1) == 0 else fg)
+                image2 += [bg if (i & 128) == 0 else fg,
+                           bg if (i & 64) == 0 else fg,
+                           bg if (i & 32) == 0 else fg,
+                           bg if (i & 16) == 0 else fg,
+                           bg if (i & 8) == 0 else fg,
+                           bg if (i & 4) == 0 else fg,
+                           bg if (i & 2) == 0 else fg,
+                           bg if (i & 1) == 0 else fg]
                 c += 1
                 p += 1
 
@@ -2534,7 +2605,7 @@ def snaptosna(data, register, border=0):
     border is the border colour.
 
     data must be a list or tuple of ints or longs, or a byte string in
-    python 2, or a bytes or bytearray object in python 3.
+    python 2, or a bytes or bytearray object.
     """
 
     # first check have valid data
@@ -2543,7 +2614,7 @@ def snaptosna(data, register, border=0):
         raise SpectrumTranslateError("Wrong size memory")
 
     # validate and convert data to bytearray if needed
-    data = _validateandpreparebytes(data)
+    data = _validateandpreparebytes(data, "data")
 
     # output common headder registers
     out = [register["I"] & 0xFF,
@@ -2613,13 +2684,7 @@ def snaptosna(data, register, border=0):
         # otherwise output RAM bank
         out += data[i * 16384:(i + 1) * 16384]
 
-    # prepare data for output
-    if(sys.hexversion > 0x03000000):
-        out = bytes(out)
-    else:
-        out = ''.join([chr(x) for x in out])
-
-    return out
+    return bytearray(out)
 
 
 def snaptoz80(data, register, version=3, compressed=True, border=0):
@@ -2627,7 +2692,7 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
     format byte string that can be saved.
 
     data must be a list or tuple of ints or longs, or a byte string in
-    python 2, or a bytes or bytearray object in python 3.
+    python 2, or a bytes or bytearray object.
 
     Register is a dictionary of the various registers.  A,F,BC,DE,HL,I,
     R,IX,IY,SP,PC,A',F',BC',DE',HL',IFF2 (the interupt state), and IM
@@ -2780,13 +2845,7 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
                 out += [0xFF, 0xFF, page + 3] + \
                        data[page*0x4000:page*0x4000 + 0x3FFF]
 
-    # prepare data for output
-    if(sys.hexversion > 0x03000000):
-        out = bytes(out)
-    else:
-        out = ''.join([chr(x) for x in out])
-
-    return out
+    return bytearray(out)
 
 
 def disassemble(data, offset, origin, length, SpecialInstructions=None,
@@ -2796,7 +2855,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     output.
 
     data must be a list or tuple of ints or longs, or a byte string in
-    python 2, or a bytes or bytearray object in python 3.
+    python 2, or a bytes or bytearray object.
     offset is how far into the array to start disassembling.
     origin is the address of the first byte in the byte array.
     length is how many bytes to disassemble
@@ -2900,7 +2959,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     currentAddress = origin + offset
 
     # validate and convert data to bytearray if needed
-    data = _validateandpreparebytes(data)
+    data = _validateandpreparebytes(data, "data")
 
     # get list of line numbers that are being referenced
     ReferencedLineNumbers = [currentAddress]
@@ -2926,6 +2985,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     ShowFlags = 0            # 0=no, 1=yes
     MarkUndocumenedCommand = 0  # 0=no, 1=yes
     XMLOutput = 0            # 0=no, 1=yes
+    HexForNonASCII = 0       # 0=no, 1=yes
     Comment = ""
 
     # Work out how much there is to process for progress callback
@@ -3012,6 +3072,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     ShowFlags = 0
                     MarkUndocumenedCommand = 0
                     XMLOutput = 0
+                    HexForNonASCII = 0
                     continue
 
                 elif(di.instruction & 0xFF00 == 0x0700):
@@ -3034,6 +3095,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     MarkUndocumenedCommand = settingstemp[
                         "MarkUndocumenedCommand"]
                     XMLOutput = settingstemp["XMLOutput"]
+                    HexForNonASCII = settingstemp["HexForNonASCII"]
                     continue
 
                 elif(di.instruction & 0xFF00 == 0x0800):
@@ -3096,6 +3158,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     XMLOutput = di.instruction & 0x01
                     continue
 
+                elif(di.instruction & 0xFF00 == 0x1300):
+                    # HexForNonASCII mode
+                    HexForNonASCII = di.instruction & 0x01
+                    continue
+
             # check if end after end of code, in which case truncate it
             if(di.end >= origin + len(data)):
                 di.end = origin + len(data)-1
@@ -3140,7 +3207,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                             "ADDRESSOUTPUT": AddressOutput,
                             "NUMBEROUTPUT": NumberOutput,
                             "COMMANDOUTPUT": CommandOutput,
-                            "XMLOutput": XMLOutput}
+                            "XMLOutput": XMLOutput,
+                            "HexForNonASCII": HexForNonASCII}
 
                 # if we're looking to add comments add variable to hold
                 # the new comments
@@ -3245,7 +3313,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                                  TreatDataNumbersAsLineReferences,
                                  DisplayCommandBytes, DisplayComments,
                                  Seperator, ShowFlags, MarkUndocumenedCommand,
-                                 XMLOutput)
+                                 XMLOutput, HexForNonASCII)
     Format = [DisassembleInstruction(DisassembleInstruction.DISASSEMBLE_CODES[
         "Custom Format"], 0, 65536, s)]
     CurrentFormatEnd = 65536  # end after
@@ -3296,6 +3364,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             ShowFlags = settingstemp["ShowFlags"]
             MarkUndocumenedCommand = settingstemp["MarkUndocumenedCommand"]
             XMLOutput = settingstemp["XMLOutput"]
+            HexForNonASCII = settingstemp["HexForNonASCII"]
 
             CurrentFormatEnd = diTemp.end
             continue
@@ -3316,7 +3385,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                         "ADDRESSOUTPUT": AddressOutput,
                         "NUMBEROUTPUT": NumberOutput,
                         "COMMANDOUTPUT": CommandOutput,
-                        "XMLOutput": XMLOutput}
+                        "XMLOutput": XMLOutput,
+                        "HexForNonASCII": HexForNonASCII}
             di.end, txt = di.disassembledatablock(
                 Settings, data,
                 ReferencedLineNumbers if (
@@ -3356,7 +3426,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                                          TreatDataNumbersAsLineReferences,
                                          DisplayCommandBytes, DisplayComments,
                                          Seperator, ShowFlags,
-                                         MarkUndocumenedCommand, XMLOutput)
+                                         MarkUndocumenedCommand, XMLOutput,
+                                         HexForNonASCII)
             Format += [DisassembleInstruction(
                 DisassembleInstruction.DISASSEMBLE_CODES["Custom Format"],
                 currentAddress, CurrentFormatEnd, s)]
@@ -3399,6 +3470,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 ShowFlags = 0
                 MarkUndocumenedCommand = 0
                 XMLOutput = 0
+                HexForNonASCII = 0
 
             elif(di.instruction & 0xFF00 == 0x0700):
                 # CustomFormat
@@ -3419,6 +3491,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 ShowFlags = settingstemp["ShowFlags"]
                 MarkUndocumenedCommand = settingstemp["MarkUndocumenedCommand"]
                 XMLOutput = settingstemp["XMLOutput"]
+                HexForNonASCII = settingstemp["HexForNonASCII"]
 
             elif(di.instruction & 0xFF00 == 0x0800):
                 # LineNumberOutput
@@ -3467,6 +3540,10 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             elif(di.instruction & 0xFF00 == 0x1200):
                 # XML mode
                 XMLOutput = di.instruction & 0x01
+
+            elif(di.instruction & 0xFF00 == 0x1300):
+                # HexForNonASCII mode
+                HexForNonASCII = di.instruction & 0x01
 
             CurrentFormatEnd = di.end
 
@@ -4031,6 +4108,8 @@ class DisassembleInstruction:
         "Reference Line": 0x1100,
         "XML Output Off": 0x1200,
         "XML Output On": 0x1201,
+        "Hex instead of non-ASCII Off": 0x1300,
+        "Hex instead of non-ASCII On": 0x1301,
         "Data Block": 0x010000,
         "Pattern Data Block": 0x020000,
         "Comment": 0x030000,
@@ -5044,7 +5123,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
         new DisassembleInstruction
         """
 
-        if(self.data is None):
+        if(self.data is None or self.data == ''):
             return "{0.instruction:X}#{0.start:X}#{0.end:X}#".format(self)
 
         return "{0.instruction:X}#{0.start:X}#{0.end:X}#{1}#{2}".format(
@@ -5427,7 +5506,7 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
 
         # deal with non-control characters first
         if(s[0] != '%'):
-            soutput += getspectrumchar(s[0])
+            soutput += getspectrumchar(s[0], Settings["HexForNonASCII"])
             continue
 
         # space after % will get missed by _getnextcharacters so handle
@@ -5648,7 +5727,7 @@ digit hexadecimal number")
                     "invalid character output argument")
 
             # output character
-            soutput += getspectrumchar(k)
+            soutput += getspectrumchar(k, Settings["HexForNonASCII"])
 
         elif(s[0] == 'G'):  # output 5 byte floating point number
             # get info
@@ -6144,7 +6223,8 @@ def get_custom_format_string(AddressOutput, NumberOutput, CommandOutput,
                              ListEveryXLines, BreakAfterData,
                              TreatDataNumbersAsLineReferences,
                              DisplayCommandBytes, DisplayComments, Seperator,
-                             ShowFlags, MarkUndocumenedCommand, XMLOutput):
+                             ShowFlags, MarkUndocumenedCommand, XMLOutput,
+                             HexForNonASCII):
     """This function converts the various format settings into a String
     that can be used as an argument for the CustomFormat instruction in
     a DisassembleInstruction.  You can pass the apropriate format
@@ -6160,7 +6240,8 @@ def get_custom_format_string(AddressOutput, NumberOutput, CommandOutput,
     "List Command Bytes *" for DisplayCommandBytes, "Comments *" for
     DisplayComments, "Seperators *" for Seperator, "Display Flags *" for
     ShowFlags, "Mark Undocumented Command *" for MarkUndocumenedCommand,
-    and "XML Output *" for XMLOutput.
+    "XML Output *" for XMLOutput, and "Hex instead of non-ASCII *" for
+    HexForNonASCII.
 
     AddressOutput is the format of the address at the begining of the
     line.
@@ -6187,6 +6268,8 @@ def get_custom_format_string(AddressOutput, NumberOutput, CommandOutput,
     ShowFlags is whether flags are displayed or not.
     MarkUndocumenedCommand is if undocumented commands are noted.
     XMLOutput is if outputting as XML or not.
+    HexForNonASCII is if outputing non-ascii characters as codes or
+    unicode characters.
 
     Returns a string version of the settings as a hexadecimal number
     usable with a CustomFormat instruction.
@@ -6196,7 +6279,7 @@ def get_custom_format_string(AddressOutput, NumberOutput, CommandOutput,
     # 6&7=tstates, 8&9=line after jump, A&B=linenumbers,
     # C-13=lineeveryX, 14=emptylineafterdata, 15=referencedatanumbers,
     # 16=listcommandbytes, 17=comments, 18=ShowFlags,
-    # 19=MarkUndocumenedCommand, 1A=XMLOutput
+    # 19=MarkUndocumenedCommand, 1A=XMLOutput, 1B=HexForNonASCII
 
     i = (AddressOutput & 3) + ((NumberOutput & 3) << 2)
     i += ((CommandOutput & 3) << 4) + ((OutputTStates & 3) << 6)
@@ -6205,7 +6288,7 @@ def get_custom_format_string(AddressOutput, NumberOutput, CommandOutput,
     i += ((TreatDataNumbersAsLineReferences & 1) << 0x15)
     i += ((DisplayCommandBytes & 1) << 0x16) + ((DisplayComments & 1) << 0x17)
     i += ((ShowFlags & 1) << 0x18) + ((MarkUndocumenedCommand & 1) << 0x19)
-    i += ((XMLOutput & 1) << 0x1A)
+    i += ((XMLOutput & 1) << 0x1A) + ((HexForNonASCII & 1) << 0x1B)
 
     if(isinstance(Seperator, str)):
         sep = Seperator
@@ -6265,6 +6348,7 @@ def get_custom_format_values(data, bWantInstructionCode=False):
     "ShowFlags" - Whether to show flags.
     "MarkUndocumenedCommand" - Whether to mark undocumented commands.
     "XMLOutput" - are we outputing in XML?
+    "HexForNonASCII" - are we outputting codes for non-ascii characters.
     """
 
     i = int(data[0:7], 16)
@@ -6284,6 +6368,7 @@ def get_custom_format_values(data, bWantInstructionCode=False):
         "ShowFlags": (i >> 0x18) & 0x01,
         "MarkUndocumenedCommand": (i >> 0x19) & 0x01,
         "XMLOutput": (i >> 0x1A) & 0x01,
+        "HexForNonASCII": (i >> 0x1B) & 0x01,
         "Seperator": data[7:]
         }
 
@@ -6317,6 +6402,8 @@ def get_custom_format_values(data, bWantInstructionCode=False):
                 "Mark Undocumented Command Off"]
         ret["XMLOutput"] |= DisassembleInstruction.DISASSEMBLE_CODES[
             "XML Output Off"]
+        ret["HexForNonASCII"] |= DisassembleInstruction.DISASSEMBLE_CODES[
+            "Hex instead of non-ASCII Off"]
 
     return ret
 
@@ -6478,7 +6565,8 @@ def instructiontexttostring(instructiontext):
                 "ADDRESSOUTPUT": 0,
                 "NUMBEROUTPUT": 0,
                 "COMMANDOUTPUT": 0,
-                "XMLOutput": 0}
+                "XMLOutput": 0,
+                "HexForNonASCII": 0}
     Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x4000, 0, 0, 0x4000, 0x4001]
 
     flag, text = _processcommandblock(instructiontext, Vars, Settings, None,
@@ -6579,6 +6667,12 @@ don't apply to the selected translation mode.
 -x specifies that the user wants the output as XML rather than plain text.
    This can be used for basic, code, and array translation modes.
 --xml same as -x.
+-a specifies that you want the output to have any non-standard ascii
+   characters output as a '^' followed by it's 2 digit hexadecimal value
+   rather than a non-ascii character (like the copyright symbol, and the
+   graphical symbols.  This can be used for the basic, text, and array
+   conversion modes.
+--ascii same as -a.
 
 basic flags:
 -s specifies the auto start line (where a program is run from when loaded)
@@ -6605,8 +6699,9 @@ screen flags:
    animated) as opposed to a RGB file.
 --gif same as -g.
 -f Specifies the number of milliseconds between the two images in a gif
-   image of a screen with flashing colours.  Set this to -1 if you want a
-   non-flashing image.  If not supplied the default is 320.
+   image of a screen with flashing colours.  If not supplied the default
+   is 320.  Set this to -1 if you want a non-flashing image, and -2 if
+   you want a non-flashing image with any parts in their flash state.
 --flashrate same as -f.
 
 code flags:
@@ -6652,7 +6747,6 @@ def _commandline(args):
     # analyse args
     i = 0
     mode = None
-    error = None
     xml = False
     start = -1
     varoff = -1
@@ -6669,6 +6763,7 @@ def _commandline(args):
     multilinein = False
     multilineout = False
     wantinstructionname = False
+    hexfornonascii = False
 
     def getint(x):
         return int(x, 16 if x.lower().startswith("0x") else 10)
@@ -6686,8 +6781,8 @@ def _commandline(args):
            arg == 'screen' or arg == 'code' or arg == 'instruction' or
            arg == 'help'):
             if(mode is not None):
-                error = "Can't have multiple formats to convert into."
-                break
+                raise SpectrumTranslateError(
+                    "Can't have multiple formats to convert into.")
 
             mode = arg
             continue
@@ -6702,8 +6797,8 @@ def _commandline(args):
                 start = getint(args[i])
                 continue
             except:
-                error = "Missing or invalid autostart line number."
-                break
+                raise SpectrumTranslateError(
+                    "Missing or invalid autostart line number.")
 
         if(arg == '-v' or arg == '-variableoffset' or arg == '--v' or
            arg == '--variableoffset'):
@@ -6712,8 +6807,8 @@ def _commandline(args):
                 varoff = getint(args[i])
                 continue
             except:
-                error = "Missing or invalid offset to variables."
-                break
+                raise SpectrumTranslateError(
+                    "Missing or invalid offset to variables.")
 
         if(arg == '-t' or arg == '-type' or arg == '--t' or arg == '--type'):
             try:
@@ -6734,14 +6829,14 @@ def _commandline(args):
                     # am only interested in bits 6 and 7.
                     # Only invalid if they are both 0
                     if(descriptor & 192 == 0):
-                        error = "Invalid array description. Must have integer \
-with bits 6 and 7 as 64, 128, or 192, or be number, character, or string."
-                        break
+                        raise SpectrumTranslateError("Invalid array \
+description. Must have integer with bits 6 and 7 as 64, 128, or 192, or be \
+number, character, or string.")
 
                 continue
             except:
-                error = "Missing or invalid array description."
-                break
+                raise SpectrumTranslateError(
+                    "Missing or invalid array description.")
 
         if(arg == '-d' or arg == '-dimensions' or arg == '--d' or
            arg == '--dimensions'):
@@ -6769,8 +6864,8 @@ with bits 6 and 7 as 64, 128, or 192, or be number, character, or string."
                 flashrate = getint(args[i])
                 continue
             except:
-                error = "Missing or invalid image flash rate."
-                break
+                raise SpectrumTranslateError(
+                    "Missing or invalid image flash rate.")
 
         if(arg == '-g' or arg == '-gif' or arg == '--g' or arg == '--gif'):
             imageFormat = "GIF"
@@ -6783,17 +6878,16 @@ with bits 6 and 7 as 64, 128, or 192, or be number, character, or string."
                 baseaddress = getint(args[i])
                 continue
             except:
-                error = "Missing or invalid base code address."
-                break
+                raise SpectrumTranslateError(
+                    "Missing or invalid base code address.")
 
         if(arg == '-c' or arg == '-commands' or arg == '--c' or
            arg == '--commands'):
             try:
                 i += 1
                 if(args[i] != 'f' and args[i] != 's' and args[i] != 'si'):
-                    error = "Missing or invalid input source descriptor for \
-special instructions."
-                    break
+                    raise SpectrumTranslateError("Missing or invalid input \
+source descriptor for special instructions.")
 
                 commandsource = 'f' if args[i] == 'f' else 's'
 
@@ -6803,8 +6897,8 @@ special instructions."
 
                 continue
             except:
-                error = "Missing or invalid base code address."
-                break
+                raise SpectrumTranslateError(
+                    "Missing or invalid base code address.")
 
         if(arg == '-m' or arg == '-multiline' or arg == '--m' or
            arg == '--multiline'):
@@ -6827,6 +6921,10 @@ special instructions."
             wantinstructionname = True
             continue
 
+        if(arg == '-a' or arg == '-ascii' or arg == '--a' or arg == '--ascii'):
+            hexfornonascii = True
+            continue
+
         # have unrecognised argument.
         # check if is input or output file
         # will be inputfile if not already defined, and
@@ -6841,34 +6939,28 @@ special instructions."
             outputfile = arg
             continue
 
-        error = '"{0}" is unrecognised argument.'.format(arg)
-        break
+        raise SpectrumTranslateError(
+            '"{0}" is unrecognised argument.'.format(arg))
 
     # finished processing arguments now.
     # Check we've got what we need
-    if(error is None and mode is None):
-        error = 'No translateing mode (basic, code, screen, array, text, or \
-instruction) specified.'
+    if(mode is None):
+        raise SpectrumTranslateError('No translateing mode (basic, code, \
+screen, array, text, or instruction) specified.')
 
-    if(error is None and inputfile is None and not fromstandardinput and
-       mode != 'help'):
-        error = 'No input file specified.'
+    if(inputfile is None and not fromstandardinput and mode != 'help'):
+        raise SpectrumTranslateError('No input file specified.')
 
-    if(error is None and outputfile is None and not tostandardoutput and
-       mode != 'help'):
-        error = 'No output file specified.'
+    if(outputfile is None and not tostandardoutput and mode != 'help'):
+        raise SpectrumTranslateError('No output file specified.')
 
-    # handle error with arguments
-    if(error is not None):
-        sys.stderr.write(error + "\n")
-        sys.stdout.write("Use 'python spectrumtranslate.py' to see full list \
-of options.\n")
-        sys.exit(2)
+    if(mode == 'array' and descriptor is None):
+        raise SpectrumTranslateError("Missing array type.")
 
     # if help is needed display it
     if(mode == 'help'):
-        sys.stdout.write(usage() + "\n")
-        sys.exit(0)
+        sys.stdout.write(usage())
+        return
 
     # get special instructions if needed
     specialInstructions = None
@@ -6876,15 +6968,13 @@ of options.\n")
         if(commandsource == 'f'):
             # get instructions from file
             try:
-                fo = open(commandsourcefile, "rb")
+                fo = open(commandsourcefile, "r")
                 specialInstructions = [DisassembleInstruction(
                     line.rstrip('\n')) for line in fo]
                 fo.close()
             except:
-                sys.stderr.write(
-                    'Failed to read instructions from "{0}".\n'.format(
-                        commandsourcefile))
-                sys.exit(2)
+                raise SpectrumTranslateError('Failed to read instructions \
+from "{0}".\n'.format(commandsourcefile))
 
         else:
             try:
@@ -6910,9 +7000,8 @@ of options.\n")
                                 line.rstrip('\n'))]
 
             except:
-                sys.stderr.write('Failed to read instructions from standard \
-input.\n')
-                sys.exit(2)
+                raise SpectrumTranslateError('Failed to read instructions \
+from standard input.\n')
 
     # get data
     if(not fromstandardinput):
@@ -6923,139 +7012,145 @@ input.\n')
         data = sys.stdin.read()
 
     # now translate the data
-    try:
-        if(mode == 'basic'):
-            if(xml):
-                retdata = basictoxml(data, start, varoff)
+    if(mode == 'basic'):
+        if(xml):
+            retdata = basictoxml(data, start, varoff, hexfornonascii)
+
+        else:
+            retdata = basictotext(data, start, varoff, hexfornonascii)
+
+    elif(mode == 'text'):
+        retdata = getspectrumstring(data, hexfornonascii)
+
+    elif(mode == 'array'):
+        if(wantarraydimensions):
+            retdata = str(getarraydepth(data, descriptor))
+
+        elif(xml):
+            retdata = arraytoxml(data, descriptor, hexfornonascii)
+
+        else:
+            retdata = arraytotext(data, descriptor, hexfornonascii)
+
+    elif(mode == 'screen'):
+        if(imageFormat == "GIF"):
+            retdata = getgiffromscreen(data, flashrate)
+
+        else:
+            rgbdata = getrgbfromscreen(data)
+            iwanted = 1 if flashrate == -2 and rgbdata[1] is not None else 0
+            retdata = rgbdata[iwanted]
+            # is RGB format ints (bits 16-23 are red, 8-15 are green,
+            # and 0-7 are Blue) expand list out so each component gets
+            # one byte each
+            retdata = "".join(
+                [chr((x >> i) & 0xFF) for x in retdata for i in (16, 8, 0)])
+        if(sys.hexversion > 0x03000000):
+            if(type(retdata) is not bytearray):
+                retdata = bytearray(retdata.encode('latin-1'))
+        else:
+            retdata = bytearray(retdata)
+
+    elif(mode == 'code'):
+        if(xml):
+            if(specialInstructions is None):
+                specialInstructions = [DisassembleInstruction("XML Output On")]
 
             else:
-                retdata = basictotext(data, start, varoff)
+                specialInstructions = [DisassembleInstruction(
+                    "XML Output On")] + specialInstructions
 
-        elif(mode == 'text'):
-            retdata = getspectrumstring(data)
+        retdata = disassemble(data, 0, baseaddress, len(data),
+                              specialInstructions)
 
-        elif(mode == 'array'):
-            if(wantarraydimensions):
-                retdata = str(getarraydepth(data, descriptor))
+    if(mode == 'instruction'):
+        # get instructions
+        if(not multilinein):
+            # instructions in non-multiline can be on multiple lines
+            di = [DisassembleInstruction(line) for line in data.splitlines()]
 
-            elif(xml):
-                retdata = arraytoxml(data, descriptor)
+        else:
+            lines = data.splitlines()
 
-            else:
-                retdata = arraytotext(data, descriptor)
-
-        elif(mode == 'screen'):
-            if(imageFormat == "GIF"):
-                retdata = getgiffromscreen(data, flashrate)
-
-            else:
-                retdata = getrgbfromscreen(data)
-                # is RGB format ints (bits 16-23 are red, 8-15 are
-                # green, and 0-7 are Blue) expand list out so each
-                # component gets one byte each
-                retdata = [(x >> i) & 0xFF for x in retdata for i in (16, 8,
-                                                                      0)]
-
-        elif(mode == 'code'):
-            if(xml):
-                if(specialInstructions is None):
-                    specialInstructions = [DisassembleInstruction(
-                        "XML Output On")]
-
-                else:
-                    specialInstructions = [DisassembleInstruction(
-                        "XML Output On")] + specialInstructions
-
-            retdata = disassemble(data, 0, baseaddress, len(data),
-                                  specialInstructions)
-
-        if(mode == 'instruction'):
-            # get instructions
-            if(not multilinein):
-                # instructions in non-multiline can be on multiple lines
-                di = [DisassembleInstruction(line) for line in
-                      data.splitlines()]
+            # if argument is string for instruction type then get
+            # code
+            if(lines[0] in DisassembleInstruction.DISASSEMBLE_CODES):
+                di = DisassembleInstruction(lines[0])
 
             else:
-                lines = data.splitlines()
+                di = DisassembleInstruction(getint(lines[0]))
 
-                # if argument is string for instruction type then get
-                # code
-                if(lines[0] in DisassembleInstruction.DISASSEMBLE_CODES):
-                    di = DisassembleInstruction(lines[0])
+            di.start = getint(lines[1])
+            di.end = getint(lines[2])
+            lines = '\n'.join(lines[3:])
+            if(lines in list(
+               DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES.keys())):
+                di.data = DisassembleInstruction.\
+                              DISASSEMBLE_DATABLOCK_CODES[lines]
 
-                else:
-                    di = DisassembleInstruction(getint(lines[0]))
-
-                di.start = getint(lines[1])
-                di.end = getint(lines[2])
-                lines = '\n'.join(lines[3:])
-                if(lines in list(
-                   DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES.keys())):
-                    di.data = DisassembleInstruction.\
-                                  DISASSEMBLE_DATABLOCK_CODES[lines]
-
-                elif(lines in
-                     list(DisassembleInstruction.
-                          DISASSEMBLE_PATTERNBLOCK_CODES.keys())):
-                    di.data = DisassembleInstruction.\
-                                  DISASSEMBLE_PATTERNBLOCK_CODES[lines]
-
-                else:
-                    di.data = None if lines == '' else lines
-
-                di = [di]
-
-            # now prepare them for output
-            if(not multilineout):
-                retdata = '\n'.join([str(x) for x in di])
+            elif(lines in
+                 list(DisassembleInstruction.
+                      DISASSEMBLE_PATTERNBLOCK_CODES.keys())):
+                di.data = DisassembleInstruction.\
+                              DISASSEMBLE_PATTERNBLOCK_CODES[lines]
 
             else:
-                if(wantinstructionname):
-                    def nameornumber(c):
-                        if(get_disassemblecodename_from_value(c) is None):
-                            return "{0:X}".format(c)
+                di.data = None if lines == '' else lines
 
-                        return get_disassemblecodename_from_value(c)
+            di = [di]
 
-                    def nameorcode(c):
-                        if(get_disassembleblockname_from_value(c) is None):
-                            return c
+        # now prepare them for output
+        if(not multilineout):
+            retdata = '\n'.join([str(x) for x in di])
 
-                        return get_disassembleblockname_from_value(c)
+        else:
+            if(wantinstructionname):
+                def nameornumber(c):
+                    if(get_disassemblecodename_from_value(c) is None):
+                        return "{0:X}".format(c)
 
-                    retdata = '\n'.join(
-                        "{0}\n{1.start:X\n{1.end:X}\n{2}".format(
-                            nameornumber(x.instruction), x,
-                            '' if x.data is None else nameorcode(x.data)
-                            )
-                        for x in di)
+                    return get_disassemblecodename_from_value(c)
 
-                else:
-                    retdata = '\n'.join(
-                      "{0.instruction:X}\n{0.start:X}\n{0.end:X}\n{1}".format(
-                        x, '' if x.data is None else x.data) for x in di)
+                def nameorcode(c):
+                    if(get_disassembleblockname_from_value(c) is None):
+                        return c
 
-    # handle any exceptions while translating
-    except SpectrumTranslateError as ste:
-        sys.stderr.write(ste.value + "\n")
-        sys.exit(1)
+                    return get_disassembleblockname_from_value(c)
 
-    # prepare data for output
-    if(sys.hexversion > 0x03000000):
-        retdata = bytes(retdata)
-    else:
-        retdata = ''.join([chr(x) for x in retdata])
+                retdata = '\n'.join(
+                    "{0}\n{1.start:X}\n{1.end:X}\n{2}".format(
+                        nameornumber(x.instruction), x,
+                        '' if x.data is None or x.data == '' else
+                        nameorcode(x.data)
+                        )
+                    for x in di)
+
+            else:
+                retdata = '\n'.join(
+                  "{0.instruction:X}\n{0.start:X}\n{0.end:X}\n{1}".format(
+                    x, '' if x.data is None else x.data) for x in di)
 
     # output data
     if(not tostandardoutput):
         fo = open(outputfile, "wb")
-        fo.write(retdata)
+        if(sys.hexversion > 0x03000000 and type(retdata) is str):
+            fo.write(retdata.encode("utf8"))
+        else:
+            fo.write(retdata)
         fo.close()
 
     else:
-        sys.stdout.write(retdata)
+        if(mode == "screen"):
+            sys.stdout.write(retdata.decode('latin-1'))
+        else:
+            sys.stdout.write(retdata)
 
 
 if __name__ == "__main__":
-    _commandline(sys.argv)
+    try:
+        _commandline(sys.argv)
+    except SpectrumTranslateError as se:
+        sys.stderr.write(se.value + "\n")
+        sys.stdout.write(
+            "Use 'python spectrumtranslate.py' to see full list of options.\n")
+        sys.exit(2)
