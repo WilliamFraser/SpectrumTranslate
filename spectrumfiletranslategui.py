@@ -623,6 +623,15 @@ program. Leave blank if not sure.")
         cbXMLBasicOutput.setCheckState(False)
         self.cbXMLBasicOutput = cbXMLBasicOutput
 
+        cbASCIIBasicOutput = QtGui.QCheckBox("ASCII only output")
+        cbASCIIBasicOutput.setToolTip("Some spectrum characters like the \
+copyright symbol aren't ASCII compliant.\nUse this option to output such \
+characters as a '^' followed by it's 2 digit hexadecimal value.")
+        cbASCIIBasicOutput.toggle()
+        cbASCIIBasicOutput.setCheckState(False)
+        self.cbASCIIBasicOutput = cbASCIIBasicOutput
+
+
         hbox = QtGui.QHBoxLayout()
         hbox.setSpacing(2)
         lBasicAutoLine.setAlignment(
@@ -646,6 +655,7 @@ program. Leave blank if not sure.")
         grid2.addLayout(hbox, 0, 1)
 
         grid2.addWidget(cbXMLBasicOutput, 1, 0)
+        grid2.addWidget(cbASCIIBasicOutput, 1, 1)
 
         grid2.setRowStretch(2, 1)
 
@@ -787,6 +797,13 @@ absolute jumps, none or all.")
         cbXMLVarOutput.toggle()
         cbXMLVarOutput.setCheckState(False)
         self.cbXMLVarOutput = cbXMLVarOutput
+        cbASCIIVarOutput = QtGui.QCheckBox("ASCII only output")
+        cbASCIIVarOutput.setToolTip("Some spectrum characters like the \
+copyright symbol aren't ASCII compliant.\nUse this option to output such \
+characters as a '^' followed by it's 2 digit hexadecimal value.")
+        cbASCIIVarOutput.toggle()
+        cbASCIIVarOutput.setCheckState(False)
+        self.cbASCIIVarOutput = cbASCIIVarOutput
 
         hbox = QtGui.QHBoxLayout()
         hbox.setSpacing(2)
@@ -809,6 +826,7 @@ absolute jumps, none or all.")
         grid2.addLayout(hbox, 0, 1)
 
         grid2.addWidget(cbXMLVarOutput, 1, 0)
+        grid2.addWidget(cbASCIIVarOutput, 1, 1)
 
         grid2.setRowStretch(2, 1)
 
@@ -2975,12 +2993,15 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                 variable = length
 
             try:
+                forceascii = self.cbASCIIBasicOutput.isChecked()
                 # handle XML
                 if(self.cbXMLBasicOutput.isChecked() == True):
-                    return spectrumtranslate.basictoxml(data, auto, variable)
+                    return spectrumtranslate.basictoxml(data, auto, variable,
+                                                        forceascii)
 
                 # default to simple text
-                return spectrumtranslate.basictotext(data, auto, variable)
+                return spectrumtranslate.basictotext(data, auto, variable,
+                                                     forceascii)
             except spectrumtranslate.SpectrumTranslateError as ste:
                 QtGui.QMessageBox.warning(self, "Error!", ste.value)
                 return None
@@ -3054,6 +3075,7 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                     self, "Error!", "Variable Name must be single letter.")
                 return None
 
+            forceascii = self.cbASCIIVarOutput.isChecked()
             # handle XML
             if(self.cbXMLVarOutput.isChecked() == True):
                 if(idescriptor & 192 == 64):
@@ -3072,7 +3094,8 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                 soutput += '  <value>\n'
                 soutput += '\n'.join(['    ' + x for x in
                                       spectrumtranslate.arraytoxml(
-                                          data, idescriptor).splitlines()])
+                                          data, idescriptor,
+                                          forceascii).splitlines()])
                 soutput += '\n  </value>\n</variable>\n'
 
                 return soutput
@@ -3080,7 +3103,8 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
             # default to simple text
             return sVarName + ("" if idescriptor == 128 else "$") + \
                 ("" if idescriptor == 64 else "[]") + \
-                "=\n" + spectrumtranslate.arraytotext(data, idescriptor)
+                "=\n" + spectrumtranslate.arraytotext(data, idescriptor,
+                                                      forceascii)
 
         else:
             return "Error!"

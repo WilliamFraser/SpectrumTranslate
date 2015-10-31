@@ -1326,9 +1326,8 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
         # string
         elif(k == 2):
             strlen = data[i+1] + 256 * data[i+2]
-            text += '{0}$="{1}"\n'.format(
-                VarName, getspectrumstring(data[i+3:i+3+strlen],
-                                           hexfornonascii))
+            text += VarName + '$="' + getspectrumstring(data[i+3:i+3+strlen],
+                                                        hexfornonascii) + '"\n'
             i += strlen + 3
 
         # array of characters
@@ -1913,10 +1912,10 @@ def arraytoxml(data, descriptor, hexfornonascii=False):
                     '</string>'
 
         # otherwise we need to return a sub-array
-        return indent + '<dimension>\n{0}\n{1}</dimension>'.format(
-            ('\n{0}</dimension>\n{0}<dimension>\n'.format(indent)).join(
-                [getSubArray(sub, isnumber, indent + "  ") for sub in data]),
-            indent)
+        return indent + '<dimension>\n' + ('\n' + indent + '</dimension>\n' +
+                                           indent + '<dimension>\n').join(
+            [getSubArray(sub, isnumber, indent + "  ") for sub in data]) + \
+            '\n' + indent + '</dimension>'
 
     # validate and convert data from string to bytearray if needed
     data = _validateandpreparebytes(data, "data")
