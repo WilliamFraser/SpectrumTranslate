@@ -2391,6 +2391,8 @@ z$="testing"
         self.assertEqual(self.runtest("text -i -o -a",
                                       _u("\x7F\x60\x5E\x01\x41\u0080\u00FF")),
                          _u('^7F^60^5E^01A^80^FF'))
+        self.assertEqual(self.runtest("text -o -a -k 0x1F -l 4 " +
+                         _TEST_DIRECTORY + "arraytest_char.tap", ""), 'test')
 
     def test_array(self):
         self.assertEqual(self.runtest("array -t 0x98 " + _TEST_DIRECTORY +
@@ -2569,6 +2571,68 @@ z$="testing"
         self.assertEqual(self.runtest("instruction -i -o -mo",
                                       "200#0#FFFF#5#HelloTest"),
                          "200\n0\nFFFF\nHello\nTest")
+
+    def checkinvalidcommand(self, command, message):
+        try:
+            spectrumtranslate._commandline(["x.py"] + command.split())
+            self.fail("No SpectrumTranslateError raised")
+        except spectrumtranslate.SpectrumTranslateError as se:
+            if(se.value == message):
+                return
+            self.fail("Wrong exception message. Got:\n{0}\nExpected:\n{1}".
+                      format(se.value, message))
+
+    def test_invalidcommands(self):
+        # incorrect command
+        self.checkinvalidcommand("hello in out", 'No translateing mode \
+(basic, code, screen, array, text, or instruction) specified.')
+        # multiple actions
+        self.checkinvalidcommand("basic array in out", "Can't have multiple \
+formats to convert into.")
+        # no input or output files
+        self.checkinvalidcommand("basic", 'No input file specified.')
+        self.checkinvalidcommand("basic in", 'No output file specified.')
+        # unknown argument
+        self.checkinvalidcommand("code hello in out",
+                                 '"hello" is unrecognised argument.')
+        # invalid start
+        self.checkinvalidcommand("basic -s x",
+                                 "Missing or invalid autostart line number.")
+        # invalid variable offset
+        self.checkinvalidcommand("basic -v x",
+                                 "Missing or invalid offset to variables.")
+        # check array specifyer
+        self.checkinvalidcommand("array -t x",
+                                 "Missing or invalid array description.")
+        self.checkinvalidcommand("array -t 1", "Invalid array description. \
+Must have integer with bits 6 and 7 as 64, 128, or 192, or be number, \
+character, or string.")
+        self.checkinvalidcommand("array in out", "Missing array type.")
+        # flash rate check
+        self.checkinvalidcommand("screen -f x",
+                                 "Missing or invalid image flash rate.")
+        # code origin check
+        self.checkinvalidcommand("code -b x",
+                                 "Missing or invalid base code address.")
+        # instructions check
+        self.checkinvalidcommand("code -c x", "Missing or invalid input \
+source descriptor for special instructions.")
+        self.checkinvalidcommand("code -c f",
+                                 "Missing or invalid commands information.")
+        self.checkinvalidcommand("code -i -o -c f " + _TEST_DIRECTORY +
+                                 "x.txt", 'Failed to read instructions \
+from "' + _TEST_DIRECTORY + 'x.txt".')
+        # skip check
+        self.checkinvalidcommand("code -k x",
+                                 "Missing or invalid number of bytes to skip.")
+        self.checkinvalidcommand("code -k 200 -o " + _TEST_DIRECTORY +
+                                 "code.dat", 'Invalid skip value.')
+        # len check
+        self.checkinvalidcommand("code --len x",
+                                 "Missing or invalid bytes length number.")
+        self.checkinvalidcommand("code -l 200 -o " + _TEST_DIRECTORY +
+                                 "code.dat", 'Invalid length value.')
+
 
 if __name__ == "__main__":
     unittest.main()

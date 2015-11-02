@@ -6672,6 +6672,19 @@ don't apply to the selected translation mode.
    graphical symbols.  This can be used for the basic, text, and array
    conversion modes.
 --ascii same as -a.
+-k specifies the how many bytes to skip from the input before using the
+   data.  This is useful for example if you had a 64K memory dump, and
+   wanted to get to the screen memory by skipping the first 16384 bytes.
+   If omitted no bytes are skipped.  It must be folloed by the number of
+   bytes to skip in decimal or a hexadecimal number starting with 0x.
+--skip same as -k.
+-l specifies how many bytes to translate from the input.  This is used
+   for example if you have a 64K memory dump, and wanted to translate
+   the screen which is only 6912 bytes long.  If omitted, all bytes are
+   used. It must be folloed by the number of bytes to skip in decimal or
+   a hexadecimal number starting with 0x.
+--len same as -l.
+--length same as -l.
 
 basic flags:
 -s specifies the auto start line (where a program is run from when loaded)
@@ -6763,6 +6776,8 @@ def _commandline(args):
     multilineout = False
     wantinstructionname = False
     hexfornonascii = False
+    skipbytes = None
+    usebytes = None
 
     def getint(x):
         return int(x, 16 if x.lower().startswith("0x") else 10)
@@ -6785,6 +6800,10 @@ def _commandline(args):
 
             mode = arg
             continue
+
+        if(not mode):
+            raise SpectrumTranslateError('No translateing mode (basic, code, \
+screen, array, text, or instruction) specified.')
 
         if(arg == '-x' or arg == '-xml' or arg == '--x' or arg == '--xml'):
             xml = True
@@ -6833,6 +6852,8 @@ description. Must have integer with bits 6 and 7 as 64, 128, or 192, or be \
 number, character, or string.")
 
                 continue
+            except SpectrumTranslateError:
+                raise
             except:
                 raise SpectrumTranslateError(
                     "Missing or invalid array description.")
@@ -6895,9 +6916,11 @@ source descriptor for special instructions.")
                     commandsourcefile = args[i]
 
                 continue
+            except SpectrumTranslateError:
+                raise
             except:
                 raise SpectrumTranslateError(
-                    "Missing or invalid base code address.")
+                    "Missing or invalid commands information.")
 
         if(arg == '-m' or arg == '-multiline' or arg == '--m' or
            arg == '--multiline'):
@@ -6924,17 +6947,39 @@ source descriptor for special instructions.")
             hexfornonascii = True
             continue
 
+        if(arg == '-k' or arg == '--skip'):
+            try:
+                i += 1
+                skipbytes = getint(args[i])
+                continue
+            except:
+                raise SpectrumTranslateError(
+                    "Missing or invalid number of bytes to skip.")
+
+        if(arg == '-l' or arg == '-len' or arg == '-length' or arg == '--l' or
+           arg == '--len' or arg == '--length'):
+            try:
+                i += 1
+                usebytes = getint(args[i])
+                continue
+            except:
+                raise SpectrumTranslateError(
+                    "Missing or invalid bytes length number.")
+
         # have unrecognised argument.
         # check if is input or output file
         # will be inputfile if not already defined, and
         # fromstandardinput is False
-        if(inputfile is None and not fromstandardinput):
+        if(inputfile is None and not fromstandardinput and i >= len(args) -
+           (2 if outputfile is None and not tostandardoutput else 1)):
             inputfile = arg
             continue
 
         # will be outputfile if not already defined, tostandardoutput is
         # False, and is last argument
         if(outputfile is None and not tostandardoutput and i == len(args) - 1):
+            if(inputfile is None and not fromstandardinput):
+                raise SpectrumTranslateError('No input file specified.')
             outputfile = arg
             continue
 
@@ -6943,10 +6988,6 @@ source descriptor for special instructions.")
 
     # finished processing arguments now.
     # Check we've got what we need
-    if(mode is None):
-        raise SpectrumTranslateError('No translateing mode (basic, code, \
-screen, array, text, or instruction) specified.')
-
     if(inputfile is None and not fromstandardinput and mode != 'help'):
         raise SpectrumTranslateError('No input file specified.')
 
@@ -6973,7 +7014,7 @@ screen, array, text, or instruction) specified.')
                 fo.close()
             except:
                 raise SpectrumTranslateError('Failed to read instructions \
-from "{0}".\n'.format(commandsourcefile))
+from "{0}".'.format(commandsourcefile))
 
         else:
             try:
@@ -7000,7 +7041,7 @@ from "{0}".\n'.format(commandsourcefile))
 
             except:
                 raise SpectrumTranslateError('Failed to read instructions \
-from standard input.\n')
+from standard input.')
 
     # get data
     if(not fromstandardinput):
@@ -7009,6 +7050,16 @@ from standard input.\n')
 
     else:
         data = sys.stdin.read()
+
+    # apply skip and length options if needed
+    if(skipbytes):
+        if(skipbytes < 0 or skipbytes > len(data)):
+            raise SpectrumTranslateError('Invalid skip value.')
+        data = data[skipbytes:]
+    if(usebytes):
+        data = data[:usebytes]
+        if(usebytes < 1 or usebytes > len(data)):
+            raise SpectrumTranslateError('Invalid length value.')
 
     # now translate the data
     if(mode == 'basic'):
