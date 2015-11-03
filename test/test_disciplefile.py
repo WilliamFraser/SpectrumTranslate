@@ -44,19 +44,23 @@
 Unit Test for disciplefile file
 """
 
-import disciplefile
-import spectrumtranslate
 import unittest
 import sys
 import subprocess
 import re
+import os
 from os import remove as os_remove
 from sys import hexversion as _PYTHON_VERSION_HEX
 # imported elsewhere for memory reasons are:
 # unicode_escape_decode in the codecs module
 # imported io/StringIO later so get python version specific one
-
-_TEST_DIRECTORY = "test/"
+# import modules from parent directory
+pathtemp = sys.path
+sys.path += [os.path.dirname(os.getcwd())]
+import disciplefile
+import spectrumtranslate
+# restore system path
+sys.path = pathtemp
 
 if(_PYTHON_VERSION_HEX > 0x03000000):
     from io import StringIO
@@ -72,7 +76,7 @@ def _getfile(name):
 
 
 def _getfileasbytes(name):
-    with open(_TEST_DIRECTORY + name, 'rb') as infile:
+    with open(name, 'rb') as infile:
         return bytearray(infile.read())
 
 
@@ -162,7 +166,7 @@ class TestDiscipleFile(unittest.TestCase):
         self.assertEqual(df.filenumber, 4)
 
     def test_getheadder(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getheadder(), bytearray(
                          [1, 66, 65, 83, 73, 67, 32, 116, 101, 115, 116, 0, 1,
@@ -172,7 +176,7 @@ class TestDiscipleFile(unittest.TestCase):
                          [0] * 36))
 
     def test_getfiledata(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getfiledata(), _getfileasbytes("basictest.dat"))
         self.assertEqual(df.getfiledata(wantheadder=True),
@@ -180,28 +184,28 @@ class TestDiscipleFile(unittest.TestCase):
                          _getfileasbytes("basictest.dat"))
 
     def test_isempty(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertFalse(df.isempty())
         df = disciplefile.DiscipleFile(di, 10)
         self.assertTrue(df.isempty())
 
     def test_getsectorsused(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getsectorsused(), 1)
         df = disciplefile.DiscipleFile(di, 4)
         self.assertEqual(df.getsectorsused(), 14)
 
     def test_getfilelength(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getfilelength(), 190)
         df = disciplefile.DiscipleFile(di, 4)
         self.assertEqual(df.getfilelength(), 6912)
 
     def test_getfiletype(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getfiletype(), 1)
         df = disciplefile.DiscipleFile(di, 2)
@@ -214,7 +218,7 @@ class TestDiscipleFile(unittest.TestCase):
         self.assertEqual(df.getfiletype(), 0)
 
     def test_getfiletypestring(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getfiletypestring(), "Basic")
         df = disciplefile.DiscipleFile(di, 2)
@@ -227,7 +231,7 @@ class TestDiscipleFile(unittest.TestCase):
         self.assertEqual(df.getfiletypestring(), "Free/Erased")
 
     def test_getfiletypecatstring(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getfiletypecatstring(), "BAS")
         df = disciplefile.DiscipleFile(di, 2)
@@ -240,7 +244,7 @@ class TestDiscipleFile(unittest.TestCase):
         self.assertEqual(df.getfiletypecatstring(), "ERASED")
 
     def test_getfilename(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getfilename(), "BASIC test")
         df = disciplefile.DiscipleFile(di, 2)
@@ -251,7 +255,7 @@ class TestDiscipleFile(unittest.TestCase):
         self.assertEqual(df.getfilename(), "Screen    ")
 
     def test_getrawfilename(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getrawfilename(), bytearray(b'BASIC test'))
         df = disciplefile.DiscipleFile(di, 2)
@@ -262,7 +266,7 @@ class TestDiscipleFile(unittest.TestCase):
         self.assertEqual(df.getrawfilename(), bytearray(b'Screen    '))
 
     def test_getfiledetails(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getfiledetails(),
                          {'filenumber': 1,
@@ -328,7 +332,7 @@ class TestDiscipleFile(unittest.TestCase):
                           'catextradata': ''})
 
     def test_getfiledetailsstring(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getfiledetailsstring(),
                          '    1   BASIC test   1      BAS')
@@ -346,28 +350,28 @@ class TestDiscipleFile(unittest.TestCase):
     5   ^00^00^00^00^00^00^00^00^00^00   0      ERASED""")
 
     def test_getautostartline(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getautostartline(), -1)
         df = disciplefile.DiscipleFile(di, 2)
         self.assertEqual(df.getautostartline(), -2)
 
     def test_getvariableoffset(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getvariableoffset(), 78)
         df = disciplefile.DiscipleFile(di, 2)
         self.assertEqual(df.getvariableoffset(), -2)
 
     def test_getcodestart(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getcodestart(), -2)
         df = disciplefile.DiscipleFile(di, 4)
         self.assertEqual(df.getcodestart(), 16384)
 
     def test_getvariableletter(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getvariableletter(), None)
         df = disciplefile.DiscipleFile(di, 2)
@@ -376,7 +380,7 @@ class TestDiscipleFile(unittest.TestCase):
         self.assertEqual(df.getvariableletter(), "X")
 
     def test_getvariablename(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getvariablename(), None)
         df = disciplefile.DiscipleFile(di, 2)
@@ -385,7 +389,7 @@ class TestDiscipleFile(unittest.TestCase):
         self.assertEqual(df.getvariablename(), "X")
 
     def test_getarraydescriptor(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getarraydescriptor(), -1)
         df = disciplefile.DiscipleFile(di, 2)
@@ -398,7 +402,7 @@ class TestDiscipleFile(unittest.TestCase):
         pass
 
     def test__str__(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(str(df), '1   BASIC test   1      BAS')
         df = disciplefile.DiscipleFile(di, 2)
@@ -412,7 +416,7 @@ class TestDiscipleFile(unittest.TestCase):
 5   ^00^00^00^00^00^00^00^00^00^00   0      ERASED""")
 
     def test_getdisciplefiledetails(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getdisciplefiledetails(), """\
 filenumber: 1
@@ -446,13 +450,13 @@ class TestDiscipleImage(unittest.TestCase):
         self.assertEqual(di.ImageSource, "Undefined")
         self.assertEqual(di.ImageFormat, "Unknown")
 
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         self.assertEqual(di.ImageSource, "FileName")
         self.assertEqual(di.ImageFormat, "Unknown")
 
     def test_setfile(self):
         di = disciplefile.DiscipleImage()
-        imagefile = open(_TEST_DIRECTORY + "diskimagetest.mgt", "rb")
+        imagefile = open("diskimagetest.mgt", "rb")
         di.setfile(imagefile, form="MGT")
         self.assertEqual(di.ImageSource, "File")
         self.assertEqual(di.ImageFormat, "MGT")
@@ -462,7 +466,7 @@ class TestDiscipleImage(unittest.TestCase):
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           di.setfilename,  "I don't exist")
 
-        di.setfilename(_TEST_DIRECTORY + "diskimagetest.mgt", "IMG")
+        di.setfilename("diskimagetest.mgt", "IMG")
         self.assertEqual(di.ImageSource, "FileName")
         self.assertEqual(di.ImageFormat, "IMG")
 
@@ -488,16 +492,16 @@ class TestDiscipleImage(unittest.TestCase):
                          (95, 4))
 
     def test_guessimageformat(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         di.guessimageformat()
         self.assertEqual(di.ImageFormat, "MGT")
 
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.img")
+        di = disciplefile.DiscipleImage("diskimagetest.img")
         di.guessimageformat()
         self.assertEqual(di.ImageFormat, "IMG")
 
     def test_getsectorposition(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           di.getsectorposition, 0, 0)
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
@@ -510,13 +514,13 @@ class TestDiscipleImage(unittest.TestCase):
         self.assertEqual(di.getsectorposition(128, 1), 512*10)
         self.assertEqual(di.getsectorposition(0, 1, 1), 512*10)
 
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.img")
+        di = disciplefile.DiscipleImage("diskimagetest.img")
         self.assertEqual(di.getsectorposition(1, 1), 512*10)
         self.assertEqual(di.getsectorposition(128, 1), 512*80*10)
         self.assertEqual(di.getsectorposition(0, 1, 1), 512*80*10)
 
     def test_getsector(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         self.assertEqual(di.getsector(4, 1), bytearray(
                          [0, 190, 0, 203, 92, 78, 0, 255, 255]) +
                          _getfileasbytes("basictest.dat") + bytearray(313))
@@ -541,19 +545,19 @@ class TestDiscipleImage(unittest.TestCase):
 
     def test_writesector(self):
         # create copy of file image to play with
-        fi = open(_TEST_DIRECTORY + "diskimagetest.mgt", "rb")
-        fo = open(_TEST_DIRECTORY + "diskimagecopy.mgt", "wb")
+        fi = open("diskimagetest.mgt", "rb")
+        fo = open("diskimagecopy.mgt", "wb")
         fo.write(fi.read())
         fo.close()
         fi.close()
 
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagecopy.mgt")
+        di = disciplefile.DiscipleImage("diskimagecopy.mgt")
         # ensure that image opened with incorrect write permission fails
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           di.writesector, [0] * 512, 0, 1)
 
         # test write to image in file
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagecopy.mgt",
+        di = disciplefile.DiscipleImage("diskimagecopy.mgt",
                                         accessmode="rb+")
 
         # test sector data size
@@ -565,14 +569,14 @@ class TestDiscipleImage(unittest.TestCase):
         di.writesector([1] * 512, 4, 2)
 
         diff = self.compareimages(di, disciplefile.DiscipleImage(
-                                  _TEST_DIRECTORY + "diskimagetest.mgt"))
+                                  "diskimagetest.mgt"))
         # check changes have happened
         self.assertEqual(len(diff), 2)
         self.assertEqual(diff[0][0:3], [0, 1, bytearray([0] * 512)])
         self.assertEqual(diff[1][0:3], [4, 2, bytearray([1] * 512)])
 
         # tidy up
-        os_remove(_TEST_DIRECTORY + "diskimagecopy.mgt")
+        os_remove("diskimagecopy.mgt")
 
         # test write to image in internal byte list
         # undefined image. Will be populated with list when first write happens
@@ -592,7 +596,7 @@ class TestDiscipleImage(unittest.TestCase):
     def test_deleteentry(self):
         # create memory copy to play with
         di = disciplefile.DiscipleImage()
-        fi = open(_TEST_DIRECTORY + "diskimagetest.mgt", "rb")
+        fi = open("diskimagetest.mgt", "rb")
         di.setbytes(fi.read())
         fi.close()
 
@@ -604,7 +608,7 @@ class TestDiscipleImage(unittest.TestCase):
 
         # test delete entry in 2nd half of directory sector
         di.deleteentry(2)
-        di2 = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di2 = disciplefile.DiscipleImage("diskimagetest.mgt")
         diff = self.compareimages(di, di2)
         self.assertEqual(len(diff), 1)
         self.assertEqual(diff[0][:2], [0, 1])
@@ -614,13 +618,13 @@ class TestDiscipleImage(unittest.TestCase):
         self.assertEqual(diff[0][2][256], 0)
 
         # reset image
-        fi = open(_TEST_DIRECTORY + "diskimagetest.mgt", "rb")
+        fi = open("diskimagetest.mgt", "rb")
         di.setbytes(fi.read())
         fi.close()
 
         # test delete entry in 1st half of directory sector
         di.deleteentry(3)
-        di2 = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di2 = disciplefile.DiscipleImage("diskimagetest.mgt")
         diff = self.compareimages(di, di2)
         self.assertEqual(len(diff), 1)
         self.assertEqual(diff[0][:2], [0, 2])
@@ -643,7 +647,7 @@ class TestDiscipleImage(unittest.TestCase):
         self.assertFalse(di.isimagevalid())
 
         # create memory copy to play with
-        fi = open(_TEST_DIRECTORY + "diskimagetest.mgt", "rb")
+        fi = open("diskimagetest.mgt", "rb")
         imagedata = fi.read()
         fi.close()
         di = disciplefile.DiscipleImage()
@@ -694,7 +698,7 @@ class TestDiscipleImage(unittest.TestCase):
                           di.writefile, [0] * 256, [1], 81)
 
         # create memory copy to play with
-        fi = open(_TEST_DIRECTORY + "diskimagetest.mgt", "rb")
+        fi = open("diskimagetest.mgt", "rb")
         imagedata = fi.read()
         fi.close()
         di = disciplefile.DiscipleImage()
@@ -705,7 +709,7 @@ class TestDiscipleImage(unittest.TestCase):
         # test write to specified slot
         di.writefile([3] * 256, [4] * 100, 2)
         # test data
-        di2 = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di2 = disciplefile.DiscipleImage("diskimagetest.mgt")
         diff = self.compareimages(di, di2)
         # 5 sectors altered
         self.assertEqual(len(diff), 5)
@@ -750,7 +754,7 @@ class TestDiscipleImage(unittest.TestCase):
                           di.writefile, [0] * 256, [0] * 600, -1)
 
     def test_fileindexfromname(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
         self.assertEqual(di.fileindexfromname("BASIC test"), [1])
         self.assertEqual(di.fileindexfromname("BASIC test", True), [])
         self.assertEqual(di.fileindexfromname([0] * 10), [])
@@ -928,7 +932,7 @@ class TestDiscipleImage(unittest.TestCase):
         self.assertEqual(len(diff), 15)
 
     def test_iteratedisciplefiles(self):
-        di = disciplefile.DiscipleImage(_TEST_DIRECTORY + "diskimagetest.mgt")
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
 
         entries = [df for df in di.iteratedisciplefiles()]
         self.assertEqual(len(entries), 80)
@@ -957,14 +961,19 @@ class Testformating(unittest.TestCase):
         return "\n".join(output), "\n".join(error)
 
     def test_pep8(self):
-        output, error = self.runpep8("disciplefile.py", [], [])
+        output, error = self.runpep8("../disciplefile.py", [], [])
         self.assertEqual(output, "",
-                         "disciplefile.py pep8 formatting errors:\n" + output)
+                         "../disciplefile.py pep8 formatting errors:\n" +
+                         output)
         self.assertEqual(error, "",
-                         "disciplefile.py pep8 format check had errors:\n" +
+                         "../disciplefile.py pep8 format check had errors:\n" +
                          error)
 
-        output, error = self.runpep8("test_disciplefile.py", [], [])
+        output, error = self.runpep8("test_disciplefile.py", [], [
+            "test_disciplefile.py:60:1: E402 module level import not at top \
+of file",
+            "test_disciplefile.py:61:1: E402 module level import not at top \
+of file"])
         self.assertEqual(output, "",
                          "test_disciplefile.py pep8 formatting errors:\n" +
                          output)
@@ -1023,11 +1032,11 @@ but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
         return output, "".join(error)
 
     def test_2to3(self):
-        output, error = self.run2to3("disciplefile.py", [], [])
-        self.assertEqual(output, [], "disciplefile.py 2to3 errors:\n" +
+        output, error = self.run2to3("../disciplefile.py", [], [])
+        self.assertEqual(output, [], "../disciplefile.py 2to3 errors:\n" +
                          "".join(output))
         self.assertEqual(error, "",
-                         "disciplefile.py 2to3 check had errors:\n" + error)
+                         "../disciplefile.py 2to3 check had errors:\n" + error)
 
         output, error = self.run2to3("test_disciplefile.py", [], [])
         self.assertEqual(output, [],
@@ -1059,17 +1068,17 @@ class Testcommandline(unittest.TestCase):
     def setUp(self):
         # tidy up
         try:
-            os_remove(_TEST_DIRECTORY + "temp.img")
+            os_remove("temp.img")
         except:
             pass
 
         try:
-            os_remove(_TEST_DIRECTORY + "temp.txt")
+            os_remove("temp.txt")
         except:
             pass
 
         try:
-            os_remove(_TEST_DIRECTORY + "temp.bin")
+            os_remove("temp.bin")
         except:
             pass
 
@@ -1078,8 +1087,7 @@ class Testcommandline(unittest.TestCase):
         self.assertEqual(self.runtest("help", ""), disciplefile.usage())
 
     def test_list(self):
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "diskimagetest.img", ""),
+        self.assertEqual(self.runtest("list -o diskimagetest.img", ""),
                          """\
   pos   filename  sectors   type
     1   BASIC test   1      BAS
@@ -1088,10 +1096,9 @@ class Testcommandline(unittest.TestCase):
     4   Screen      14      SCREEN$
 """)
 
-        self.assertEqual(self.runtest("list --details --listempty " +
-                                      _TEST_DIRECTORY + "diskimagetest.img " +
-                                      _TEST_DIRECTORY + "temp.txt", ""), "")
-        self.assertEqual(_getfile(_TEST_DIRECTORY + "temp.txt"), """\
+        self.assertEqual(self.runtest("list --details --listempty \
+diskimagetest.img temp.txt", ""), "")
+        self.assertEqual(_getfile("temp.txt"), """\
 1	BASIC test	1	Basic	1	190	-1	78
 2	Array C   	3	String Array	1	31	C	C$	195
 3	Array X   	2	Number Array	2	1005	X	X	152
@@ -1174,15 +1181,13 @@ class Testcommandline(unittest.TestCase):
 80	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
 """)
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.txt")
+        os_remove("temp.txt")
 
     def test_delete(self):
-        self.assertEqual(self.runtest("delete 1 " + _TEST_DIRECTORY +
-                                      "diskimagetest.img " + _TEST_DIRECTORY +
-                                      "temp.img", ""), "")
+        self.assertEqual(self.runtest("delete 1 diskimagetest.img temp.img",
+                                      ""), "")
 
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.img", ""),
+        self.assertEqual(self.runtest("list -o temp.img", ""),
                          """\
   pos   filename  sectors   type
     2   Array C      1      $.ARRAY
@@ -1190,64 +1195,55 @@ class Testcommandline(unittest.TestCase):
     4   Screen      14      SCREEN$
 """)
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.img")
+        os_remove("temp.img")
 
         # create copy
-        with open(_TEST_DIRECTORY + "temp.img", "wb") as f:
+        with open("temp.img", "wb") as f:
             f.write(_getfileasbytes("diskimagetest.img"))
-        self.assertEqual(self.runtest("delete -s 1-2,0x4 " + _TEST_DIRECTORY +
-                                      "temp.img " + _TEST_DIRECTORY +
-                                      "temp.img", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.img", ""),
+        self.assertEqual(self.runtest("delete -s 1-2,0x4 temp.img temp.img",
+                                      ""), "")
+        self.assertEqual(self.runtest("list -o temp.img", ""),
                          """\
   pos   filename  sectors   type
     3   Array X      2      D.ARRAY
 """)
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.img")
+        os_remove("temp.img")
 
     def test_extract(self):
-        self.assertEqual(self.runtest("extract 2 " + _TEST_DIRECTORY +
-                                      "diskimagetest.img " + _TEST_DIRECTORY +
-                                      "temp.bin", ""), "")
+        self.assertEqual(self.runtest("extract 2 diskimagetest.img temp.bin",
+                                      ""), "")
         self.assertEqual(_getfileasbytes("temp.bin"),
                          _getfileasbytes("arraytest_char.dat"))
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.bin")
+        os_remove("temp.bin")
 
     def test_copy(self):
-        self.assertEqual(self.runtest("copy --pos 0x10-0x11 -s 2-3 " +
-                                      _TEST_DIRECTORY + "diskimagetest.img " +
-                                      _TEST_DIRECTORY + "temp.img", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.img", ""),
+        self.assertEqual(self.runtest("copy --pos 0x10-0x11 -s 2-3 \
+diskimagetest.img temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o temp.img", ""),
                          """\
   pos   filename  sectors   type
    16   Array C      1      $.ARRAY
    17   Array X      2      D.ARRAY
 """)
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.img")
+        os_remove("temp.img")
 
-        self.assertEqual(self.runtest("copy --pos 11-14 -s 1-2 " +
-                                      _TEST_DIRECTORY + "diskimagetest.img " +
-                                      _TEST_DIRECTORY + "temp.img", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.img", ""),
+        self.assertEqual(self.runtest("copy --pos 11-14 -s 1-2 \
+diskimagetest.img temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o temp.img", ""),
                          """\
   pos   filename  sectors   type
    11   BASIC test   1      BAS
    12   Array C      1      $.ARRAY
 """)
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.img")
+        os_remove("temp.img")
 
-        self.assertEqual(self.runtest("copy --pos 11-12 -s 1-4 " +
-                                      _TEST_DIRECTORY + "diskimagetest.img " +
-                                      _TEST_DIRECTORY + "temp.img", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.img", ""),
+        self.assertEqual(self.runtest("copy --pos 11-12 -s 1-4 \
+diskimagetest.img temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o temp.img", ""),
                          """\
   pos   filename  sectors   type
     1   Array X      2      D.ARRAY
@@ -1256,25 +1252,20 @@ class Testcommandline(unittest.TestCase):
    12   Array C      1      $.ARRAY
 """)
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.img")
+        os_remove("temp.img")
 
     def test_create(self):
-        self.assertEqual(self.runtest(
-            "create basic --filename TEST --autostart 10 " + _TEST_DIRECTORY +
-            "basictest.dat " + _TEST_DIRECTORY + "temp.img", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.img", ""),
+        self.assertEqual(self.runtest("create basic --filename TEST \
+--autostart 10 basictest.dat temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o temp.img", ""),
                          """\
   pos   filename  sectors   type
     1   TEST         1      BAS            10
 """)
 
         self.assertEqual(self.runtest("create code --filename TEST \
---donotoverwriteexisting --origin 0x8000 " + _TEST_DIRECTORY +
-                                      "screentest.dat " + _TEST_DIRECTORY +
-                                      "temp.img", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.img", ""),
+--donotoverwriteexisting --origin 0x8000 screentest.dat temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o temp.img", ""),
                          """\
   pos   filename  sectors   type
     1   TEST         1      BAS            10
@@ -1282,10 +1273,8 @@ class Testcommandline(unittest.TestCase):
 """)
 
         self.assertEqual(self.runtest("create array --filename ARRAY -p 10 \
---arraytype string --arrayname S -i " + _TEST_DIRECTORY + "temp.img",
-                                      "Test1\nTest2\nTest3"), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.img", ""),
+--arraytype string --arrayname S -i temp.img", "Test1\nTest2\nTest3"), "")
+        self.assertEqual(self.runtest("list -o temp.img", ""),
                          """\
   pos   filename  sectors   type
     1   TEST         1      BAS            10
@@ -1293,14 +1282,11 @@ class Testcommandline(unittest.TestCase):
    10   ARRAY        1      $.ARRAY
 """)
         self.assertEqual(disciplefile.DiscipleFile(disciplefile.DiscipleImage(
-            _TEST_DIRECTORY + "temp.img"), 10).getfiledata(),
-                        bytearray(b"Test1\nTest2\nTest3"))
+            "temp.img"), 10).getfiledata(), bytearray(b"Test1\nTest2\nTest3"))
 
-        self.assertEqual(self.runtest("create screen --filename SCR " +
-                                      _TEST_DIRECTORY + "screentest.dat " +
-                                      _TEST_DIRECTORY + "temp.img", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.img", ""),
+        self.assertEqual(self.runtest("create screen --filename SCR \
+screentest.dat temp.img", ""), "")
+        self.assertEqual(self.runtest("list -o temp.img", ""),
                          """\
   pos   filename  sectors   type
     1   TEST         1      BAS            10
@@ -1310,7 +1296,7 @@ class Testcommandline(unittest.TestCase):
 """)
 
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.img")
+        os_remove("temp.img")
 
     def checkinvalidcommand(self, command, message):
         try:

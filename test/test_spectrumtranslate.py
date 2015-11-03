@@ -44,19 +44,23 @@
 Unit Test for SpectrumTranslate file
 """
 
-import spectrumtranslate
-import spectrumnumber
 import unittest
 import subprocess
 import re
 import sys
+import os
 from PIL import Image
 from sys import hexversion as _PYTHON_VERSION_HEX
 from codecs import unicode_escape_decode as _UED
 from io import BytesIO
 from os import remove as os_remove
-
-_TEST_DIRECTORY = "test/"
+# import modules from parent directory
+pathtemp = sys.path
+sys.path += [os.path.dirname(os.getcwd())]
+import spectrumtranslate
+import spectrumnumber
+# restore system path
+sys.path = pathtemp
 
 if(_PYTHON_VERSION_HEX > 0x03000000):
     from io import StringIO
@@ -65,7 +69,7 @@ if(_PYTHON_VERSION_HEX > 0x03000000):
         return x
 
     def _getfileaslist(name):
-        with open(_TEST_DIRECTORY + name, 'rb') as infile:
+        with open(name, 'rb') as infile:
             return [b for b in infile.read()]
 
 else:
@@ -76,7 +80,7 @@ else:
         return _UED(x)[0]
 
     def _getfileaslist(name):
-        with open(_TEST_DIRECTORY + name, 'rb') as infile:
+        with open(name, 'rb') as infile:
             return [ord(b) for b in infile.read()]
 
 
@@ -86,7 +90,7 @@ def _getfile(name):
 
 
 def _getfileasbytes(name):
-    with open(_TEST_DIRECTORY + name, 'rb') as infile:
+    with open(name, 'rb') as infile:
         return bytearray(infile.read())
 
 
@@ -875,7 +879,7 @@ class TestImageConvert(unittest.TestCase):
 
     def test_getgiffromscreen(self):
         # get reference images
-        irReference = Image.open(_TEST_DIRECTORY + "screentest.gif")
+        irReference = Image.open("screentest.gif")
         refimage1 = self.imageto32bitlist(irReference)
         irReference.seek(1)
         refimage2 = self.imageto32bitlist(irReference)
@@ -916,7 +920,7 @@ class TestImageConvert(unittest.TestCase):
 
     def test_getrgbfromscreen(self):
         # get reference images
-        irReference = Image.open(_TEST_DIRECTORY + "screentest.gif")
+        irReference = Image.open("screentest.gif")
         refimage1 = self.imageto32bitlist(irReference)
         irReference.seek(1)
         refimage2 = self.imageto32bitlist(irReference)
@@ -2008,19 +2012,23 @@ class Testformating(unittest.TestCase):
         return "\n".join(output), "\n".join(error)
 
     def test_pep8(self):
-        output, error = self.runpep8("spectrumtranslate.py", [], [])
-        self.assertEqual(output, "", "spectrumtranslate.py pep8 formatting \
+        output, error = self.runpep8("../spectrumtranslate.py", [], [])
+        self.assertEqual(output, "", "../spectrumtranslate.py pep8 formatting \
 errors:\n" + output)
-        self.assertEqual(error, "", "spectrumtranslate.py pep8 format check \
-had errors:\n" + error)
+        self.assertEqual(error, "", "../spectrumtranslate.py pep8 format \
+check had errors:\n" + error)
 
         output, error = self.runpep8("test_spectrumtranslate.py", [], [
-            "test_spectrumtranslate.py:99:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:121:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:1476:9: W291 trailing whitespace",
-            "test_spectrumtranslate.py:2138:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:2159:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:2181:56: W291 trailing whitespace"])
+            "test_spectrumtranslate.py:60:1: E402 module level import not at \
+top of file",
+            "test_spectrumtranslate.py:61:1: E402 module level import not at \
+top of file",
+            "test_spectrumtranslate.py:103:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:125:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:1480:9: W291 trailing whitespace",
+            "test_spectrumtranslate.py:2144:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:2163:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:2184:56: W291 trailing whitespace"])
         self.assertEqual(output, "", "test_spectrumtranslate.py pep8 \
 formatting errors:\n" + output)
         self.assertEqual(error, "", "test_spectrumtranslate.py pep8 format \
@@ -2077,10 +2085,10 @@ but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
         return output, "".join(error)
 
     def test_2to3(self):
-        output, error = self.run2to3("spectrumtranslate.py", [], [])
-        self.assertEqual(output, [], "spectrumtranslate.py 2to3 errors:\n" +
+        output, error = self.run2to3("../spectrumtranslate.py", [], [])
+        self.assertEqual(output, [], "../spectrumtranslate.py 2to3 errors:\n" +
                          "".join(output))
-        self.assertEqual(error, "", "spectrumtranslate.py 2to3 check had \
+        self.assertEqual(error, "", "../spectrumtranslate.py 2to3 check had \
 errors:\n" + error)
 
         output, error = self.run2to3("test_spectrumtranslate.py", [], [])
@@ -2111,17 +2119,17 @@ class Testcommandline(unittest.TestCase):
     def setUp(self):
         # tidy up
         try:
-            os_remove(_TEST_DIRECTORY + "temp.txt")
+            os_remove("temp.txt")
         except:
             pass
 
         try:
-            os_remove(_TEST_DIRECTORY + "temp.gif")
+            os_remove("temp.gif")
         except:
             pass
 
         try:
-            os_remove(_TEST_DIRECTORY + "temp.bin")
+            os_remove("temp.bin")
         except:
             pass
 
@@ -2130,9 +2138,7 @@ class Testcommandline(unittest.TestCase):
         self.assertEqual(self.runtest("help", ""), spectrumtranslate.usage())
 
     def test_basic(self):
-        self.assertEqual(self.runtest("basic -o " + _TEST_DIRECTORY +
-                                      "basictest.dat", ""),
-                         _u("""\
+        self.assertEqual(self.runtest("basic -o basictest.dat", ""), _u("""\
 10 REM ^16^00^00\u259c^11^05\u2597^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
 20 DATA 1(number without value),2(1024),3,4: LIST : NEW 
@@ -2151,9 +2157,7 @@ d$[2][2]={
 FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
 z$="testing"
 """))
-        self.assertEqual(self.runtest("basic -o -a " + _TEST_DIRECTORY +
-                                      "basictest.dat", ""),
-                         _u("""\
+        self.assertEqual(self.runtest("basic -o -a basictest.dat", ""), _u("""\
 10 REM ^16^00^00^87^11^05^84^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
 20 DATA 1(number without value),2(1024),3,4: LIST : NEW 
@@ -2172,8 +2176,7 @@ d$[2][2]={
 FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
 z$="testing"
 """))
-        self.assertEqual(self.runtest("basic -o -s 10 " + _TEST_DIRECTORY +
-                                      "basictest.dat", ""),
+        self.assertEqual(self.runtest("basic -o -s 10 basictest.dat", ""),
                          _u("""\
 Autostart at line:10
 10 REM ^16^00^00\u259c^11^05\u2597^11^03hello123^11^01^10^05^11^06
@@ -2194,8 +2197,7 @@ d$[2][2]={
 FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
 z$="testing"
 """))
-        self.assertEqual(self.runtest("basic -o --xml " + _TEST_DIRECTORY +
-                                      "basictest.dat", ""),
+        self.assertEqual(self.runtest("basic -o --xml basictest.dat", ""),
                          _u("""\
 <?xml version="1.0" encoding="UTF-8" ?>
 <basiclisting>
@@ -2288,9 +2290,8 @@ z$="testing"
   </variables>
 </basiclisting>
 """))
-        self.assertEqual(self.runtest("basic -o --xml -s 10 " +
-                                      _TEST_DIRECTORY + "basictest.dat", ""),
-                         _u("""\
+        self.assertEqual(self.runtest("basic -o --xml -s 10 basictest.dat",
+                                      ""), _u("""\
 <?xml version="1.0" encoding="UTF-8" ?>
 <basiclisting>
   <autostart>10</autostart>
@@ -2391,27 +2392,22 @@ z$="testing"
         self.assertEqual(self.runtest("text -i -o -a",
                                       _u("\x7F\x60\x5E\x01\x41\u0080\u00FF")),
                          _u('^7F^60^5E^01A^80^FF'))
-        self.assertEqual(self.runtest("text -o -a -k 0x1F -l 4 " +
-                         _TEST_DIRECTORY + "arraytest_char.tap", ""), 'test')
+        self.assertEqual(self.runtest("text -o -a -k 0x1F -l 4 \
+arraytest_char.tap", ""), 'test')
 
     def test_array(self):
-        self.assertEqual(self.runtest("array -t 0x98 " + _TEST_DIRECTORY +
-                                      "arraytest_number.dat " +
-                                      _TEST_DIRECTORY + "temp.txt", ""), "")
-        self.assertEqual(_getfile(_TEST_DIRECTORY + "temp.txt"),
-                         spectrumtranslate.arraytotext(
-                             _getfileaslist("arraytest_number.dat"), 0x98))
+        self.assertEqual(self.runtest("array -t 0x98 arraytest_number.dat \
+temp.txt", ""), "")
+        self.assertEqual(_getfile("temp.txt"), spectrumtranslate.arraytotext(
+            _getfileaslist("arraytest_number.dat"), 0x98))
 
-        self.assertEqual(self.runtest("array -t 0x98 -xml " + _TEST_DIRECTORY +
-                                      "arraytest_number.dat " +
-                                      _TEST_DIRECTORY + "temp.txt", ""), "")
-        self.assertEqual(_getfile(_TEST_DIRECTORY + "temp.txt"),
-                         spectrumtranslate.arraytoxml(
-                             _getfileaslist("arraytest_number.dat"), 0x98))
+        self.assertEqual(self.runtest("array -t 0x98 -xml \
+arraytest_number.dat temp.txt", ""), "")
+        self.assertEqual(_getfile("temp.txt"), spectrumtranslate.arraytoxml(
+            _getfileaslist("arraytest_number.dat"), 0x98))
 
-        self.assertEqual(self.runtest("array -t 0x98 -d -o " +
-                                      _TEST_DIRECTORY +
-                                      "arraytest_number.dat ", ""), "2")
+        self.assertEqual(self.runtest("array -t 0x98 -d -o \
+arraytest_number.dat ", ""), "2")
 
         self.assertEqual(self.runtest("array -t 0xC0 -i -o",
                                       "\x02\x02\x00\x01\x00\xFF\x7F"),
@@ -2444,7 +2440,7 @@ z$="testing"
 </dimension>""")
 
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.txt")
+        os_remove("temp.txt")
 
     def test_screen(self):
         def imageto32bitlist(im):
@@ -2455,47 +2451,44 @@ z$="testing"
             return bytearray([x[i] for x in im.convert("RGB").getdata() for i
                               in (0, 1, 2)])
 
-        self.assertEqual(self.runtest("screen -g -o " + _TEST_DIRECTORY +
-                                      "screentest.dat", "").encode('latin-1'),
+        self.assertEqual(self.runtest("screen -g -o screentest.dat",
+                                      "").encode('latin-1'),
                          _getfileasbytes("screentest.gif"))
 
-        self.assertEqual(self.runtest("screen -g -f -1 " + _TEST_DIRECTORY +
-                                      "screentest.dat " + _TEST_DIRECTORY +
-                                      "temp.gif", ""), "")
-        irReference = Image.open(_TEST_DIRECTORY + "screentest.gif")
+        self.assertEqual(self.runtest("screen -g -f -1 screentest.dat \
+temp.gif", ""), "")
+        irReference = Image.open("screentest.gif")
         refimage = imageto32bitlist(irReference)
-        irTemp = Image.open(_TEST_DIRECTORY + "temp.gif")
+        irTemp = Image.open("temp.gif")
         tempimg = imageto32bitlist(irTemp)
         self.assertEqual(refimage, tempimg)
         # ensure only 1 image
         self.assertRaises(EOFError, irTemp.seek, 2)
 
         irReference.seek(1)
-        self.assertEqual(self.runtest("screen -g -f -2 " + _TEST_DIRECTORY +
-                                      "screentest.dat " + _TEST_DIRECTORY +
-                                      "temp.gif", ""), "")
+        self.assertEqual(self.runtest("screen -g -f -2 screentest.dat \
+temp.gif", ""), "")
         refimage1 = imageto32bitlist(irReference)
-        irTemp = Image.open(_TEST_DIRECTORY + "temp.gif")
+        irTemp = Image.open("temp.gif")
         tempimg = imageto32bitlist(irTemp)
         self.assertEqual(refimage1, tempimg)
         # ensure only 1 image
         self.assertRaises(EOFError, irTemp.seek, 2)
 
         irReference.seek(0)
-        self.assertEqual(self.runtest("screen -o " + _TEST_DIRECTORY +
-                                      "screentest.dat", "").encode('latin-1'),
+        self.assertEqual(self.runtest("screen -o screentest.dat",
+                                      "").encode('latin-1'),
                          imagetobytearray(irReference))
 
-        self.assertEqual(self.runtest("screen -f -2 " + _TEST_DIRECTORY +
-                                      "screentest.dat " + _TEST_DIRECTORY +
-                                      "temp.bin", ""), "")
+        self.assertEqual(self.runtest("screen -f -2 screentest.dat temp.bin",
+                                      ""), "")
         irReference.seek(1)
         refimage = imagetobytearray(irReference)
         self.assertEqual(refimage, _getfileasbytes("temp.bin"))
 
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.gif")
-        os_remove(_TEST_DIRECTORY + "temp.bin")
+        os_remove("temp.gif")
+        os_remove("temp.bin")
 
     def test_code(self):
         self.assertEqual(self.runtest("code -i -o",
@@ -2530,11 +2523,9 @@ z$="testing"
 <tstates>4,3,3</tstates></timeing></line>
 </z80code>""")
 
-        self.assertEqual(self.runtest("code -b 16384 -c f " + _TEST_DIRECTORY +
-                                      "instructions.txt " + _TEST_DIRECTORY +
-                                      "code.dat " + _TEST_DIRECTORY +
-                                      "temp.txt", ""), "")
-        self.assertEqual(_getfile(_TEST_DIRECTORY + "temp.txt"), """ORG #4000
+        self.assertEqual(self.runtest("code -b 16384 -c f instructions.txt \
+code.dat temp.txt", ""), "")
+        self.assertEqual(_getfile("temp.txt"), """ORG #4000
 
 4000  21,03,40     LD HL,16387
 4003  C3,06,40     JP #4006
@@ -2542,7 +2533,7 @@ z$="testing"
 """)
 
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.txt")
+        os_remove("temp.txt")
 
     def test_instruction(self):
         self.assertEqual(self.runtest("instruction -i -o", "0100#0000#FFFF##"),
@@ -2619,19 +2610,18 @@ character, or string.")
 source descriptor for special instructions.")
         self.checkinvalidcommand("code -c f",
                                  "Missing or invalid commands information.")
-        self.checkinvalidcommand("code -i -o -c f " + _TEST_DIRECTORY +
-                                 "x.txt", 'Failed to read instructions \
-from "' + _TEST_DIRECTORY + 'x.txt".')
+        self.checkinvalidcommand("code -i -o -c f x.txt",
+                                 'Failed to read instructions from "x.txt".')
         # skip check
         self.checkinvalidcommand("code -k x",
                                  "Missing or invalid number of bytes to skip.")
-        self.checkinvalidcommand("code -k 200 -o " + _TEST_DIRECTORY +
-                                 "code.dat", 'Invalid skip value.')
+        self.checkinvalidcommand("code -k 200 -o code.dat",
+                                 'Invalid skip value.')
         # len check
         self.checkinvalidcommand("code --len x",
                                  "Missing or invalid bytes length number.")
-        self.checkinvalidcommand("code -l 200 -o " + _TEST_DIRECTORY +
-                                 "code.dat", 'Invalid length value.')
+        self.checkinvalidcommand("code -l 200 -o code.dat",
+                                 'Invalid length value.')
 
 
 if __name__ == "__main__":

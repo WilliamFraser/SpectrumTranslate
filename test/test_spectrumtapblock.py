@@ -44,19 +44,23 @@
 Unit Test for spectrumtapblock file
 """
 
-import spectrumtapblock
-import spectrumtranslate
 import subprocess
 import unittest
 import re
 import sys
+import os
 from os import remove as os_remove
 from sys import hexversion as _PYTHON_VERSION_HEX
 # imported elsewhere for memory reasons are:
 # unicode_escape_decode in the codecs module
 # imported io/StringIO later so get python version specific one
-
-_TEST_DIRECTORY = "test/"
+# import modules from parent directory
+pathtemp = sys.path
+sys.path += [os.path.dirname(os.getcwd())]
+import spectrumtapblock
+import spectrumtranslate
+# restore system path
+sys.path = pathtemp
 
 if(_PYTHON_VERSION_HEX > 0x03000000):
     from io import StringIO
@@ -79,7 +83,7 @@ def _getfile(name):
 
 
 def _getfileasbytes(name):
-    with open(_TEST_DIRECTORY + name, 'rb') as infile:
+    with open(name, 'rb') as infile:
         return bytearray(infile.read())
 
 
@@ -300,20 +304,20 @@ class TestSpectrumTapBlock(unittest.TestCase):
 
     def test_savetofile(self):
         stb = spectrumtapblock.SpectrumTapBlock(flag=255, data=[1, 2, 3])
-        stb.savetofile(_TEST_DIRECTORY + "testout.tap", False)
+        stb.savetofile("testout.tap", False)
         data = _getfileasbytes("testout.tap")
         self.assertEqual(data, bytearray([5, 0, 255, 1, 2, 3, 255]))
-        stb.savetofile(_TEST_DIRECTORY + "testout.tap")
+        stb.savetofile("testout.tap")
         data = _getfileasbytes("testout.tap")
         self.assertEqual(data, bytearray([5, 0, 255, 1, 2, 3, 255, 5, 0, 255,
                                           1, 2, 3, 255]))
-        os_remove(_TEST_DIRECTORY + "testout.tap")
+        os_remove("testout.tap")
 
 
 class Testmetafunctions(unittest.TestCase):
     def test_gettapblockfromfile(self):
         position = 0
-        with open(_TEST_DIRECTORY + "arraytest_char.tap", "rb") as f:
+        with open("arraytest_char.tap", "rb") as f:
             tb = spectrumtapblock.gettapblockfromfile(f, position)
             position += 4 + len(tb.data)
             self.assertEqual(tb.data, bytearray([2, 99, 32, 32, 32, 32, 32, 32,
@@ -342,16 +346,14 @@ class Testmetafunctions(unittest.TestCase):
         self.assertEqual(tb.filePosition, 0)
 
     def test_gettapblocks(self):
-        tbs = spectrumtapblock.gettapblocks(_TEST_DIRECTORY +
-                                            "arraytest_char.tap")
+        tbs = spectrumtapblock.gettapblocks("arraytest_char.tap")
         self.assertEqual(len(tbs), 2)
         self.assertTrue(all(isinstance(tb, spectrumtapblock.SpectrumTapBlock)
                             for tb in tbs))
 
     def test_tapblockfromfile(self):
         tbs = [tb for tb in
-               spectrumtapblock.tapblockfromfile(_TEST_DIRECTORY +
-                                                 "arraytest_char.tap")]
+               spectrumtapblock.tapblockfromfile("arraytest_char.tap")]
         self.assertEqual(len(tbs), 2)
         self.assertTrue(all(isinstance(tb, spectrumtapblock.SpectrumTapBlock)
                             for tb in tbs))
@@ -426,13 +428,17 @@ class Testformating(unittest.TestCase):
         return "\n".join(output), "\n".join(error)
 
     def test_pep8(self):
-        output, error = self.runpep8("spectrumtapblock.py", [], [])
-        self.assertEqual(output, "", "spectrumtapblock.py pep8 formatting \
+        output, error = self.runpep8("../spectrumtapblock.py", [], [])
+        self.assertEqual(output, "", "../spectrumtapblock.py pep8 formatting \
 errors:\n" + output)
-        self.assertEqual(error, "", "spectrumtapblock.py pep8 format check \
+        self.assertEqual(error, "", "../spectrumtapblock.py pep8 format check \
 had errors:\n" + error)
 
-        output, error = self.runpep8("test_spectrumtapblock.py", [], [])
+        output, error = self.runpep8("test_spectrumtapblock.py", [], [
+            "test_spectrumtapblock.py:60:1: E402 module level import not at \
+top of file",
+            "test_spectrumtapblock.py:61:1: E402 module level import not at \
+top of file"])
         self.assertEqual(output, "", "test_spectrumtapblock.py pep8 \
 formatting errors:\n" + output)
         self.assertEqual(error, "", "test_spectrumtapblock.py pep8 format \
@@ -489,11 +495,11 @@ but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
         return output, "".join(error)
 
     def test_2to3(self):
-        output, error = self.run2to3("spectrumtapblock.py", [], [])
-        self.assertEqual(output, [], "spectrumtapblock.py 2to3 errors:\n" +
+        output, error = self.run2to3("../spectrumtapblock.py", [], [])
+        self.assertEqual(output, [], "../spectrumtapblock.py 2to3 errors:\n" +
                          "".join(output))
         self.assertEqual(error, "",
-                         "spectrumtapblock.py 2to3 check had errors:\n" +
+                         "../spectrumtapblock.py 2to3 check had errors:\n" +
                          error)
 
         output, error = self.run2to3("test_spectrumtapblock.py", [], [])
@@ -527,17 +533,17 @@ class Testcommandline(unittest.TestCase):
     def setUp(self):
         # tidy up
         try:
-            os_remove(_TEST_DIRECTORY + "temp.tap")
+            os_remove("temp.tap")
         except:
             pass
 
         try:
-            os_remove(_TEST_DIRECTORY + "temp.txt")
+            os_remove("temp.txt")
         except:
             pass
 
         try:
-            os_remove(_TEST_DIRECTORY + "temp.bin")
+            os_remove("temp.bin")
         except:
             pass
 
@@ -546,58 +552,48 @@ class Testcommandline(unittest.TestCase):
         self.assertEqual(self.runtest("help", ""), spectrumtapblock.usage())
 
     def test_list(self):
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "basictest.tap", ""),
+        self.assertEqual(self.runtest("list -o basictest.tap", ""),
                          """position type    information
   0      Headder "BASIC     " Program
   1      Data    Flag:255, block length:190
 """)
 
-        self.assertEqual(self.runtest("list --details " +
-                                      _TEST_DIRECTORY + "basictest.tap " +
-                                      _TEST_DIRECTORY + "temp.txt", ""), "")
-        self.assertEqual(_getfile(_TEST_DIRECTORY + "temp.txt"), """\
+        self.assertEqual(self.runtest("list --details basictest.tap temp.txt",
+                                      ""), "")
+        self.assertEqual(_getfile("temp.txt"), """\
 0\tHeadder\tBASIC     \tProgram\t190\t0\t78
 1\tData\t255\t190
 """)
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.txt")
+        os_remove("temp.txt")
 
     def test_extract(self):
-        self.assertEqual(self.runtest("extract 1 " + _TEST_DIRECTORY +
-                                      "arraytest_char.tap " + _TEST_DIRECTORY +
-                                      "temp.bin", ""), "")
+        self.assertEqual(self.runtest("extract 1 arraytest_char.tap temp.bin",
+                                      ""), "")
         self.assertEqual(_getfileasbytes("temp.bin"),
                          _getfileasbytes("arraytest_char.dat"))
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.bin")
+        os_remove("temp.bin")
 
     def test_copy(self):
-        self.assertEqual(self.runtest("copy -s 0-1 " +
-                                      _TEST_DIRECTORY + "screentest.tap " +
-                                      _TEST_DIRECTORY + "temp.tap", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.tap", ""),
+        self.assertEqual(self.runtest("copy -s 0-1 screentest.tap temp.tap",
+                                      ""), "")
+        self.assertEqual(self.runtest("list -o temp.tap", ""),
                          """position type    information
   0      Headder "SCREENTEST" Bytes 16384,6912
   1      Data    Flag:255, block length:6912
 """)
         # ensure overwrite existing works
-        self.assertEqual(self.runtest("copy 0 " +
-                                      _TEST_DIRECTORY + "basictest.tap " +
-                                      _TEST_DIRECTORY + "temp.tap", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.tap", ""),
+        self.assertEqual(self.runtest("copy 0 basictest.tap temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o temp.tap", ""),
                          """position type    information
   0      Headder "BASIC     " Program
 """)
 
         # ensure append works
-        self.assertEqual(self.runtest("copy -a 0-1 " +
-                                      _TEST_DIRECTORY + "screentest.tap " +
-                                      _TEST_DIRECTORY + "temp.tap", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.tap", ""),
+        self.assertEqual(self.runtest("copy -a 0-1 screentest.tap temp.tap",
+                                      ""), "")
+        self.assertEqual(self.runtest("list -o temp.tap", ""),
                          """position type    information
   0      Headder "BASIC     " Program
   1      Headder "SCREENTEST" Bytes 16384,6912
@@ -605,11 +601,9 @@ class Testcommandline(unittest.TestCase):
 """)
 
         # ensure copy to specified position works
-        self.assertEqual(self.runtest("copy -p 1 0 " +
-                                      _TEST_DIRECTORY + "arraytest_char.tap " +
-                                      _TEST_DIRECTORY + "temp.tap", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.tap", ""),
+        self.assertEqual(self.runtest(
+            "copy -p 1 0 arraytest_char.tap temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o temp.tap", ""),
                          """position type    information
   0      Headder "BASIC     " Program
   1      Headder "c         " Character array S$
@@ -618,47 +612,39 @@ class Testcommandline(unittest.TestCase):
 """)
 
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.tap")
+        os_remove("temp.tap")
 
     def test_delete(self):
-        self.assertEqual(self.runtest("delete 0 " + _TEST_DIRECTORY +
-                                      "basictest.tap " + _TEST_DIRECTORY +
-                                      "temp.tap", ""), "")
+        self.assertEqual(self.runtest("delete 0 basictest.tap temp.tap", ""),
+                         "")
 
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.tap", ""),
+        self.assertEqual(self.runtest("list -o temp.tap", ""),
                          """position type    information
   0      Data    Flag:255, block length:190
 """)
 
         # create copy
-        with open(_TEST_DIRECTORY + "temp.tap", "wb") as f:
+        with open("temp.tap", "wb") as f:
             f.write(_getfileasbytes("basictest.tap"))
-        self.assertEqual(self.runtest("delete -s 0-1 " + _TEST_DIRECTORY +
-                                      "temp.tap " + _TEST_DIRECTORY +
-                                      "temp.tap", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.tap", ""),
+        self.assertEqual(self.runtest("delete -s 0-1 temp.tap temp.tap", ""),
+                         "")
+        self.assertEqual(self.runtest("list -o temp.tap", ""),
                          """position type    information\n""")
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.tap")
+        os_remove("temp.tap")
 
     def test_create(self):
-        self.assertEqual(self.runtest(
-            "create basic --filename TEST --autostart 10 " + _TEST_DIRECTORY +
-            "basictest.dat " + _TEST_DIRECTORY + "temp.tap", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.tap", ""),
+        self.assertEqual(self.runtest("create basic --filename TEST \
+--autostart 10 basictest.dat temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o temp.tap", ""),
                          """position type    information
   0      Headder "TEST      " Program Line:10
   1      Data    Flag:255, block length:190
 """)
 
         self.assertEqual(self.runtest("create code --filename TEST --origin \
-0x8000 -a " + _TEST_DIRECTORY + "screentest.dat " + _TEST_DIRECTORY +
-                                      "temp.tap", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.tap", ""),
+0x8000 -a screentest.dat temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o temp.tap", ""),
                          """position type    information
   0      Headder "TEST      " Program Line:10
   1      Data    Flag:255, block length:190
@@ -667,45 +653,37 @@ class Testcommandline(unittest.TestCase):
 """)
 
         self.assertEqual(self.runtest("create array --filename ARRAY \
---arraytype string --arrayname S -i " + _TEST_DIRECTORY + "temp.tap",
-                                      "Test1\nTest2\nTest3"), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.tap", ""),
+--arraytype string --arrayname S -i temp.tap", "Test1\nTest2\nTest3"), "")
+        self.assertEqual(self.runtest("list -o temp.tap", ""),
                          """position type    information
   0      Headder "ARRAY     " Character array S$
   1      Data    Flag:255, block length:17
 """)
-        self.assertEqual(self.runtest("extract 1 -o " + _TEST_DIRECTORY +
-                                      "temp.tap", ""), "Test1\nTest2\nTest3")
+        self.assertEqual(self.runtest("extract 1 -o temp.tap", ""),
+                         "Test1\nTest2\nTest3")
 
         self.assertEqual(self.runtest("create array --filename ARRAYnum \
---arraytype n --arrayname N " + _TEST_DIRECTORY + "arraytest_number.dat " +
-                                      _TEST_DIRECTORY + "temp.tap", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.tap", ""),
+--arraytype n --arrayname N arraytest_number.dat temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o temp.tap", ""),
                          """position type    information
   0      Headder "ARRAYnum  " Number array N
   1      Data    Flag:255, block length:1005
 """)
-        self.assertEqual(self.runtest("extract 1 " + _TEST_DIRECTORY +
-                                      "temp.tap " + _TEST_DIRECTORY +
-                                      "temp.bin", ""), "")
+        self.assertEqual(self.runtest("extract 1 temp.tap temp.bin", ""), "")
         self.assertEqual(_getfileasbytes("temp.bin"),
                          _getfileasbytes("arraytest_number.dat"))
 
-        self.assertEqual(self.runtest("create screen --filename SCR " +
-                                      _TEST_DIRECTORY + "screentest.dat " +
-                                      _TEST_DIRECTORY + "temp.tap", ""), "")
-        self.assertEqual(self.runtest("list -o " + _TEST_DIRECTORY +
-                                      "temp.tap", ""),
+        self.assertEqual(self.runtest("create screen --filename SCR \
+screentest.dat temp.tap", ""), "")
+        self.assertEqual(self.runtest("list -o temp.tap", ""),
                          """position type    information
   0      Headder "SCR       " Bytes 16384,6912
   1      Data    Flag:255, block length:6912
 """)
 
         # tidy up
-        os_remove(_TEST_DIRECTORY + "temp.tap")
-        os_remove(_TEST_DIRECTORY + "temp.bin")
+        os_remove("temp.tap")
+        os_remove("temp.bin")
 
     def checkinvalidcommand(self, command, message):
         try:
@@ -789,13 +767,13 @@ out", "You have to specify array type and name.")
         self.checkinvalidcommand("create array --filename X --arrayname X in \
 out", "You have to specify array type and name.")
         # invalid index to extract
-        self.checkinvalidcommand("extract 88 " + _TEST_DIRECTORY +
-                                 "screentest.tap out", "88 is greater than \
-the number of entries in the source data.")
+        self.checkinvalidcommand("extract 88 screentest.tap out",
+                                 "88 is greater than the number of entries in \
+the source data.")
         # invalid index to copy
-        self.checkinvalidcommand("copy 88 " + _TEST_DIRECTORY +
-                                 "screentest.tap out", "88 is greater than \
-the number of entries in the source data.")
+        self.checkinvalidcommand("copy 88 screentest.tap out",
+                                 "88 is greater than the number of entries in \
+the source data.")
 
 
 if __name__ == "__main__":

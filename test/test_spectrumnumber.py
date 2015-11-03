@@ -44,11 +44,17 @@
 Unit Test for SpectrumNumber Module
 """
 
-import spectrumnumber
 import unittest
 import sys
+import os
 import subprocess
 import re
+# import modules from parent directory
+pathtemp = sys.path
+sys.path += [os.path.dirname(os.getcwd())]
+import spectrumnumber
+# restore system path
+sys.path = pathtemp
 
 # 2to3 will complain about these lines but is 2 & 3 compatible
 if(sys.hexversion > 0x03000000):
@@ -382,13 +388,15 @@ class Testformating(unittest.TestCase):
         return "\n".join(output), "\n".join(error)
 
     def test_pep8(self):
-        output, error = self.runpep8("spectrumnumber.py", [], [])
-        self.assertEqual(output, "", "spectrumnumber.py pep8 formatting \
+        output, error = self.runpep8("../spectrumnumber.py", [], [])
+        self.assertEqual(output, "", "../spectrumnumber.py pep8 formatting \
 errors:\n" + output)
-        self.assertEqual(error, "", "spectrumnumber.py pep8 format check had \
-errors:\n" + error)
+        self.assertEqual(error, "", "../spectrumnumber.py pep8 format check \
+had errors:\n" + error)
 
-        output, error = self.runpep8("test_spectrumnumber.py", [], [])
+        output, error = self.runpep8("test_spectrumnumber.py", [], [
+            "test_spectrumnumber.py:55:1: E402 module level import not at top \
+of file"])
         self.assertEqual(output, "", "test_spectrumnumber.py pep8 formatting \
 errors:\n" + output)
         self.assertEqual(error, "", "test_spectrumnumber.py pep8 format check \
@@ -445,11 +453,12 @@ but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
         return output, "".join(error)
 
     def test_2to3(self):
-        output, error = self.run2to3("spectrumnumber.py", [], [])
-        self.assertEqual(output, [], "spectrumnumber.py 2to3 errors:\n" +
+        output, error = self.run2to3("../spectrumnumber.py", [], [])
+        self.assertEqual(output, [], "../spectrumnumber.py 2to3 errors:\n" +
                          "".join(output))
         self.assertEqual(error, "",
-                         "spectrumnumber.py 2to3 check had errors:\n" + error)
+                         "../spectrumnumber.py 2to3 check had errors:\n" +
+                         error)
 
         output, error = self.run2to3("test_spectrumnumber.py", [], [])
         self.assertEqual(output, [], "test_spectrumnumber.py 2to3 errors:\n" +
