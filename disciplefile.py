@@ -44,11 +44,9 @@ import spectrumtranslate
 import sys
 from os.path import isfile as _isfile
 from numbers import Integral as _INT_OR_LONG
-from sys import hexversion as _PYTHON_VERSION_HEX
-# codecs is imported if run from the command line
 
 
-if(_PYTHON_VERSION_HEX > 0x03000000):
+if(sys.hexversion > 0x03000000):
     def _validateandpreparebytes(x, m):
         if(isinstance(x, (bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
@@ -2013,7 +2011,10 @@ be 1 to 80).")
             with open(inputfile, 'rb') as infile:
                 datain = bytearray(infile.read())
         else:
-            datain = bytearray(sys.stdin.read(), 'utf8')
+            if(sys.hexversion > 0x03000000):
+                datain = sys.stdin.buffer.read()
+            else:
+                datain = sys.stdin.read()
 
     else:
         # get disc image
@@ -2030,7 +2031,10 @@ be 1 to 80).")
 
         else:
             di = DiscipleImage()
-            di.setbytes(sys.stdin.read())
+            if(sys.hexversion > 0x03000000):
+                di.setbytes(sys.stdin.buffer.read())
+            else:
+                di.setbytes(sys.stdin.read())
 
     # now do command
     if(mode == 'list'):
@@ -2078,8 +2082,6 @@ filetypelong}\t{sectors}\t{filelength}".format(**d)
  free.\n"
             else:
                 retdata += str((1560 - sectorsused) * 510) + " bytes free.\n"
-
-        retdata = bytearray(retdata, "utf8")
 
     if(mode == 'extract'):
         df = DiscipleFile(di, entrywanted)
@@ -2167,20 +2169,31 @@ filetypelong}\t{sectors}\t{filelength}".format(**d)
 
     # output data
     if(not tostandardoutput):
-        fo = open(outputfile, "wb")
-        fo.write(retdata)
+        if(mode == "list"):
+            if(sys.hexversion > 0x03000000):
+                fo = open(outputfile, "w")
+                fo.write(retdata)
+            else:
+                fo = open(outputfile, "wb")
+                fo.write(retdata.encode('utf-8'))
+        else:
+            fo = open(outputfile, "wb")
+            fo.write(retdata)
         fo.close()
 
     else:
-        sys.stdout.write(retdata.decode("utf8"))
+        if(mode == "list"):
+            if(sys.hexversion > 0x03000000):
+                sys.stdout.write(retdata)
+            else:
+                sys.stdout.write(retdata.encode('utf-8'))
+        else:
+            if(sys.hexversion > 0x03000000):
+                sys.stdout.buffer.write(retdata)
+            else:
+                sys.stdout.write("".join([chr(x) for x in retdata]))
 
 if __name__ == "__main__":
-    if(_PYTHON_VERSION_HEX < 0x03000000):
-        # set encodeing so can handle non ascii characters
-        from codecs import getwriter
-        sys.stdout = getwriter('utf8')(sys.stdout)
-        sys.stderr = getwriter('utf8')(sys.stderr)
-
     try:
         _commandline(sys.argv)
     except spectrumtranslate.SpectrumTranslateError as se:

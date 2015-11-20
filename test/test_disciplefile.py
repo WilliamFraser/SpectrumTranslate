@@ -49,8 +49,6 @@ import sys
 import subprocess
 import re
 import os
-from os import remove as os_remove
-from sys import hexversion as _PYTHON_VERSION_HEX
 # imported elsewhere for memory reasons are:
 # unicode_escape_decode in the codecs module
 # imported io/StringIO later so get python version specific one
@@ -62,7 +60,7 @@ import spectrumtranslate
 # restore system path
 sys.path = pathtemp
 
-if(_PYTHON_VERSION_HEX > 0x03000000):
+if(sys.hexversion > 0x03000000):
     from io import StringIO
 
 else:
@@ -82,7 +80,7 @@ def _getfileasbytes(name):
 
 class Testutilityfunctions(unittest.TestCase):
     def test_checkisvalidbytes(self):
-        if(_PYTHON_VERSION_HEX > 0x03000000):
+        if(sys.hexversion > 0x03000000):
             self.assertTrue(disciplefile._validateandpreparebytes(bytes(
                                                                   b"Test"), 0))
             self.assertRaises(spectrumtranslate.SpectrumTranslateError,
@@ -112,7 +110,7 @@ class Testutilityfunctions(unittest.TestCase):
     def test_validbytestointlist(self):
         self.assertEqual(disciplefile._validateandpreparebytes([1, 2], ""),
                          bytearray([1, 2]))
-        if(_PYTHON_VERSION_HEX > 0x03000000):
+        if(sys.hexversion > 0x03000000):
             self.assertEqual(disciplefile._validateandpreparebytes(bytearray(
                                                                    b"Test"),
                                                                    ""),
@@ -138,7 +136,7 @@ class Testutilityfunctions(unittest.TestCase):
                           disciplefile._validateandconvertfilename, [0.1, 0.2])
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           disciplefile._validateandconvertfilename, 0.1)
-        if(_PYTHON_VERSION_HEX < 0x03000000):
+        if(sys.hexversion < 0x03000000):
             # 2to3 will complain but is ok as won't run in python 3
             self.assertEqual(disciplefile._validateandconvertfilename(
                              [long(65), long(66), long(67)]),
@@ -576,7 +574,7 @@ class TestDiscipleImage(unittest.TestCase):
         self.assertEqual(diff[1][0:3], [4, 2, bytearray([1] * 512)])
 
         # tidy up
-        os_remove("diskimagecopy.mgt")
+        os.remove("diskimagecopy.mgt")
 
         # test write to image in internal byte list
         # undefined image. Will be populated with list when first write happens
@@ -970,9 +968,9 @@ class Testformating(unittest.TestCase):
                          error)
 
         output, error = self.runpep8("test_disciplefile.py", [], [
-            "test_disciplefile.py:60:1: E402 module level import not at top \
+            "test_disciplefile.py:58:1: E402 module level import not at top \
 of file",
-            "test_disciplefile.py:61:1: E402 module level import not at top \
+            "test_disciplefile.py:59:1: E402 module level import not at top \
 of file"])
         self.assertEqual(output, "",
                          "test_disciplefile.py pep8 formatting errors:\n" +
@@ -1048,37 +1046,75 @@ but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
 
 
 class Testcommandline(unittest.TestCase):
-    def runtest(self, command, stdindata):
+    class Mystdout(StringIO):
+        # a class to mimic the buffer behaviour of stdout
+        class bufferemulator:
+            def __init__(self):
+                self.bytedata = bytearray()
+
+            def write(self, data):
+                self.bytedata += data
+
+        def __init__(self):
+            StringIO.__init__(self)
+            self.buffer = Testcommandline.Mystdout.bufferemulator()
+
+    class Mystdin(StringIO):
+        # a class to mimic the buffer behaviour of stdout
+        class bufferemulator:
+            def __init__(self):
+                self.bytedata = bytearray()
+
+            def read(self):
+                return self.bytedata
+
+        def __init__(self, data):
+            StringIO.__init__(self)
+            self.buffer = Testcommandline.Mystdin.bufferemulator()
+            if(sys.hexversion > 0x03000000):
+                if(isinstance(data, bytearray)):
+                    self.buffer.bytedata = data
+                else:
+                    self.buffer.bytedata = bytearray([ord(x) for x in data])
+            else:
+                self.write(data)
+                self.seek(0)
+
+    def runtest(self, command, stdindata, wantbytearrayreturned=False):
         saved_output = sys.stdout
         saved_input = sys.stdin
-        sys.stdin = StringIO(stdindata)
-        output = StringIO()
+        sys.stdin = Testcommandline.Mystdin(stdindata)
+        output = Testcommandline.Mystdout()
         sys.stdout = output
         try:
-            disciplefile._commandline(["disciplefile.py"] + command.split())
+            disciplefile._commandline(["x.py"] + command.split())
 
         finally:
             sys.stdout = saved_output
             sys.stdin = saved_input
 
         out = output.getvalue()
+        if(sys.hexversion < 0x03000000 and not wantbytearrayreturned):
+            out = out.decode('utf8')
+        if(len(out) == 0 and len(output.buffer.bytedata) > 0):
+            out = output.buffer.bytedata
         output.close()
         return out
 
     def setUp(self):
         # tidy up
         try:
-            os_remove("temp.img")
+            os.remove("temp.img")
         except:
             pass
 
         try:
-            os_remove("temp.txt")
+            os.remove("temp.txt")
         except:
             pass
 
         try:
-            os_remove("temp.bin")
+            os.remove("temp.bin")
         except:
             pass
 
@@ -1181,7 +1217,7 @@ diskimagetest.img temp.txt", ""), "")
 80	^00^00^00^00^00^00^00^00^00^00	0	Free/Erased	0	0
 """)
         # tidy up
-        os_remove("temp.txt")
+        os.remove("temp.txt")
 
     def test_delete(self):
         self.assertEqual(self.runtest("delete 1 diskimagetest.img temp.img",
@@ -1195,7 +1231,7 @@ diskimagetest.img temp.txt", ""), "")
     4   Screen      14      SCREEN$
 """)
         # tidy up
-        os_remove("temp.img")
+        os.remove("temp.img")
 
         # create copy
         with open("temp.img", "wb") as f:
@@ -1208,7 +1244,7 @@ diskimagetest.img temp.txt", ""), "")
     3   Array X      2      D.ARRAY
 """)
         # tidy up
-        os_remove("temp.img")
+        os.remove("temp.img")
 
     def test_extract(self):
         self.assertEqual(self.runtest("extract 2 diskimagetest.img temp.bin",
@@ -1216,7 +1252,7 @@ diskimagetest.img temp.txt", ""), "")
         self.assertEqual(_getfileasbytes("temp.bin"),
                          _getfileasbytes("arraytest_char.dat"))
         # tidy up
-        os_remove("temp.bin")
+        os.remove("temp.bin")
 
     def test_copy(self):
         self.assertEqual(self.runtest("copy --pos 0x10-0x11 -s 2-3 \
@@ -1228,7 +1264,7 @@ diskimagetest.img temp.img", ""), "")
    17   Array X      2      D.ARRAY
 """)
         # tidy up
-        os_remove("temp.img")
+        os.remove("temp.img")
 
         self.assertEqual(self.runtest("copy --pos 11-14 -s 1-2 \
 diskimagetest.img temp.img", ""), "")
@@ -1239,7 +1275,7 @@ diskimagetest.img temp.img", ""), "")
    12   Array C      1      $.ARRAY
 """)
         # tidy up
-        os_remove("temp.img")
+        os.remove("temp.img")
 
         self.assertEqual(self.runtest("copy --pos 11-12 -s 1-4 \
 diskimagetest.img temp.img", ""), "")
@@ -1252,7 +1288,7 @@ diskimagetest.img temp.img", ""), "")
    12   Array C      1      $.ARRAY
 """)
         # tidy up
-        os_remove("temp.img")
+        os.remove("temp.img")
 
     def test_create(self):
         self.assertEqual(self.runtest("create basic --filename TEST \
@@ -1296,7 +1332,7 @@ screentest.dat temp.img", ""), "")
 """)
 
         # tidy up
-        os_remove("temp.img")
+        os.remove("temp.img")
 
     def checkinvalidcommand(self, command, message):
         try:

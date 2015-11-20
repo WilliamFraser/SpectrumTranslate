@@ -68,9 +68,9 @@ if(_PYTHON_VERSION_HEX > 0x03000000):
     def _u(x):
         return x
 
-    def _getfileaslist(name):
-        with open(name, 'rb') as infile:
-            return [b for b in infile.read()]
+    def _getfile(name):
+        with open(name, 'r') as f:
+            return f.read()
 
 else:
     # 2to3 will complain but won't cause problems in real life
@@ -79,24 +79,19 @@ else:
     def _u(x):
         return _UED(x)[0]
 
-    def _getfileaslist(name):
-        with open(name, 'rb') as infile:
-            return [ord(b) for b in infile.read()]
+    def _getfile(name):
+        with open(name, 'r') as f:
+            return f.read().decode('utf8')
 
 
-def _getfile(name):
-    with open(name, 'r') as f:
-        return f.read()
-
-
-def _getfileasbytes(name):
+def _getfileasbytearray(name):
     with open(name, 'rb') as infile:
         return bytearray(infile.read())
 
 
 class Testbasicconversion(unittest.TestCase):
     def test_basictotext(self):
-        data = _getfileaslist("basictest.dat")
+        data = _getfileasbytearray("basictest.dat")
         self.assertEqual(spectrumtranslate.basictotext(data), _u("""\
 10 REM ^16^00^00\u259C^11^05\u2597^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
@@ -140,7 +135,7 @@ z$="testing"
 """)
 
     def test_basictoxml(self):
-        data = _getfileaslist("basictest.dat")
+        data = _getfileasbytearray("basictest.dat")
         self.assertEqual(spectrumtranslate.basictoxml(data), _u("""\
 <?xml version="1.0" encoding="UTF-8" ?>
 <basiclisting>
@@ -236,7 +231,7 @@ z$="testing"
 
         self.assertEqual(spectrumtranslate.basictoxml(data,
                                                       hexfornonascii=True),
-                         """\
+                         _u("""\
 <?xml version="1.0" encoding="UTF-8" ?>
 <basiclisting>
   <line>
@@ -327,18 +322,18 @@ z$="testing"
     </variable>
   </variables>
 </basiclisting>
-""")
+"""))
 
 
 class TestArrayConversion(unittest.TestCase):
     def test_getarraydepth(self):
-        data = _getfileaslist("arraytest_number.dat")
+        data = _getfileasbytearray("arraytest_number.dat")
         self.assertEqual(spectrumtranslate.getarraydepth(data, 0x98), 2)
-        data = _getfileaslist("arraytest_char.dat")
+        data = _getfileasbytearray("arraytest_char.dat")
         self.assertEqual(spectrumtranslate.getarraydepth(data, 0xD3), 3)
 
     def test_extractarray(self):
-        data = _getfileaslist("arraytest_number.dat")
+        data = _getfileasbytearray("arraytest_number.dat")
         data = spectrumtranslate.extractarray(data, 0x98)
         correctvalues = [[round(x * y * 0.1, 2) for y in range(1, 11)] for x
                          in range(1, 21)]
@@ -348,12 +343,12 @@ class TestArrayConversion(unittest.TestCase):
         # now compare
         self.assertEqual(data, correctvalues)
 
-        data = _getfileaslist("arraytest_char.dat")
+        data = _getfileasbytearray("arraytest_char.dat")
         self.assertEqual(spectrumtranslate.extractarray(data, 0xD3),
                          [['test', 'mum ', 'good'], ['one ', 'two ', 'thre']])
 
     def test_arraytotext(self):
-        data = _getfileaslist("arraytest_number.dat")
+        data = _getfileasbytearray("arraytest_number.dat")
         self.assertEqual(spectrumtranslate.arraytotext(data, 0x98), """{
   {
     0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1
@@ -417,7 +412,7 @@ class TestArrayConversion(unittest.TestCase):
   }
 }""")
 
-        data = _getfileaslist("arraytest_char.dat")
+        data = _getfileasbytearray("arraytest_char.dat")
         self.assertEqual(spectrumtranslate.arraytotext(data, 0xD3), """{
   {
     "test",
@@ -444,7 +439,7 @@ class TestArrayConversion(unittest.TestCase):
 }"""))
 
     def test_arraytoxml(self):
-        data = _getfileaslist("arraytest_number.dat")
+        data = _getfileasbytearray("arraytest_number.dat")
         self.assertEqual(spectrumtranslate.arraytoxml(data, 0x98), """\
 <dimension>
   <dimension>
@@ -689,7 +684,7 @@ class TestArrayConversion(unittest.TestCase):
   </dimension>
 </dimension>""")
 
-        data = _getfileaslist("arraytest_char.dat")
+        data = _getfileasbytearray("arraytest_char.dat")
         self.assertEqual(spectrumtranslate.arraytoxml(data, 0xD3), """\
 <dimension>
   <dimension>
@@ -886,7 +881,7 @@ class TestImageConvert(unittest.TestCase):
 
         # get image created by spectrumtranslate
         gifscreen = spectrumtranslate.getgiffromscreen(
-            _getfileaslist("screentest.dat"))
+            _getfileasbytearray("screentest.dat"))
         # should have valid gif now
         gifimage = Image.open(BytesIO(gifscreen))
         # should be 2 images
@@ -904,7 +899,7 @@ class TestImageConvert(unittest.TestCase):
         # test getting individual images
         # get image created by spectrumtranslate
         gifscreen = spectrumtranslate.getgiffromscreen(
-            _getfileaslist("screentest.dat"), -1)
+            _getfileasbytearray("screentest.dat"), -1)
         # should have valid gif now
         gifimage = Image.open(BytesIO(gifscreen))
         # compare images now
@@ -912,7 +907,7 @@ class TestImageConvert(unittest.TestCase):
 
         # test flash image
         gifscreen = spectrumtranslate.getgiffromscreen(
-            _getfileaslist("screentest.dat"), -2)
+            _getfileasbytearray("screentest.dat"), -2)
         # should have valid gif now
         gifimage = Image.open(BytesIO(gifscreen))
         # compare images now
@@ -926,7 +921,7 @@ class TestImageConvert(unittest.TestCase):
         refimage2 = self.imageto32bitlist(irReference)
 
         gifscreen = spectrumtranslate.getrgbfromscreen(
-            _getfileaslist("screentest.dat"), alphamask=0)
+            _getfileasbytearray("screentest.dat"), alphamask=0)
         # should have valid list of RGB values
         # should be 2 images
         self.assertEqual(type(gifscreen), list)
@@ -941,7 +936,7 @@ class TestImageConvert(unittest.TestCase):
 
         # test ignore RBG list
         gifscreen = spectrumtranslate.getrgbfromscreen(
-            _getfileaslist("screentest.dat"), imageformat=1)
+            _getfileasbytearray("screentest.dat"), imageformat=1)
         # should be 2 images
         self.assertEqual(type(gifscreen), list)
         self.assertEqual(len(gifscreen), 2)
@@ -963,7 +958,7 @@ class TestImageConvert(unittest.TestCase):
 
         # test ignore RBG list without alpha
         gifscreen = spectrumtranslate.getrgbfromscreen(
-            _getfileaslist("screentest.dat"), imageformat=1, alphamask=-1)
+            _getfileasbytearray("screentest.dat"), imageformat=1, alphamask=-1)
         # should be 2 images
         self.assertEqual(type(gifscreen), list)
         self.assertEqual(len(gifscreen), 2)
@@ -2023,12 +2018,12 @@ check had errors:\n" + error)
 top of file",
             "test_spectrumtranslate.py:61:1: E402 module level import not at \
 top of file",
-            "test_spectrumtranslate.py:103:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:125:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:1480:9: W291 trailing whitespace",
-            "test_spectrumtranslate.py:2144:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:2163:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:2184:56: W291 trailing whitespace"])
+            "test_spectrumtranslate.py:98:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:120:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:1475:9: W291 trailing whitespace",
+            "test_spectrumtranslate.py:2182:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:2201:56: W291 trailing whitespace",
+            "test_spectrumtranslate.py:2222:56: W291 trailing whitespace"])
         self.assertEqual(output, "", "test_spectrumtranslate.py pep8 \
 formatting errors:\n" + output)
         self.assertEqual(error, "", "test_spectrumtranslate.py pep8 format \
@@ -2099,11 +2094,49 @@ errors:\n" + error)
 
 
 class Testcommandline(unittest.TestCase):
-    def runtest(self, command, stdindata):
+    class Mystdout(StringIO):
+        # a class to mimic the buffer behaviour of stdout
+        class bufferemulator:
+            def __init__(self):
+                self.bytedata = bytearray()
+
+            def write(self, data):
+                self.bytedata += data
+
+        def __init__(self):
+            StringIO.__init__(self)
+            self.buffer = Testcommandline.Mystdout.bufferemulator()
+
+    class Mystdin(StringIO):
+        # a class to mimic the buffer behaviour of stdout
+        class bufferemulator:
+            def __init__(self):
+                self.bytedata = bytearray()
+
+            def read(self):
+                return self.bytedata
+
+        def __init__(self, data, avoidbuffer):
+            StringIO.__init__(self)
+            self.buffer = Testcommandline.Mystdin.bufferemulator()
+            if(sys.hexversion > 0x03000000):
+                if(isinstance(data, bytearray)):
+                    self.buffer.bytedata = data
+                elif(avoidbuffer):
+                    self.write(data)
+                    self.seek(0)
+                else:
+                    self.buffer.bytedata = bytearray([ord(x) for x in data])
+            else:
+                self.write(data)
+                self.seek(0)
+
+    def runtest(self, command, stdindata, wantbytearrayreturned=False,
+                avoidbuffer=False):
         saved_output = sys.stdout
         saved_input = sys.stdin
-        sys.stdin = StringIO(stdindata)
-        output = StringIO()
+        sys.stdin = Testcommandline.Mystdin(stdindata, avoidbuffer)
+        output = Testcommandline.Mystdout()
         sys.stdout = output
         try:
             spectrumtranslate._commandline(["x.py"] + command.split())
@@ -2113,6 +2146,10 @@ class Testcommandline(unittest.TestCase):
             sys.stdin = saved_input
 
         out = output.getvalue()
+        if(sys.hexversion < 0x03000000 and not wantbytearrayreturned):
+            out = out.decode('utf8')
+        if(len(out) == 0 and len(output.buffer.bytedata) > 0):
+            out = output.buffer.bytedata
         output.close()
         return out
 
@@ -2138,7 +2175,8 @@ class Testcommandline(unittest.TestCase):
         self.assertEqual(self.runtest("help", ""), spectrumtranslate.usage())
 
     def test_basic(self):
-        self.assertEqual(self.runtest("basic -o basictest.dat", ""), _u("""\
+        self.assertEqual(self.runtest("basic basictest.dat temp.txt", ""), "")
+        self.assertEqual(_getfile("temp.txt"), _u("""\
 10 REM ^16^00^00\u259c^11^05\u2597^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
 20 DATA 1(number without value),2(1024),3,4: LIST : NEW 
@@ -2385,26 +2423,39 @@ z$="testing"
 </basiclisting>
 """))
 
+        # tidy up
+        os_remove("temp.txt")
+
     def test_text(self):
+        def _listtostring(b):
+            return bytearray(b).decode('latin-1')
+
         self.assertEqual(self.runtest("text -i -o",
-                                      _u("\x7F\x60\x5E\x01\x41\u0080\u00FF")),
-                         _u('\xa9\xa3\u2191^01A\u2003COPY '))
-        self.assertEqual(self.runtest("text -i -o -a",
-                                      _u("\x7F\x60\x5E\x01\x41\u0080\u00FF")),
+                                      '\x7F\x60\x5E\x01\x41\x80\xFF'),
+                         _u('\xA9\xA3\u2191^01A\u2003COPY '))
+        self.assertEqual(self.runtest("text -i temp.txt", _listtostring(
+            [0x7F, 0x60, 0x5E, 0x01, 0x41, 0x80, 0xFF])), "")
+        self.assertEqual(_getfile("temp.txt"),
+                         _u('\xA9\xA3\u2191^01A\u2003COPY '))
+        self.assertEqual(self.runtest("text -i -o -a", _listtostring(
+            [0x7F, 0x60, 0x5E, 0x01, 0x41, 0x80, 0xFF])),
                          _u('^7F^60^5E^01A^80^FF'))
         self.assertEqual(self.runtest("text -o -a -k 0x1F -l 4 \
 arraytest_char.tap", ""), 'test')
+
+        # tidy up
+        os_remove("temp.txt")
 
     def test_array(self):
         self.assertEqual(self.runtest("array -t 0x98 arraytest_number.dat \
 temp.txt", ""), "")
         self.assertEqual(_getfile("temp.txt"), spectrumtranslate.arraytotext(
-            _getfileaslist("arraytest_number.dat"), 0x98))
+            _getfileasbytearray("arraytest_number.dat"), 0x98))
 
         self.assertEqual(self.runtest("array -t 0x98 -xml \
 arraytest_number.dat temp.txt", ""), "")
         self.assertEqual(_getfile("temp.txt"), spectrumtranslate.arraytoxml(
-            _getfileaslist("arraytest_number.dat"), 0x98))
+            _getfileasbytearray("arraytest_number.dat"), 0x98))
 
         self.assertEqual(self.runtest("array -t 0x98 -d -o \
 arraytest_number.dat ", ""), "2")
@@ -2423,9 +2474,9 @@ arraytest_number.dat ", ""), "2")
   "^7F"
 }"""))
 
-        self.assertEqual(self.runtest("array -t 0xC0 -i -o -x",
-                                      "\x02\x02\x00\x01\x00\xFF\x7F"),
-                         _u("""\
+        self.assertEqual(self.runtest("array -t 0xC0 -i -x temp.txt",
+                                      "\x02\x02\x00\x01\x00\xFF\x7F"), "")
+        self.assertEqual(_getfile("temp.txt"), _u("""\
 <dimension>
   <string>COPY </string>
   <string>\u00A9</string>
@@ -2451,9 +2502,9 @@ arraytest_number.dat ", ""), "2")
             return bytearray([x[i] for x in im.convert("RGB").getdata() for i
                               in (0, 1, 2)])
 
-        self.assertEqual(self.runtest("screen -g -o screentest.dat",
-                                      "").encode('latin-1'),
-                         _getfileasbytes("screentest.gif"))
+        self.assertEqual(self.runtest("screen -g -o screentest.dat", "", True),
+                         _getfileasbytearray("screentest.gif"),
+                         "Screen test Failed 1.")
 
         self.assertEqual(self.runtest("screen -g -f -1 screentest.dat \
 temp.gif", ""), "")
@@ -2461,7 +2512,7 @@ temp.gif", ""), "")
         refimage = imageto32bitlist(irReference)
         irTemp = Image.open("temp.gif")
         tempimg = imageto32bitlist(irTemp)
-        self.assertEqual(refimage, tempimg)
+        self.assertEqual(refimage, tempimg, "Screen test Failed 2.")
         # ensure only 1 image
         self.assertRaises(EOFError, irTemp.seek, 2)
 
@@ -2471,20 +2522,21 @@ temp.gif", ""), "")
         refimage1 = imageto32bitlist(irReference)
         irTemp = Image.open("temp.gif")
         tempimg = imageto32bitlist(irTemp)
-        self.assertEqual(refimage1, tempimg)
+        self.assertEqual(refimage1, tempimg, "Screen test Failed 3.")
         # ensure only 1 image
         self.assertRaises(EOFError, irTemp.seek, 2)
 
         irReference.seek(0)
-        self.assertEqual(self.runtest("screen -o screentest.dat",
-                                      "").encode('latin-1'),
-                         imagetobytearray(irReference))
+        self.assertEqual(self.runtest("screen -o -f -1 screentest.dat", "",
+                                      True), imagetobytearray(irReference),
+                         "Screen test Failed 4.")
 
         self.assertEqual(self.runtest("screen -f -2 screentest.dat temp.bin",
                                       ""), "")
         irReference.seek(1)
         refimage = imagetobytearray(irReference)
-        self.assertEqual(refimage, _getfileasbytes("temp.bin"))
+        self.assertEqual(refimage, _getfileasbytearray("temp.bin"),
+                         "Screen test Failed 5.")
 
         # tidy up
         os_remove("temp.gif")
@@ -2536,31 +2588,33 @@ code.dat temp.txt", ""), "")
         os_remove("temp.txt")
 
     def test_instruction(self):
-        self.assertEqual(self.runtest("instruction -i -o", "0100#0000#FFFF##"),
-                         "100#0#FFFF#")
+        self.assertEqual(self.runtest("instruction -i -o", "0100#0000#FFFF##",
+                                      avoidbuffer=True), "100#0#FFFF#")
         self.assertEqual(self.runtest("instruction -i -o -mo",
-                                      "0100#0000#FFFF##"),
+                                      "0100#0000#FFFF##", avoidbuffer=True),
                          "100\n0\nFFFF\n")
         self.assertEqual(self.runtest("instruction -i -o -n",
-                                      "0100#0000#FFFF##"),
+                                      "0100#0000#FFFF##", avoidbuffer=True),
                          "100#0#FFFF#")
         self.assertEqual(self.runtest("instruction -i -o -mo -n",
-                                      "0100#0000#FFFF##"),
+                                      "0100#0000#FFFF##", avoidbuffer=True),
                          "Address Output Format Hex\n0\nFFFF\n")
         self.assertEqual(self.runtest("instruction -i -o -mi",
-                         "Address Output Format Hex\n0\n0xFFFF"),
-                         "100#0#FFFF#")
+                                      "Address Output Format Hex\n0\n0xFFFF",
+                                      avoidbuffer=True), "100#0#FFFF#")
         self.assertEqual(self.runtest("instruction -i -o -mi",
-                                      "256\n0\n65535"),
+                                      "256\n0\n65535", avoidbuffer=True),
                          "100#0#FFFF#")
         self.assertEqual(self.runtest("instruction -i -o -m",
-                         "Address Output Format Hex\n0\n0xFFFF"),
-                         "100\n0\nFFFF\n")
+                                      "Address Output Format Hex\n0\n0xFFFF",
+                                      avoidbuffer=True), "100\n0\nFFFF\n")
         self.assertEqual(self.runtest("instruction -i -o -mi",
-                                      "512\n0\n65535\nHello\nTest"),
+                                      "512\n0\n65535\nHello\nTest",
+                                      avoidbuffer=True),
                          "200#0#FFFF#5#HelloTest")
         self.assertEqual(self.runtest("instruction -i -o -mo",
-                                      "200#0#FFFF#5#HelloTest"),
+                                      "200#0#FFFF#5#HelloTest",
+                                      avoidbuffer=True),
                          "200\n0\nFFFF\nHello\nTest")
 
     def checkinvalidcommand(self, command, message):

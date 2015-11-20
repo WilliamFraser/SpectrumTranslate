@@ -7049,7 +7049,10 @@ from standard input.')
             data = infile.read()
 
     else:
-        data = sys.stdin.read()
+        if(sys.hexversion > 0x03000000 and mode != 'instruction'):
+            data = sys.stdin.buffer.read()
+        else:
+            data = sys.stdin.read()
 
     # apply skip and length options if needed
     if(skipbytes):
@@ -7087,19 +7090,10 @@ from standard input.')
             retdata = getgiffromscreen(data, flashrate)
 
         else:
-            rgbdata = getrgbfromscreen(data)
+            rgbdata = getrgbfromscreen(data, alphamask=-1, imageformat=1)
             iwanted = 1 if flashrate == -2 and rgbdata[1] is not None else 0
             retdata = rgbdata[iwanted]
-            # is RGB format ints (bits 16-23 are red, 8-15 are green,
-            # and 0-7 are Blue) expand list out so each component gets
-            # one byte each
-            retdata = "".join(
-                [chr((x >> i) & 0xFF) for x in retdata for i in (16, 8, 0)])
-        if(sys.hexversion > 0x03000000):
-            if(type(retdata) is not bytearray):
-                retdata = bytearray(retdata.encode('latin-1'))
-        else:
-            retdata = bytearray(retdata)
+            retdata = bytearray([x[i] for x in retdata for i in (0, 1, 2)])
 
     elif(mode == 'code'):
         if(xml):
@@ -7182,18 +7176,29 @@ from standard input.')
 
     # output data
     if(not tostandardoutput):
-        fo = open(outputfile, "wb")
-        if(sys.hexversion > 0x03000000 and type(retdata) is str):
-            fo.write(retdata.encode("utf8"))
-        else:
+        if(mode == "screen"):
+            fo = open(outputfile, "wb")
             fo.write(retdata)
+        else:
+            if(sys.hexversion > 0x03000000):
+                fo = open(outputfile, "w")
+                fo.write(retdata)
+            else:
+                fo = open(outputfile, "wb")
+                fo.write(retdata.encode('utf-8'))
         fo.close()
 
     else:
         if(mode == "screen"):
-            sys.stdout.write(retdata.decode('latin-1'))
+            if(sys.hexversion > 0x03000000):
+                sys.stdout.buffer.write(retdata)
+            else:
+                sys.stdout.write("".join([chr(x) for x in retdata]))
         else:
-            sys.stdout.write(retdata)
+            if(sys.hexversion > 0x03000000):
+                sys.stdout.write(retdata)
+            else:
+                sys.stdout.write(retdata.encode('utf-8'))
 
 
 if __name__ == "__main__":

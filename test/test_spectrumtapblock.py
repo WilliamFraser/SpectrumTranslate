@@ -49,8 +49,6 @@ import unittest
 import re
 import sys
 import os
-from os import remove as os_remove
-from sys import hexversion as _PYTHON_VERSION_HEX
 # imported elsewhere for memory reasons are:
 # unicode_escape_decode in the codecs module
 # imported io/StringIO later so get python version specific one
@@ -62,7 +60,7 @@ import spectrumtranslate
 # restore system path
 sys.path = pathtemp
 
-if(_PYTHON_VERSION_HEX > 0x03000000):
+if(sys.hexversion > 0x03000000):
     from io import StringIO
 
     def _u(x):
@@ -89,7 +87,7 @@ def _getfileasbytes(name):
 
 class Testutilityfunctions(unittest.TestCase):
     def test_validateandpreparebytes_validate(self):
-        if(_PYTHON_VERSION_HEX > 0x03000000):
+        if(sys.hexversion > 0x03000000):
             self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                               spectrumtapblock._validateandpreparebytes,
                               "Wrong", "test")
@@ -119,7 +117,7 @@ class Testutilityfunctions(unittest.TestCase):
     def test_validateandpreparebytes_prepare(self):
         self.assertEqual(spectrumtapblock._validateandpreparebytes([1, 2]),
                          bytearray([1, 2]))
-        if(_PYTHON_VERSION_HEX < 0x03000000):
+        if(sys.hexversion < 0x03000000):
             self.assertEqual(spectrumtapblock._validateandpreparebytes("Test"),
                              bytearray([84, 101, 115, 116]))
 
@@ -146,7 +144,7 @@ class Testutilityfunctions(unittest.TestCase):
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           spectrumtapblock._validateandconvertfilename,
                           0.1)
-        if(_PYTHON_VERSION_HEX < 0x03000000):
+        if(sys.hexversion < 0x03000000):
             # 2to3 will complain but is ok as won't run in python 3
             self.assertEqual(spectrumtapblock._validateandconvertfilename(
                              [long(65), long(66), long(67)]),
@@ -311,7 +309,7 @@ class TestSpectrumTapBlock(unittest.TestCase):
         data = _getfileasbytes("testout.tap")
         self.assertEqual(data, bytearray([5, 0, 255, 1, 2, 3, 255, 5, 0, 255,
                                           1, 2, 3, 255]))
-        os_remove("testout.tap")
+        os.remove("testout.tap")
 
 
 class Testmetafunctions(unittest.TestCase):
@@ -435,9 +433,9 @@ errors:\n" + output)
 had errors:\n" + error)
 
         output, error = self.runpep8("test_spectrumtapblock.py", [], [
-            "test_spectrumtapblock.py:60:1: E402 module level import not at \
+            "test_spectrumtapblock.py:58:1: E402 module level import not at \
 top of file",
-            "test_spectrumtapblock.py:61:1: E402 module level import not at \
+            "test_spectrumtapblock.py:59:1: E402 module level import not at \
 top of file"])
         self.assertEqual(output, "", "test_spectrumtapblock.py pep8 \
 formatting errors:\n" + output)
@@ -512,43 +510,80 @@ but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
 
 
 class Testcommandline(unittest.TestCase):
-    def runtest(self, command, stdindata):
+    class Mystdout(StringIO):
+        # a class to mimic the buffer behaviour of stdout
+        class bufferemulator:
+            def __init__(self):
+                self.bytedata = bytearray()
+
+            def write(self, data):
+                self.bytedata += data
+
+        def __init__(self):
+            StringIO.__init__(self)
+            self.buffer = Testcommandline.Mystdout.bufferemulator()
+
+    class Mystdin(StringIO):
+        # a class to mimic the buffer behaviour of stdout
+        class bufferemulator:
+            def __init__(self):
+                self.bytedata = bytearray()
+
+            def read(self):
+                return self.bytedata
+
+        def __init__(self, data):
+            StringIO.__init__(self)
+            self.buffer = Testcommandline.Mystdin.bufferemulator()
+            if(sys.hexversion > 0x03000000):
+                if(isinstance(data, bytearray)):
+                    self.buffer.bytedata = data
+                else:
+                    self.buffer.bytedata = bytearray([ord(x) for x in data])
+            else:
+                self.write(data)
+                self.seek(0)
+
+    def runtest(self, command, stdindata, wantbytearrayreturned=False):
         saved_output = sys.stdout
         saved_input = sys.stdin
-        sys.stdin = StringIO(stdindata)
-        output = StringIO()
+        sys.stdin = Testcommandline.Mystdin(stdindata)
+        output = Testcommandline.Mystdout()
         sys.stdout = output
         try:
-            spectrumtapblock._commandline(["spectrumtapblock.py"] +
-                                          command.split())
+            spectrumtapblock._commandline(["x.py"] + command.split())
 
         finally:
             sys.stdout = saved_output
             sys.stdin = saved_input
 
         out = output.getvalue()
+        if(sys.hexversion < 0x03000000 and not wantbytearrayreturned):
+            out = out.decode('utf8')
+        if(len(out) == 0 and len(output.buffer.bytedata) > 0):
+            out = output.buffer.bytedata
         output.close()
         return out
 
     def setUp(self):
         # tidy up
         try:
-            os_remove("temp.tap")
+            os.remove("temp.tap")
         except:
             pass
 
         try:
-            os_remove("temp.txt")
+            os.remove("temp.txt")
         except:
             pass
 
         try:
-            os_remove("temp.bin")
+            os.remove("temp.bin")
         except:
             pass
 
     def test_help(self):
-        self.assertEqual(self.runtest("", ""), spectrumtapblock.usage())
+        self.assertEqual(self.runtest("", "", False), spectrumtapblock.usage())
         self.assertEqual(self.runtest("help", ""), spectrumtapblock.usage())
 
     def test_list(self):
@@ -565,7 +600,7 @@ class Testcommandline(unittest.TestCase):
 1\tData\t255\t190
 """)
         # tidy up
-        os_remove("temp.txt")
+        os.remove("temp.txt")
 
     def test_extract(self):
         self.assertEqual(self.runtest("extract 1 arraytest_char.tap temp.bin",
@@ -573,7 +608,7 @@ class Testcommandline(unittest.TestCase):
         self.assertEqual(_getfileasbytes("temp.bin"),
                          _getfileasbytes("arraytest_char.dat"))
         # tidy up
-        os_remove("temp.bin")
+        os.remove("temp.bin")
 
     def test_copy(self):
         self.assertEqual(self.runtest("copy -s 0-1 screentest.tap temp.tap",
@@ -612,7 +647,7 @@ class Testcommandline(unittest.TestCase):
 """)
 
         # tidy up
-        os_remove("temp.tap")
+        os.remove("temp.tap")
 
     def test_delete(self):
         self.assertEqual(self.runtest("delete 0 basictest.tap temp.tap", ""),
@@ -631,7 +666,7 @@ class Testcommandline(unittest.TestCase):
         self.assertEqual(self.runtest("list -o temp.tap", ""),
                          """position type    information\n""")
         # tidy up
-        os_remove("temp.tap")
+        os.remove("temp.tap")
 
     def test_create(self):
         self.assertEqual(self.runtest("create basic --filename TEST \
@@ -660,7 +695,7 @@ class Testcommandline(unittest.TestCase):
   1      Data    Flag:255, block length:17
 """)
         self.assertEqual(self.runtest("extract 1 -o temp.tap", ""),
-                         "Test1\nTest2\nTest3")
+                         b"Test1\nTest2\nTest3")
 
         self.assertEqual(self.runtest("create array --filename ARRAYnum \
 --arraytype n --arrayname N arraytest_number.dat temp.tap", ""), "")
@@ -682,8 +717,8 @@ screentest.dat temp.tap", ""), "")
 """)
 
         # tidy up
-        os_remove("temp.tap")
-        os_remove("temp.bin")
+        os.remove("temp.tap")
+        os.remove("temp.bin")
 
     def checkinvalidcommand(self, command, message):
         try:

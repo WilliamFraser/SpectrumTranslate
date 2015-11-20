@@ -42,12 +42,11 @@
 
 import spectrumtranslate
 import sys
-from sys import hexversion as _PYTHON_VERSION_HEX
 from numbers import Integral as _INT_OR_LONG
-# codecs, and os.path imported elsewhere so only used for command line
+# os.path imported elsewhere so only used for command line
 
 
-if(_PYTHON_VERSION_HEX > 0x03000000):
+if(sys.hexversion > 0x03000000):
     def _validateandpreparebytes(x, m=""):
         if(isinstance(x, (bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
@@ -612,7 +611,7 @@ def usage():
     returns the command line arguments for spectrumtapblock as a string.
     """
 
-    return"""usage: python spectrumtapblock.py instruction [args] infile
+    return """usage: python spectrumtapblock.py instruction [args] infile
     outfile
 
     moves data from infile which should be a tap file (or data to save
@@ -1014,7 +1013,10 @@ valid index in the input file.'.format(arg))
             data = bytearray(infile.read())
 
     else:
-        data = bytearray(sys.stdin.read(), 'utf8')
+        if(sys.hexversion > 0x03000000):
+            data = sys.stdin.buffer.read()
+        else:
+            data = sys.stdin.read()
 
     # now do command
     if(mode == 'list'):
@@ -1070,8 +1072,6 @@ valid index in the input file.'.format(arg))
                     str(tb))
 
             pos += 1
-
-        retdata = bytearray(retdata, "utf8")
 
     if(mode == 'extract'):
         tbs = [tb for tb in tapblockfrombytes(data)]
@@ -1155,22 +1155,35 @@ source data.")
 
     # output data
     if(not tostandardoutput):
-        fo = open(outputfile, "ab" if (mode == 'copy' or mode == 'create') and
-                  append else "wb")
-        fo.write(retdata)
+        filemode = "a" if (mode == 'copy' or mode == 'create') and append \
+                   else "w"
+
+        if(mode == "list"):
+            if(sys.hexversion > 0x03000000):
+                fo = open(outputfile, filemode)
+                fo.write(retdata)
+            else:
+                fo = open(outputfile, filemode + "b")
+                fo.write(retdata.encode('utf-8'))
+        else:
+            fo = open(outputfile, filemode + "b")
+            fo.write(retdata)
         fo.close()
 
     else:
-        sys.stdout.write(retdata.decode("utf8"))
+        if(mode == "list"):
+            if(sys.hexversion > 0x03000000):
+                sys.stdout.write(retdata)
+            else:
+                sys.stdout.write(retdata.encode('utf-8'))
+        else:
+            if(sys.hexversion > 0x03000000):
+                sys.stdout.buffer.write(retdata)
+            else:
+                sys.stdout.write("".join([chr(x) for x in retdata]))
 
 
 if __name__ == "__main__":
-    if(_PYTHON_VERSION_HEX < 0x03000000):
-        # set encodeing so can handle non ascii characters
-        from codecs import getwriter
-        sys.stdout = getwriter('utf8')(sys.stdout)
-        sys.stderr = getwriter('utf8')(sys.stderr)
-
     try:
         _commandline(sys.argv)
     except spectrumtranslate.SpectrumTranslateError as se:
