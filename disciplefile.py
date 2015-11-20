@@ -1,3 +1,5 @@
+#!/usr/bin/python
+#
 # This file is part of the SpectrumTranslate python module.
 #
 # It's licenced under GPL version 3 (www.gnu.org/licenses/gpl.html) with
