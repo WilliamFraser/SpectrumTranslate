@@ -882,7 +882,7 @@ class DiscipleImage:
         return ((sector - 1) + (head * 800) + (track * 10)) * 512
 
     def getsector(self, track, sector, head=-1):
-        """Returns a list of ints of the sector requested."""
+        """Returns a bytearray of the sector requested."""
 
         # where is sector we're after
         pos = self.getsectorposition(track, sector, head)
