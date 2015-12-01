@@ -2535,7 +2535,7 @@ def getrgbfromscreen(data, alphamask=0xFF, imageformat=0):
         # get colour address for start of row
         c = 0x1800 + ((y >> 3) << 5)
         for x in range(0, 256, 8):
-            # work out foreground & backgrounc colour
+            # work out foreground & background colour
             i = data[c]
             fg = colourtransform[(i & 7) + ((i >> 3) & 8)] + alpha
             bg = colourtransform[(i >> 3) & 15] + alpha
@@ -2561,7 +2561,7 @@ def getrgbfromscreen(data, alphamask=0xFF, imageformat=0):
             # get colour address for start of row
             c = 0x1800 + ((y >> 3) << 5)
             for x in range(0, 256, 8):
-                # work out foreground & backgrounc colour
+                # work out foreground & background colour
                 i = data[c]
                 fg = colourtransform[(i & 7) + ((i >> 3) & 8)] + alpha
                 bg = colourtransform[(i >> 3) & 15] + alpha
