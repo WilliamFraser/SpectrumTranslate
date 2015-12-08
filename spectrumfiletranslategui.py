@@ -3060,7 +3060,9 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                         spectrumtranslate.DisassembleInstruction.
                         DISASSEMBLE_CODES[
                             "XML Output On" if bXMLOutput else
-                            "XML Output Off"]))
+                            "XML Output Off"],
+                        spectrumtranslate.DisassembleInstruction.
+                        DISASSEMBLE_CODES["Hex instead of non-ASCII Off"]))
 
             return self.DisassembleDialog(data, origin)
 
