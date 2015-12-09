@@ -3617,6 +3617,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 s = Z80_OPCODES[codehex][data[offset + 1]]
                 instructionData = Z80_OPCODE_DATA[codehex][data[offset + 1]]
                 instructionTimes = Z80_OPCODE_TIMES[codehex][data[offset + 1]]
+                commandlength = 2
                 # deal with DDCB or FDCB
                 if(data[offset + 1] == 0xCB):
                     commandlength = 3
