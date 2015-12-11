@@ -2602,7 +2602,7 @@ into.\nValid options are 1 to 80 inclusive.")
 
             # save image if required
             if(self.cbSaveOutput.isChecked()):
-                self.PutFileData(data)
+                self.PutFileData(data, True)
 
             return
 
@@ -2647,7 +2647,7 @@ into.\nValid options are 1 to 80 inclusive.")
 
             # save data if required
             if(self.cbSaveOutput.isChecked()):
-                self.PutFileData(data)
+                self.PutFileData(data, True)
 
             return
 
@@ -2715,7 +2715,7 @@ snapshot. Error:\n{0}'.format(ste.value))
 
             # save snapshot if required
             if(self.cbSaveOutput.isChecked()):
-                self.PutFileData(data)
+                self.PutFileData(data, True)
 
             return
 
@@ -3218,7 +3218,7 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
 
         dContainer.exec_()
 
-    def PutFileData(self, data):
+    def PutFileData(self, data, isbinary=False):
         fileout = self.leFileNameOut.text()
         if(not fileout or fileout == ""):
             QtGui.QMessageBox.warning(self, "Error!",
@@ -3237,7 +3237,10 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
 
         try:
             fo = open(fileout, MODE_WB)
-            fo.write(data)
+            if(sys.hexversion >= 0x03000000 or isbinary):
+                fo.write(data)
+            else:
+                fo.write(data.encode('utf-8'))
             fo.close()
         except:
             QtGui.QMessageBox.warning(
