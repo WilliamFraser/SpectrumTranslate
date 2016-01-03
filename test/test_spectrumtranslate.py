@@ -97,7 +97,7 @@ class Testbasicconversion(unittest.TestCase):
         self.assertEqual(spectrumtranslate.basictotext(data), _u("""\
 10 REM ^16^00^00\u259C^11^05\u2597^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
-20 DATA 1(number without value),2(1024),3,4: LIST : NEW 
+20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
 
 
 Variables:
@@ -119,7 +119,7 @@ z$="testing"
                          """\
 10 REM ^16^00^00^87^11^05^84^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
-20 DATA 1(number without value),2(1024),3,4: LIST : NEW 
+20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
 
 
 Variables:
@@ -1381,7 +1381,7 @@ Test
   %?BA
   %?EQ00000000       %#test to ensure that false test fails now
 
-  %X0200%V0F0004     %#var0 is position of code to check + length of command
+  %X0200%V0F0003     %#var0 is position of code to check + length of command
                      %#start comment text
 Comment
                      %#end comment text
@@ -1474,7 +1474,7 @@ LD C,RLC (IX+#01)</instruction><flags>S+ Z+ H0 PVP N0 C+</flags><timeing>\
              [["Address Output Format Hex"], ["XML Output On"]],
              ["""ORG #4000
 
-4000  DD           
+4000  DD           \n\
 4001  00           NOP
 """,
               """<?xml version="1.0" encoding="UTF-8" ?>
@@ -1731,10 +1731,13 @@ LD HL,b0111111111111111</instruction><flags>S- Z- H- PV- N- C-</flags>\
             # comment
             [[0x00, 0x00, 0x00],
              [["30000#4001#4002##End of Line"],
+              ["30000#4001#4002##End of Line", "30000#4001#4002##Another End"],
               ["30000#4001#4002##End of Line\nEnd of Line2"],
               ["30001#4001#4002##Before Line"],
+              ["30001#4001#4002##Before 1", "30001#4001#4002##Before 2"],
               ["30001#4001#4002##Before Line\nBefore Line2"],
               ["30002#4001#4002##After Line"],
+              ["30002#4001#4002##After Line", "30002#4001#4002##After again"],
               ["30002#4001#4002##After Line\nAfter Line2"],
               ["XML Output On", "30000#4001#4002##End of Line"],
               ["XML Output On", "30000#4001#4002##End of Line\nEnd of Line2"],
@@ -1747,6 +1750,13 @@ ORG #4000
 
 4000  00           NOP
 4001  00           NOP                  ;End of Line
+4002  00           NOP
+""",
+              """\
+ORG #4000
+
+4000  00           NOP
+4001  00           NOP                  ;End of Line. Another End
 4002  00           NOP
 """,
               """\
@@ -1769,6 +1779,15 @@ ORG #4000
 ORG #4000
 
 4000  00           NOP
+      ;Before 1
+      ;Before 2
+4001  00           NOP
+4002  00           NOP
+""",
+              """\
+ORG #4000
+
+4000  00           NOP
       ;Before Line
       ;Before Line2
 4001  00           NOP
@@ -1780,6 +1799,15 @@ ORG #4000
 4000  00           NOP
 4001  00           NOP
       ;After Line
+4002  00           NOP
+""",
+              """\
+ORG #4000
+
+4000  00           NOP
+4001  00           NOP
+      ;After Line
+      ;After again
 4002  00           NOP
 """,
               """\
@@ -1875,6 +1903,206 @@ After Line2</comment></line>
   <line><address>4002</address><bytes>00</bytes><instruction>NOP</instruction>\
 <flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles><tstates>4\
 </tstates></timeing></line>
+</z80code>"""]],
+            # comment in data
+            [[0x01, 0x23, 0x45],
+             [["30000#4001#4002##End of Line",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["30000#4001#4002##End of Line", "30000#4001#4002##Another End",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["30000#4001#4002##End of Line\nEnd of Line2",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["30001#4001#4002##Before Line",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["30001#4001#4002##Before 1", "30001#4001#4002##Before 2",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["30001#4001#4002##Before Line\nBefore Line2",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["30002#4001#4002##After Line",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["30002#4001#4002##After Line", "30002#4001#4002##After again",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["30002#4001#4002##After Line\nAfter Line2",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["XML Output On", "30000#4001#4002##End of Line",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["XML Output On", "30000#4001#4002##End of Line\nEnd of Line2",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["XML Output On", "30001#4001#4002##Before Line",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["XML Output On", "30001#4001#4002##Before Line\nBefore Line2",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["XML Output On", "30002#4001#4002##After Line",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""],
+              ["XML Output On", "30002#4001#4002##After Line\nAfter Line2",
+               """10000#4000#4006##%$A%F0004%ACA%$-A%S%S%$IDB%$-I%S%$D%F0000\
+%F0100#%B0F%$-D"""]],
+             ["""\
+ORG #4000
+
+4000    DB  #01
+4001    DB  #23  ;End of Line
+4002    DB  #45
+
+""",
+              """\
+ORG #4000
+
+4000    DB  #01
+4001    DB  #23  ;End of Line. Another End
+4002    DB  #45
+
+""",
+              """\
+ORG #4000
+
+4000    DB  #01
+4001    DB  #23  ;End of Line
+  ;End of Line2
+4002    DB  #45
+
+""",
+              """\
+ORG #4000
+
+4000    DB  #01
+  ;Before Line
+4001    DB  #23
+4002    DB  #45
+
+""",
+              """\
+ORG #4000
+
+4000    DB  #01
+  ;Before 1
+  ;Before 2
+4001    DB  #23
+4002    DB  #45
+
+""",
+              """\
+ORG #4000
+
+4000    DB  #01
+  ;Before Line
+  ;Before Line2
+4001    DB  #23
+4002    DB  #45
+
+""",
+              """\
+ORG #4000
+
+4000    DB  #01
+4001    DB  #23
+  ;After Line
+4002    DB  #45
+
+""",
+              """\
+ORG #4000
+
+4000    DB  #01
+4001    DB  #23
+  ;After Line
+  ;After again
+4002    DB  #45
+
+""",
+              """\
+ORG #4000
+
+4000    DB  #01
+4001    DB  #23
+  ;After Line
+  ;After Line2
+4002    DB  #45
+
+""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DB</instruction><data>#01</data>\
+</line>
+  <line><address>4001</address><instruction>DB</instruction><data>#23</data>\
+<comment>End of Line</comment></line>
+  <line><address>4002</address><instruction>DB</instruction><data>#45</data>\
+</line>
+
+</z80code>""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DB</instruction><data>#01</data>\
+</line>
+  <line><address>4001</address><instruction>DB</instruction><data>#23</data>\
+<comment>End of Line\nEnd of Line2</comment></line>
+  <line><address>4002</address><instruction>DB</instruction><data>#45</data>\
+</line>
+
+</z80code>""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DB</instruction><data>#01</data>\
+</line>
+  <line><comment>Before Line</comment></line>
+  <line><address>4001</address><instruction>DB</instruction><data>#23</data>\
+</line>
+  <line><address>4002</address><instruction>DB</instruction><data>#45</data>\
+</line>
+
+</z80code>""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DB</instruction><data>#01</data>\
+</line>
+  <line><comment>Before Line\nBefore Line2</comment></line>
+  <line><address>4001</address><instruction>DB</instruction><data>#23</data>\
+</line>
+  <line><address>4002</address><instruction>DB</instruction><data>#45</data>\
+</line>
+
+</z80code>""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DB</instruction><data>#01</data>\
+</line>
+  <line><address>4001</address><instruction>DB</instruction><data>#23</data>\
+</line>
+  <line><comment>After Line</comment></line>
+  <line><address>4002</address><instruction>DB</instruction><data>#45</data>\
+</line>
+
+</z80code>""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DB</instruction><data>#01</data>\
+</line>
+  <line><address>4001</address><instruction>DB</instruction><data>#23</data>\
+</line>
+  <line><comment>After Line\nAfter Line2</comment></line>
+  <line><address>4002</address><instruction>DB</instruction><data>#45</data>\
+</line>
+
 </z80code>"""]],
             # find and comment
             [[0x21, 0x03, 0x40, 0xCD, 0xC2, 0x04, 0x00],
@@ -2016,16 +2244,10 @@ errors:\n" + output)
 check had errors:\n" + error)
 
         output, error = self.runpep8("test_spectrumtranslate.py", [], [
-            "test_spectrumtranslate.py:60:1: E402 module level import not at \
+            "test_spectrumtranslate.py:62:1: E402 module level import not at \
 top of file",
-            "test_spectrumtranslate.py:61:1: E402 module level import not at \
-top of file",
-            "test_spectrumtranslate.py:98:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:120:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:1475:9: W291 trailing whitespace",
-            "test_spectrumtranslate.py:2182:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:2201:56: W291 trailing whitespace",
-            "test_spectrumtranslate.py:2222:56: W291 trailing whitespace"])
+            "test_spectrumtranslate.py:63:1: E402 module level import not at \
+top of file"])
         self.assertEqual(output, "", "test_spectrumtranslate.py pep8 \
 formatting errors:\n" + output)
         self.assertEqual(error, "", "test_spectrumtranslate.py pep8 format \
@@ -2181,7 +2403,7 @@ class Testcommandline(unittest.TestCase):
         self.assertEqual(_getfile("temp.txt"), _u("""\
 10 REM ^16^00^00\u259c^11^05\u2597^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
-20 DATA 1(number without value),2(1024),3,4: LIST : NEW 
+20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
 
 
 Variables:
@@ -2200,7 +2422,7 @@ z$="testing"
         self.assertEqual(self.runtest("basic -o -a basictest.dat", ""), _u("""\
 10 REM ^16^00^00^87^11^05^84^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
-20 DATA 1(number without value),2(1024),3,4: LIST : NEW 
+20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
 
 
 Variables:
@@ -2221,7 +2443,7 @@ z$="testing"
 Autostart at line:10
 10 REM ^16^00^00\u259c^11^05\u2597^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
-20 DATA 1(number without value),2(1024),3,4: LIST : NEW 
+20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
 
 
 Variables:

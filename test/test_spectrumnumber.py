@@ -397,7 +397,7 @@ errors:\n" + output)
 had errors:\n" + error)
 
         output, error = self.runpep8("test_spectrumnumber.py", [], [
-            "test_spectrumnumber.py:55:1: E402 module level import not at top \
+            "test_spectrumnumber.py:57:1: E402 module level import not at top \
 of file"])
         self.assertEqual(output, "", "test_spectrumnumber.py pep8 formatting \
 errors:\n" + output)

@@ -339,10 +339,10 @@ set up phase where you set up variable 0 as the start of the data block, and var
 starts as the address that matched. Everything after the setup code block is run for each match.</p>
 <p><code>
 %(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start test block <br/>
-&nbsp;&nbsp;%?EQ%MWV0F23CD&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#do the first 2 bytes equal 0xCD,0x23 ( remember Z80 is little endian <br/>
-&nbsp;&nbsp;%X0200%V0F0002&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#var0=current address+2 <br/>
+&nbsp;&nbsp;%?EQ%MV0F00CD&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#does the byte at current address==0xCD (CALL) <br/>
+&nbsp;&nbsp;%X0200%V0F0001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#var0=current address+1 <br/>
 &nbsp;&nbsp;%?BA&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#and mode <br/>
-&nbsp;&nbsp;%?EQ%MV0000C1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#does the byte at current address+2==0xC1 <br/>
+&nbsp;&nbsp;%?EQ%MWV00C123&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#is address right? <br/>
 %)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end of test block <br/>
 </code></p>
 <p><code>

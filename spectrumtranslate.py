@@ -2987,7 +2987,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     MarkUndocumenedCommand = 0  # 0=no, 1=yes
     XMLOutput = 0            # 0=no, 1=yes
     HexForNonASCII = 0       # 0=no, 1=yes
-    Comment = ""
+    CommentEnd = ""
+    CommentAfter = ""
 
     # Work out how much there is to process for progress callback
     # faster going through formatting at end than actual disassembling
@@ -3168,9 +3169,9 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             if(di.end >= origin + len(data)):
                 di.end = origin + len(data)-1
 
-            # check if start before start of code, in which case
-            # truncate it
-            if(di.start < origin):
+            # check if start before start of code, but ends inside code,
+            # in which case truncate it
+            if(di.start < origin and di.end > origin):
                 di.start = origin
 
             # is this a patterndatablock instruction or a find&comment
@@ -3209,13 +3210,9 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                             "NUMBEROUTPUT": NumberOutput,
                             "COMMANDOUTPUT": CommandOutput,
                             "XMLOutput": XMLOutput,
-                            "HexForNonASCII": HexForNonASCII}
+                            "HexForNonASCII": HexForNonASCII,
+                            "CommentsToAdd": []}
 
-                # if we're looking to add comments add variable to hold
-                # the new comments
-                if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
-                        "Comment Pattern"]):
-                    Settings["CommentsToAdd"] = []
                 Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, di.start, 0, 0, di.start,
                         di.end]
 
@@ -3272,9 +3269,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                         workdone = wdafter
                         break
 
-                # if possibly have comments, add them
-                if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
-                        "Comment Pattern"]):
+                # if have comments, add them
+                if(len(Settings["CommentsToAdd"]) > 0):
                     DisassembleInstructions += Settings["CommentsToAdd"]
 
                 workdone = wdafter
@@ -3333,9 +3329,6 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         soutput = "ORG " + _numbertostring(currentAddress, 16, AddressOutput)
         soutput += "\n\n"
 
-    # di is next disassemble instruction
-    di = DisassembleInstructions.pop(0) if DisassembleInstructions else None
-
     # start disassembling
     while(length > 0):
         # call progress update
@@ -3370,11 +3363,21 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             CurrentFormatEnd = diTemp.end
             continue
 
+        # skip past instructions not relavent to code
+        while(DisassembleInstructions and
+              currentAddress > DisassembleInstructions[0].end):
+            DisassembleInstructions.pop(0)
+        # get instruction or set to None
+        if(DisassembleInstructions and
+           currentAddress >= DisassembleInstructions[0].start):
+            di = DisassembleInstructions.pop(0)
+        else:
+            di = None
+
         # first check if in data block
         if(di is not None and
            di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
-               "Data Block"] and
-           currentAddress >= di.start):
+               "Data Block"]):
             Settings = {"DATASTRINGPOS": 0,
                         "NUMBERFORMAT": 0,
                         "NUMBERSIGNED": 0,
@@ -3387,12 +3390,19 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                         "NUMBEROUTPUT": NumberOutput,
                         "COMMANDOUTPUT": CommandOutput,
                         "XMLOutput": XMLOutput,
-                        "HexForNonASCII": HexForNonASCII}
+                        "HexForNonASCII": HexForNonASCII,
+                        "COMMENTCONTROL": [DisassembleInstructions,
+                                           DisplayComments, CommentEnd,
+                                           CommentAfter, CommentOutput]}
+
             di.end, txt = di.disassembledatablock(
                 Settings, data,
                 ReferencedLineNumbers if (
                     TreatDataNumbersAsLineReferences == 0) else None)
             soutput += txt
+            # update comments
+            CommentEnd = Settings["COMMENTCONTROL"][2]
+            CommentAfter = Settings["COMMENTCONTROL"][3]
 
             # adjust length
             length -= di.end-currentAddress + 1
@@ -3406,10 +3416,6 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             # update work done
             workdone += (di.end - di.start) * 2
 
-            # di is now next disassemble instruction
-            di = DisassembleInstructions.pop(0) if DisassembleInstructions \
-                else None
-
             # put empty line after data
             if(BreakAfterData == 0):
                 soutput += "\n"
@@ -3417,8 +3423,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             continue
 
         # check formatting command
-        if(di is not None and di.isformatinstruction() and
-           currentAddress >= di.start):
+        if(di is not None and di.isformatinstruction()):
             # record current format state in custom, place on stack
             s = get_custom_format_string(AddressOutput, NumberOutput,
                                          CommandOutput, OutputTStates,
@@ -3547,15 +3552,10 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 HexForNonASCII = di.instruction & 0x01
 
             CurrentFormatEnd = di.end
-
-            # set di to next disassemble instruction
-            di = DisassembleInstructions.pop(0) if DisassembleInstructions \
-                else None
             continue
 
         # check is comment
         if(di is not None and di.instruction & 0xFFFF00 == 0x030000 and
-           currentAddress >= di.start and currentAddress < di.end and
            di.data is not None and di.data is not ""):
             # handle commenmts before this line first
             if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
@@ -3563,19 +3563,16 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 if(DisplayComments == 0):
                     soutput += CommentOutput(di.data, XMLOutput)
 
-                # set di to next disassemble instruction
-                di = DisassembleInstructions.pop(0) if \
-                    DisassembleInstructions else None
                 continue
-            # otherwise end of this line or after
-            # get comment
-            Comment = di.data
-            # get where is going to be
-            CommentAfter = di.instruction == 0x030002
-
-            # set di to next disassemble instruction
-            di = DisassembleInstructions.pop(0) if \
-                DisassembleInstructions else None
+            # otherwise comnment end of this line or after
+            if(di.instruction == 0x030002):
+                if(CommentAfter is not ""):
+                    CommentAfter += "\n"
+                CommentAfter += di.data
+            else:
+                if(CommentEnd is not ""):
+                    CommentEnd += ". "
+                CommentEnd += di.data
 
             continue
 
@@ -3795,11 +3792,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         # undocumented commands)
         if(XMLOutput == 1):
             # do comment
-            if(DisplayComments == 0 and Comment is not "" and
-               not CommentAfter):
-                soutput += "<comment>" + Comment + "</comment>"
-                # clear comment
-                Comment = ""
+            if(DisplayComments == 0 and CommentEnd is not ""):
+                soutput += "<comment>" + CommentEnd + "</comment>"
 
             # do flags
             sflags = getFlagChanges(instructionData)
@@ -3858,22 +3852,21 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             bNeedSpace = False
 
             # do comment
-            if(Comment is not "" and not CommentAfter):
+            if(CommentEnd is not ""):
                 # output pre comment text
                 soutput += precomment
                 # note has been output
                 precomment = None
 
-                if(Comment.find("\n") == -1):
-                    soutput += Comment
+                if(CommentEnd.find("\n") == -1):
+                    soutput += CommentEnd
 
                 else:
-                    soutput += Comment.split("\n")[0] + "\n"
-                    soutput += CommentOutput("".join(Comment.split("\n")[1:]),
+                    comments = CommentEnd.split("\n")
+                    soutput += comments[0] + "\n"
+                    soutput += CommentOutput("".join(comments[1:]),
                                              XMLOutput)[:-1]
 
-                # clear comment
-                Comment = ""
                 # mark will need space if any comment following
                 bNeedSpace = True
 
@@ -3958,10 +3951,12 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         soutput += "\n"
 
         # handle comments after line
-        if(DisplayComments == 0 and Comment is not "" and CommentAfter):
-            soutput += CommentOutput(Comment, XMLOutput)
-            # clear comment
-            Comment = ""
+        if(DisplayComments == 0 and CommentAfter is not ""):
+            soutput += CommentOutput(CommentAfter, XMLOutput)
+
+        # clear comments
+        CommentEnd = ""
+        CommentAfter = ""
 
         # do we need to have newline after command to make more
         # readable.  Only needed if not doing XML
@@ -5169,6 +5164,37 @@ DEFB               %#output instuction (DEFB or Define Byte)
 
         # loop through commandline block
         while(Vars[0x0A] <= Vars[0x0E]):
+            # check if any comments to be added to this data
+            if("COMMENTCONTROL" in Settings):
+                # move past any instructions that has been & gone
+                dis = Settings["COMMENTCONTROL"][0]
+                while(dis and Vars[0x0A] > dis[0].end):
+                    dis.pop(0)
+                # if is comment instruction process it
+                if(dis and
+                   Vars[0x0A] >= dis[0].start and
+                   dis[0].instruction & 0xFFFF00 == 0x030000 and
+                   dis[0].data is not None and dis[0].data is not ""):
+                    di = dis.pop(0)
+                    if(di.instruction == self.DISASSEMBLE_CODES[
+                       "Comment Before"]):
+                        if(Settings["COMMENTCONTROL"][1] == 0):
+                            soutput += Settings["COMMENTCONTROL"][4](
+                                di.data, Settings["XMLOutput"])
+
+                        continue
+                    # otherwise comnment end of this line or after
+                    if(di.instruction == 0x030002):
+                        if(Settings["COMMENTCONTROL"][3] is not ""):
+                            Settings["COMMENTCONTROL"][3] += "\n"
+                        Settings["COMMENTCONTROL"][3] += di.data
+                    else:
+                        if(Settings["COMMENTCONTROL"][2] is not ""):
+                            Settings["COMMENTCONTROL"][2] += ". "
+                        Settings["COMMENTCONTROL"][2] += di.data
+
+                    continue
+
             Vars[0x0C] = 0  # point  to start of line
 
             # for each line go through commandline instructions
@@ -5192,7 +5218,8 @@ DEFB               %#output instuction (DEFB or Define Byte)
 
                 # deal with non-control characters first
                 if(s[0] != '%'):
-                    soutput += get_spec_char(s[0])
+                    soutput += getspectrumchar(s[0],
+                                               Settings["HexForNonASCII"])
                     continue
 
                 # reset position
@@ -5216,12 +5243,46 @@ DEFB               %#output instuction (DEFB or Define Byte)
             # update line number
             Vars[0x0B] += 1
 
+            # do comment
+            if("COMMENTCONTROL" in Settings and
+               Settings["COMMENTCONTROL"][1] == 0 and
+               Settings["COMMENTCONTROL"][2] is not ""):
+                # XML comments
+                if(Settings["XMLOutput"] == 1):
+                    soutput += "<comment>{0}</comment>".format(
+                        Settings["COMMENTCONTROL"][2])
+                # plain text comments
+                else:
+                    # output pre comment text
+                    soutput += Settings["SEPERATOR"] + ';'
+
+                    if(Settings["COMMENTCONTROL"][2].find("\n") == -1):
+                        soutput += Settings["COMMENTCONTROL"][2]
+
+                    else:
+                        comments = Settings["COMMENTCONTROL"][2].split("\n")
+                        soutput += comments[0] + "\n"
+                        soutput += Settings["COMMENTCONTROL"][4](
+                            "".join(comments[1:]), Settings["XMLOutput"])[:-1]
+
             # output end start line if needed
             if(Settings["XMLOutput"] == 1):
                 soutput += '</line>'
 
             # new line
             soutput += "\n"
+
+            # handle comments after line
+            if("COMMENTCONTROL" in Settings):
+                if(Settings["COMMENTCONTROL"][1] == 0 and
+                   Settings["COMMENTCONTROL"][3] is not ""):
+                    soutput += Settings["COMMENTCONTROL"][4](
+                        Settings["COMMENTCONTROL"][3],
+                        Settings["XMLOutput"])
+
+                # clear comments
+                Settings["COMMENTCONTROL"][2] = ""
+                Settings["COMMENTCONTROL"][3] = ""
 
         # return end of data block as might have changed
         return Vars[0x0E], soutput
@@ -6525,7 +6586,7 @@ def createfindandcomment(test, comment, commandlength, position):
 
 %(
 %)
-""".format(test, commandlength, comment, position)
+""".format(test, commandlength - 1, comment, position)
 
 
 def detailsfromfindandcomment(code):
@@ -6545,7 +6606,7 @@ def detailsfromfindandcomment(code):
  code.*%X0200%V0F([0-9A-F]{4})\s*%#var0 is position of code to check \+ length\
  of command.*%#start comment text\n(.*)\n\s*%#end comment text.*%;%V0F%V00([0-\
 2])0\s*%#Create comment instruction", code, re.DOTALL)
-        return [match.group(1), match.group(3), int(match.group(2), 16),
+        return [match.group(1), match.group(3), int(match.group(2), 16) + 1,
                 int(match.group(4), 16)]
     except:
         return None

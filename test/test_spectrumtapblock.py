@@ -435,9 +435,9 @@ errors:\n" + output)
 had errors:\n" + error)
 
         output, error = self.runpep8("test_spectrumtapblock.py", [], [
-            "test_spectrumtapblock.py:58:1: E402 module level import not at \
+            "test_spectrumtapblock.py:60:1: E402 module level import not at \
 top of file",
-            "test_spectrumtapblock.py:59:1: E402 module level import not at \
+            "test_spectrumtapblock.py:61:1: E402 module level import not at \
 top of file"])
         self.assertEqual(output, "", "test_spectrumtapblock.py pep8 \
 formatting errors:\n" + output)

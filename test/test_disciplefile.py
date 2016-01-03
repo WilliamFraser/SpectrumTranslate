@@ -970,9 +970,9 @@ class Testformating(unittest.TestCase):
                          error)
 
         output, error = self.runpep8("test_disciplefile.py", [], [
-            "test_disciplefile.py:58:1: E402 module level import not at top \
+            "test_disciplefile.py:60:1: E402 module level import not at top \
 of file",
-            "test_disciplefile.py:59:1: E402 module level import not at top \
+            "test_disciplefile.py:61:1: E402 module level import not at top \
 of file"])
         self.assertEqual(output, "",
                          "test_disciplefile.py pep8 formatting errors:\n" +
