@@ -1089,7 +1089,7 @@ data"""
 
         data = (65, 66, 67, 127, 22, 0, 0, 49, 50)
 
-        position, text = di.disassembledatablock(Settings, data, None)
+        position, text = di.disassembledatablock(Settings, data)
 
         # check where position counter got to
         self.assertEqual(position, 0x4008)
@@ -1189,8 +1189,7 @@ data"""
                                                                 Settings,
                                                                 None,
                                                                 False,
-                                                                True,
-                                                                None),
+                                                                True),
                          (1, ''))
 
         instructions = "%( %?EQ%V00%V00 %?BA %?NE%V00%V00 Hello %)"
@@ -1200,8 +1199,7 @@ data"""
                                                                 Settings,
                                                                 None,
                                                                 False,
-                                                                True,
-                                                                None),
+                                                                True),
                          (0, 'Hello'))
 
         instructions = "%( %?EQ%V00%V00 %?BX %?NE%V00%V00 Hello %)"
@@ -1211,19 +1209,17 @@ data"""
                                                                 Settings,
                                                                 None,
                                                                 False,
-                                                                True,
-                                                                None),
+                                                                True),
                          (1, 'Hello'))
 
         # test ReferencedLineNumbers
         instructions = "%W80"
         Settings["DATASTRINGPOS"] = 0
-        ReferencedLineNumbers = []
+        Settings["ReferencedLineNumbers"] = []
         self.assertEqual(spectrumtranslate._processcommandblock(instructions,
-                         Vars, Settings, None, False, True,
-                         ReferencedLineNumbers), (0, '0000'))
-        self.assertEqual(len(ReferencedLineNumbers), 1)
-        self.assertEqual(ReferencedLineNumbers[0], 0)
+                         Vars, Settings, None, False, True), (0, '0000'))
+        self.assertEqual(len(Settings["ReferencedLineNumbers"]), 1)
+        self.assertEqual(Settings["ReferencedLineNumbers"][0], 0)
 
         # test break and continue
         instructions = "%Y Hello"
@@ -1233,8 +1229,7 @@ data"""
                                                                 Settings,
                                                                 None,
                                                                 False,
-                                                                True,
-                                                                None),
+                                                                True),
                          (2, ''))
         self.assertEqual(Settings["DATASTRINGPOS"], 2)
 
@@ -1245,8 +1240,7 @@ data"""
                                                                 Settings,
                                                                 None,
                                                                 False,
-                                                                True,
-                                                                None),
+                                                                True),
                          (4, ''))
         self.assertEqual(Settings["DATASTRINGPOS"], 2)
 

@@ -3241,8 +3241,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                         # will fail for Comment pattern but only after
                         # pattern has been added
                         if((_processcommandblock(TestBlock, Vars, Settings,
-                                                 data, True, True,
-                                                 None)[0] & 1) == 1):
+                                                 data, True,
+                                                 True)[0] & 1) == 1):
                             # have found match
                             Settings["DATASTRINGPOS"] = 0
                             Vars[0x00] = k
@@ -3253,7 +3253,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                             Vars[0x0E] = di.end
                             # now adjust variables as needed
                             _processcommandblock(PrepBlock, Vars, Settings,
-                                                 data, True, False, None)
+                                                 data, True, False)
                             # add datablock
                             DisassembleInstructions += [DisassembleInstruction(
                                 DisassembleInstruction.DISASSEMBLE_CODES[
@@ -3394,11 +3394,9 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                         "COMMENTCONTROL": [DisassembleInstructions,
                                            DisplayComments, CommentEnd,
                                            CommentAfter, CommentOutput]}
-
-            di.end, txt = di.disassembledatablock(
-                Settings, data,
-                ReferencedLineNumbers if (
-                    TreatDataNumbersAsLineReferences == 0) else None)
+            if(TreatDataNumbersAsLineReferences == 0):
+                Settings["ReferencedLineNumbers"] = ReferencedLineNumbers
+            di.end, txt = di.disassembledatablock(Settings, data)
             soutput += txt
             # update comments
             CommentEnd = Settings["COMMENTCONTROL"][2]
@@ -5144,7 +5142,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
                 return self.end.__lt__(other.end)
             return self.start.__lt__(other.start)
 
-    def disassembledatablock(self, Settings, data, ReferencedLineNumbers):
+    def disassembledatablock(self, Settings, data):
         """This method will disassemble the given data according to the
         current DisassembleInstruction.
         """
@@ -5229,8 +5227,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
                 # can ignore result
                 try:
                     res, txt = _processcommandblock(self.data, Vars, Settings,
-                                                    data, False, False,
-                                                    ReferencedLineNumbers)
+                                                    data, False, False)
                 except IndexError:
                     raise _newSpectrumTranslateError(
                         Vars[0x0A], 0, di.data,
@@ -5420,7 +5417,7 @@ def _movetoblockend(instructions, Vars, Settings, commandstart):
 
 
 def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
-                         InTest, ReferencedLineNumbers):
+                         InTest):
     """processes an instruction block.
        return bit 0 1=true, 0=false
        bit 1 2=break, 0=not break
@@ -5719,8 +5716,8 @@ digit hexadecimal number")
             # output word
             soutput += _numbertostring(k, 16, Settings["NUMBERFORMAT"], False)
             # remember number incase it is line number
-            if(ReferencedLineNumbers is not None):
-                ReferencedLineNumbers += [k]
+            if("ReferencedLineNumbers" in Settings):
+                Settings["ReferencedLineNumbers"] += [k]
 
         elif(s[0] == 'A'):  # output address
             # get info
@@ -5898,7 +5895,7 @@ digit hexadecimal number")
         elif(s[0] == '('):
             # process contents of brackets and combine result
             i, txt = _processcommandblock(instructions, Vars, Settings, data,
-                                          True, InTest, ReferencedLineNumbers)
+                                          True, InTest)
             soutput += txt
             boolState = combineresults(boolMode, boolState, (i & 1) == 1)
             i = i & 6
@@ -5928,8 +5925,7 @@ digit hexadecimal number")
 
             # test if block
             result, txt = _processcommandblock(instructions, Vars, Settings,
-                                               data, True, True,
-                                               ReferencedLineNumbers)
+                                               data, True, True)
             bTest = (result & 1) == 1
             soutput += txt
 
@@ -5944,8 +5940,7 @@ digit hexadecimal number")
             # if contition met then process block
             if(bTest):
                 k, txt = _processcommandblock(instructions, Vars, Settings,
-                                              data, True, InTest,
-                                              ReferencedLineNumbers)
+                                              data, True, InTest)
                 soutput += txt
 
             # otherwise move past command block
@@ -5965,8 +5960,7 @@ digit hexadecimal number")
 
                 # process block
                 k, txt = _processcommandblock(instructions, Vars, Settings,
-                                              data, True, InTest,
-                                              ReferencedLineNumbers)
+                                              data, True, InTest)
                 soutput += txt
 
             # otherwise reset string position
@@ -6000,8 +5994,7 @@ digit hexadecimal number")
 
                 # test if block
                 result, txt = _processcommandblock(instructions, Vars,
-                                                   Settings, data, True, True,
-                                                   ReferencedLineNumbers)
+                                                   Settings, data, True, True)
                 bTest = (result & 1) == 1
                 soutput += txt
 
@@ -6015,8 +6008,7 @@ digit hexadecimal number")
                 if(bTest):
                     result, txt = _processcommandblock(instructions, Vars,
                                                        Settings, data, True,
-                                                       InTest,
-                                                       ReferencedLineNumbers)
+                                                       InTest)
                     soutput += txt
                     if((result & 2) == 2):
                         # if break from routine then break out of loop
@@ -6633,7 +6625,7 @@ def instructiontexttostring(instructiontext):
     Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x4000, 0, 0, 0x4000, 0x4001]
 
     flag, text = _processcommandblock(instructiontext, Vars, Settings, None,
-                                      False, True, None)
+                                      False, True)
 
     return text
 
