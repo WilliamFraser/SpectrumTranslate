@@ -1434,6 +1434,14 @@ be processed.")
         cbPosition.setCurrentIndex(parts[3] if (parts and parts[3]) else 0)
         lay.addWidget(cbPosition)
 
+        createPredefined = QtGui.QPushButton(
+            "Create search command for CALL/JP", self)
+        createPredefined.setToolTip("Create Comment Pattern search command \
+for a CALL or JP command.")
+        lay.addWidget(createPredefined)
+        createPredefined.clicked.connect(
+            self.CreateCommentPatternSearchCommand)
+
         lay.addWidget(QtGui.QLabel("Comment Pattern search commands:"))
 
         teCommentPatternSearch = QtGui.QTextEdit()
@@ -1461,6 +1469,8 @@ be processed.")
 
         dContainer.setLayout(lay)
 
+        self.Ddialog.teCommentPatternSearch = teCommentPatternSearch
+
         if(dContainer.exec_() == QtGui.QDialog.Accepted):
             di.data = spectrumtranslate.createfindandcomment(
                 str(teCommentPatternSearch.toPlainText()),
@@ -1468,6 +1478,103 @@ be processed.")
                     leCommentText.toPlainText()),
                 1,
                 cbPosition.currentIndex())
+
+        del self.Ddialog.teCommentPatternSearch
+
+    def CreateCommentPatternSearchCommand(self):
+        # create dialog
+        dContainer = QtGui.QDialog(self)
+        dContainer.setWindowTitle("Create Comment Pattern Search Command")
+        dContainer.setModal(True)
+
+        lay = QtGui.QVBoxLayout()
+
+        cbCommand = QtGui.QComboBox(self)
+        cbCommand.addItem("CALL")
+        cbCommand.addItem("JP")
+        cbCommand.addItem("CALL or JP")
+        cbCommand.setToolTip("The command to be looked for.")
+        lay.addWidget(cbCommand)
+
+        lay.addWidget(QtGui.QLabel("address to be called/jumped to:"))
+
+        leAddress = QtGui.QLineEdit()
+        leAddress.setToolTip("The address which the call/jump to is being \
+searched for.\nShould be {0}.".format(
+    self.Ddialog.cbNumberFormat.currentText()))
+        lay.addWidget(leAddress)
+        dContainer.leAddress = leAddress
+
+        cbConditional = QtGui.QCheckBox("Include conditional CALL/JP")
+        cbConditional.setToolTip(
+            "Do you want to look for conditional calls and/or jumps.")
+        cbConditional.toggle()
+        cbConditional.setCheckState(False)
+        lay.addWidget(cbConditional)
+
+        lay2 = QtGui.QHBoxLayout()
+        lay2.addStretch(1)
+        ok = QtGui.QPushButton("Set Commands", self)
+        lay2.addWidget(ok)
+        ok.clicked.connect(self.CreateCommentPatternSearchCommandAddress)
+        close = QtGui.QPushButton("Cancel", self)
+        lay2.addWidget(close)
+        close.clicked.connect(dContainer.reject)
+        lay2.addStretch(1)
+
+        lay.addLayout(lay2)
+
+        dContainer.setLayout(lay)
+
+        self.Ddialog.CommentPatternSearchDialog = dContainer
+
+        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+            i = cbCommand.currentIndex() + 1
+            a = self.CheckInstructionAddress(leAddress)
+            c = cbConditional.isChecked()
+            d1 = "  " if i==3 else ""
+            d2 = "" if i==3 else "  "
+
+            searchcommand = "%(                     %#start test block\n"
+            if(i == 3):
+                searchcommand += "  %(\n"
+            if(c):
+                searchcommand += "{0}  %X0700%MV0F00C7    {1}%#filter out \
+variable bits for conditional {2}{3}{4}\n".format(d1, d2,
+                                                  "Call" if i & 1 == 1 else "",
+                                                  "/" if i==3 else "",
+                                                  "Jump" if i & 2 ==2 else "")
+            if(i & 1 == 1):
+                searchcommand += "{{0}}  %?EQ0000C4         {{1}}%#do the bits\
+ C7 at current address==0xC4 (CALL)\n" if c else "{{0}}  %?EQ%MV0F00CD      {{1}}\
+%#does the byte at current address==0xCD (CALL)\n"
+            if(i == 3):
+                searchcommand += "    %?BO               %#or\n"
+            if(i & 2 == 2):
+                searchcommand += "{{0}}  %?EQ0000C2         {{1}}%#do the bits\
+ C7 at current address==0xC2 (JP)\n" if c else "{{0}}  %?EQ%MV0F00C3      \
+{{1}}%#does the byte at current address==0xC3 (JP)\n"
+            if(i == 3):
+                searchcommand += "  %)\n"
+            searchcommand += """  %X0200%V0F0001       %#var0=current address+1
+  %?BA                 %#and mode
+  %?EQ%MWV00{0:04X}       %#is address right?
+%)                     %#end of test block""".format(a)
+            self.Ddialog.teCommentPatternSearch.setPlainText(
+                searchcommand.format().format(d1, d2))
+
+        del self.Ddialog.CommentPatternSearchDialog
+
+    def CreateCommentPatternSearchCommandAddress(self):
+        i = self.Ddialog.CommentPatternSearchDialog.leAddress
+        if(self.CheckInstructionAddress(i) == -1):
+            message = "Address must be between 0 and " + self.Ddialog.Format +\
+                " {1}."
+            QtGui.QMessageBox.warning(self, "Error!", message.format(
+                65535,self.Ddialog.cbNumberFormat.currentText()))
+        else:
+            self.Ddialog.CommentPatternSearchDialog.accept()
+            
 
     def EditPatternDataBlock(self, di):
         dContainer = QtGui.QDialog(self)
@@ -2344,6 +2451,13 @@ frequency must be between 0 and 255 decimal.")
              DisassembleInstruction.DISASSEMBLE_CODES["Comment After"]):
             s += ' comment: "{0}"'.format("" if not lwInstruction.di.data else
                                           lwInstruction.di.data)
+
+        elif(lwInstruction.di.instruction == spectrumtranslate.
+             DisassembleInstruction.DISASSEMBLE_CODES["Comment Pattern"]):
+            parts = spectrumtranslate.detailsfromfindandcomment(
+                lwInstruction.di.data)
+            s += ' comment: "{0}"'.format(
+                spectrumtranslate.instructiontexttostring(parts[1]))
 
         lwInstruction.label.setText(s)
 
