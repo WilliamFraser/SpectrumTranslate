@@ -2174,6 +2174,17 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 4004    DM0  "012",#00
 
 """)
+        # force line after off with formatting
+        di[0].data = "%F0502" + di[0].data
+        self.assertEqual(spectrumtranslate.disassemble(data, 0, 0x4000,
+                         len(data), di), """ORG #4000
+
+4000    DM0  "ABC",#00
+4004    DM0  "012",#00
+""")
+        # default no line after
+        di[0].data = spectrumtranslate.DisassembleInstruction.\
+            DISASSEMBLE_DATABLOCK_CODES["Define Message zero terminated"]
         di[1] = spectrumtranslate.DisassembleInstruction(
             "Empty Line After Data Off")
         self.assertEqual(spectrumtranslate.disassemble(data, 0, 0x4000,
@@ -2182,6 +2193,16 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 4000    DM0  "ABC",#00
 4004    DM0  "012",#00
 """)
+        # force line after with formatting
+        di[0].data = "%F0501" + di[0].data
+        self.assertEqual(spectrumtranslate.disassemble(data, 0, 0x4000,
+                         len(data), di), """ORG #4000
+
+4000    DM0  "ABC",#00
+4004    DM0  "012",#00
+
+""")
+
         # pattern block
         data = [0x7F, 0xEF, 0x00, 0x00, 0x38, 0xC9]
         di = [spectrumtranslate.DisassembleInstruction("Pattern Data Block")]

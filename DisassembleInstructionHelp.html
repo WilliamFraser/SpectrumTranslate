@@ -139,6 +139,7 @@ will extract the number for you in this way.</li>
 hexadecimal number. The default is every 1 line.</li>
 <li><code><strong>%F04XX</strong></code> - This sets the seperator mode for this data block only. Where XX is 00 it is set to being 2
 spaces, 01 to a tab, and 02 to the seperator mode for the machine code disassembler.</li>
+<li><code><strong>%F05XX</strong></code> - This sets the line after data mode for this data block only. Where XX is 00 it is set to the default line after data mode, 01 always have a blank line after data, and 02 to not have blank line after data.</li>
 </ul></p>
 <h3>Output instructions are:</h3>
 <p><ul>
@@ -358,6 +359,7 @@ starts as the address that matched. Everything after the setup code block is run
 %)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#end of preperation block. Everything from here on will be executed for each match <br/>
 </code></p>
 <p><code>
+%F0502&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#set no blank line after data<br/>
 %$A&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#start address xml tag<br>
 %F0004&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#set number format to address format<br/>
 %ACA&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#output as address, the line address itself, not incrementing the value <br/>

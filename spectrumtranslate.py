@@ -3414,8 +3414,9 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             # update work done
             workdone += (di.end - di.start) * 2
 
-            # put empty line after data
-            if(BreakAfterData == 0):
+            # put empty line after data if needed
+            if(("LINEAFTERDATA" in Settings and Settings["LINEAFTERDATA"]) or
+               (BreakAfterData == 0 and "LINEAFTERDATA" not in Settings)):
                 soutput += "\n"
 
             continue
@@ -5631,14 +5632,26 @@ digit hexadecimal number")
                         Vars[0x0A], commandstart, instructions,
                         "Seperator setting argument must be 0 to 2")
 
-                if(i == 0):
+                if((i & 0xFF) == 0):
                     Settings["SEPERATOR"] = "  "
 
-                elif(i == 1):
+                elif((i & 0xFF) == 1):
                     Settings["SEPERATOR"] = "\t"
 
                 else:
                     Settings["SEPERATOR"] = Settings["ORIGIONALSEPERATOR"]
+
+            elif((i >> 8) == 5):  # blank line after data default/always/never
+                if((i & 0xFF) > 2):
+                    raise _newSpectrumTranslateError(
+                        Vars[0x0A], commandstart, instructions,
+                        "line after data setting argument must be 0 to 2")
+
+                if((i & 0xFF) == 0):
+                    if("LINEAFTERDATA" in Settings):
+                        del Settings["LINEAFTERDATA"]
+                else:
+                    Settings["LINEAFTERDATA"] = (i & 0xFF) == 1
 
             else:
                 raise _newSpectrumTranslateError(
