@@ -1053,20 +1053,6 @@ test
 data"""
         self.assertEqual(str(di), "D00#100#4000#4,7,C#Thisistestdata")
 
-    def test_cmp(self):
-        di1 = spectrumtranslate.DisassembleInstruction(0x0100, start=0x4000)
-        di2 = spectrumtranslate.DisassembleInstruction(0x0100, start=0x8000)
-        self.assertTrue(di1 < di2)
-        self.assertFalse(di1 > di2)
-        self.assertFalse(di1 == di2)
-
-        di1.end = 0x8000
-        di2.start = 0x4000
-        di2.end = 0x7000
-        self.assertTrue(di1 > di2)
-        self.assertFalse(di1 < di2)
-        self.assertFalse(di1 == di2)
-
     def test_disassembledatablock(self):
         di = spectrumtranslate.DisassembleInstruction(
             "Data Block", 0x4000, 0x4008,
@@ -2142,6 +2128,33 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 
 4000    DM  "^FFA^7F"
 
+"""]],
+            # test comment reference
+            [[0x21, 0x44, 0x80, 0xCD, 0x44, 0x80, 0xC2, 0x44, 0x80, 0x3A, 0x44,
+              0x80],
+             [["30100#4000#400B##8044FTest"],
+              ["30100#4000#400B##80443Test"],
+              ["30100#4000#4005##8044FTest"]],
+             ["""ORG #4000
+
+4000  21,44,80     LD HL,#8044          ;Test
+4003  CD,44,80     CALL #8044           ;Test
+4006  C2,44,80     JP NZ,#8044          ;Test
+4009  3A,44,80     LD A,(#8044)         ;Test
+""",
+              """ORG #4000
+
+4000  21,44,80     LD HL,#8044          ;Test
+4003  CD,44,80     CALL #8044
+4006  C2,44,80     JP NZ,#8044
+4009  3A,44,80     LD A,(#8044)         ;Test
+""",
+              """ORG #4000
+
+4000  21,44,80     LD HL,#8044          ;Test
+4003  CD,44,80     CALL #8044           ;Test
+4006  C2,44,80     JP NZ,#8044
+4009  3A,44,80     LD A,(#8044)
 """]]
         ]
 

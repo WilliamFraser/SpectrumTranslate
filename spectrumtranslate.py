@@ -47,6 +47,7 @@ import sys
 import re
 from numbers import Integral as _INT_OR_LONG
 from functools import reduce
+from operator import attrgetter
 
 # ensure this code runs on python 2 and 3
 if(sys.hexversion > 0x03000000):
@@ -2989,6 +2990,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     HexForNonASCII = 0       # 0=no, 1=yes
     CommentEnd = ""
     CommentAfter = ""
+    CommentReferences = []
 
     # Work out how much there is to process for progress callback
     # faster going through formatting at end than actual disassembling
@@ -3032,32 +3034,32 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             # check if special formatting commands for default for whole
             # output
             if(di.start == 0x0000 and di.end >= 0xFFFF):
-                if(di.instruction & 0xFF00 == 0x0100):
+                if(di.instruction & 0xFFFF00 == 0x000100):
                     # AddressOutputFormat
                     AddressOutput = di.instruction & 0x03
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0200):
+                elif(di.instruction & 0xFFFF00 == 0x000200):
                     # NumberOutputFormat
                     NumberOutput = di.instruction & 0x03
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0300):
+                elif(di.instruction & 0xFFFF00 == 0x000300):
                     # CommandOutputFormat
                     CommandOutput = di.instruction & 0x03
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0400):
+                elif(di.instruction & 0xFFFF00 == 0x000400):
                     # OutputTStatesFormat
                     OutputTStates = di.instruction & 0x03
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0500):
+                elif(di.instruction & 0xFFFF00 == 0x000500):
                     # LineAfterJumpOutputFormat
                     BreakAfterJumps = di.instruction & 0x03
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0600):
+                elif(di.instruction & 0xFFFF00 == 0x000600):
                     # DefaultFormat
                     AddressOutput = di.instruction & 0x03
                     NumberOutput = di.instruction & 0x03
@@ -3077,7 +3079,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     HexForNonASCII = 0
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0700):
+                elif(di.instruction & 0xFFFF00 == 0x000700):
                     # CustomFormat
                     settingstemp = get_custom_format_values(di.data, False)
                     AddressOutput = settingstemp["AddressOutput"]
@@ -3100,67 +3102,67 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     HexForNonASCII = settingstemp["HexForNonASCII"]
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0800):
+                elif(di.instruction & 0xFFFF00 == 0x000800):
                     # LineNumberOutput
                     LineNumberOutput = di.instruction & 0x03
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0900):
+                elif(di.instruction & 0xFFFF00 == 0x000900):
                     # ListEveryXLines
                     ListEveryXLines = int(di.data, 16)
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0A00):
+                elif(di.instruction & 0xFFFF00 == 0x000A00):
                     # BreakAfterData
                     BreakAfterData = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0B00):
+                elif(di.instruction & 0xFFFF00 == 0x000B00):
                     # TreatDataNumbersAsLineReferences
                     TreatDataNumbersAsLineReferences = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0C00):
+                elif(di.instruction & 0xFFFF00 == 0x000C00):
                     # DisplayCommandBytes
                     DisplayCommandBytes = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0D00):
+                elif(di.instruction & 0xFFFF00 == 0x000D00):
                     # DisplayComments
                     DisplayComments = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFFFF == 0x0E00):
+                elif(di.instruction & 0xFFFFFF == 0x000E00):
                     # Seperator space
                     Seperator = "  "
                     continue
 
-                elif(di.instruction & 0xFFFF == 0x0E01):
+                elif(di.instruction & 0xFFFFFF == 0x000E01):
                     # Seperator tab
                     Seperator = "\t"
                     continue
 
-                elif(di.instruction & 0xFFFF == 0x0E02):
+                elif(di.instruction & 0xFFFFFF == 0x000E02):
                     # Seperator custom
                     Seperator = di.data
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x0F00):
+                elif(di.instruction & 0xFFFF00 == 0x000F00):
                     # Display flags
                     ShowFlags = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x1000):
+                elif(di.instruction & 0xFFFF00 == 0x001000):
                     # note undocumened commands
                     MarkUndocumenedCommand = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x1200):
+                elif(di.instruction & 0xFFFF00 == 0x001200):
                     # XML mode
                     XMLOutput = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFF00 == 0x1300):
+                elif(di.instruction & 0xFFFF00 == 0x001300):
                     # HexForNonASCII mode
                     HexForNonASCII = di.instruction & 0x01
                     continue
@@ -3292,7 +3294,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             DisassembleInstructions += [di]
 
         # sort instructions by their start address
-        DisassembleInstructions = sorted(DisassembleInstructions)
+        DisassembleInstructions = sorted(DisassembleInstructions,
+                                         key=attrgetter('start', 'end'))
 
     # should now be sorted along by start
 
@@ -3362,6 +3365,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
             CurrentFormatEnd = diTemp.end
             continue
+
+        # remove expired comment references
+        if(CommentReferences and currentAddress >= CommentReferences[0].end):
+            CommentReferences = [x for x in CommentReferences if
+                                 x.end > currentAddress]
 
         # skip past instructions not relavent to code
         while(DisassembleInstructions and
@@ -3438,27 +3446,27 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 currentAddress, CurrentFormatEnd, s)]
 
             # deal with format commands
-            if(di.instruction & 0xFF00 == 0x0100):
+            if(di.instruction & 0xFFFF00 == 0x000100):
                 # AddressOutputFormat
                 AddressOutput = di.instruction & 0x03
 
-            elif(di.instruction & 0xFF00 == 0x0200):
+            elif(di.instruction & 0xFFFF00 == 0x000200):
                 # NumberOutputFormat
                 NumberOutput = di.instruction & 0x03
 
-            elif(di.instruction & 0xFF00 == 0x0300):
+            elif(di.instruction & 0xFFFF00 == 0x000300):
                 # CommandOutputFormat
                 CommandOutput = di.instruction & 0x03
 
-            elif(di.instruction & 0xFF00 == 0x0400):
+            elif(di.instruction & 0xFFFF00 == 0x000400):
                 # OutputTStatesFormat
                 OutputTStates = di.instruction & 0x03
 
-            elif(di.instruction & 0xFF00 == 0x0500):
+            elif(di.instruction & 0xFFFF00 == 0x000500):
                 # LineAfterJumpOutputFormat
                 BreakAfterJumps = di.instruction & 0x03
 
-            elif(di.instruction & 0xFF00 == 0x0600):
+            elif(di.instruction & 0xFFFF00 == 0x000600):
                 # DefaultFormat
                 AddressOutput = di.instruction & 0x03
                 NumberOutput = di.instruction & 0x03
@@ -3477,7 +3485,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 XMLOutput = 0
                 HexForNonASCII = 0
 
-            elif(di.instruction & 0xFF00 == 0x0700):
+            elif(di.instruction & 0xFFFF00 == 0x000700):
                 # CustomFormat
                 settingstemp = get_custom_format_values(di.data, False)
                 AddressOutput = settingstemp["AddressOutput"]
@@ -3498,55 +3506,55 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 XMLOutput = settingstemp["XMLOutput"]
                 HexForNonASCII = settingstemp["HexForNonASCII"]
 
-            elif(di.instruction & 0xFF00 == 0x0800):
+            elif(di.instruction & 0xFFFF00 == 0x000800):
                 # LineNumberOutput
                 LineNumberOutput = di.instruction & 0x03
 
-            elif(di.instruction & 0xFF00 == 0x0900):
+            elif(di.instruction & 0xFFFF00 == 0x000900):
                 # ListEveryXLines
                 ListEveryXLines = int(di.data, 16)
 
-            elif(di.instruction & 0xFF00 == 0x0A00):
+            elif(di.instruction & 0xFFFF00 == 0x000A00):
                 # BreakAfterData
                 BreakAfterData = di.instruction & 0x01
 
-            elif(di.instruction & 0xFF00 == 0x0B00):
+            elif(di.instruction & 0xFFFF00 == 0x000B00):
                 # TreatDataNumbersAsLineReferences
                 TreatDataNumbersAsLineReferences = di.instruction & 0x01
 
-            elif(di.instruction & 0xFF00 == 0x0C00):
+            elif(di.instruction & 0xFFFF00 == 0x000C00):
                 # DisplayCommandBytes
                 DisplayCommandBytes = di.instruction & 0x01
 
-            elif(di.instruction & 0xFF00 == 0x0D00):
+            elif(di.instruction & 0xFFFF00 == 0x000D00):
                 # DisplayComments
                 DisplayComments = di.instruction & 0x01
 
-            elif(di.instruction & 0xFFFF == 0x0E00):
+            elif(di.instruction & 0xFFFFFF == 0x000E00):
                 # Seperator space
                 Seperator = "  "
 
-            elif(di.instruction & 0xFFFF == 0x0E01):
+            elif(di.instruction & 0xFFFFFF == 0x000E01):
                 # Seperator tab
                 Seperator = "\t"
 
-            elif(di.instruction & 0xFFFF == 0x0E02):
+            elif(di.instruction & 0xFFFFFF == 0x000E02):
                 # Seperator custom
                 Seperator = di.data
 
-            elif(di.instruction & 0xFF00 == 0x0F00):
+            elif(di.instruction & 0xFFFF00 == 0x000F00):
                 # Display flags
                 ShowFlags = di.instruction & 0x01
 
-            elif(di.instruction & 0xFF00 == 0x1000):
+            elif(di.instruction & 0xFFFF00 == 0x001000):
                 # note undocumened commands
                 MarkUndocumenedCommand = di.instruction & 0x01
 
-            elif(di.instruction & 0xFF00 == 0x1200):
+            elif(di.instruction & 0xFFFF00 == 0x001200):
                 # XML mode
                 XMLOutput = di.instruction & 0x01
 
-            elif(di.instruction & 0xFF00 == 0x1300):
+            elif(di.instruction & 0xFFFF00 == 0x001300):
                 # HexForNonASCII mode
                 HexForNonASCII = di.instruction & 0x01
 
@@ -3573,6 +3581,20 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     CommentEnd += ". "
                 CommentEnd += di.data
 
+            continue
+
+        # check is reference comment
+        if(di is not None and di.instruction & 0xFFFF00 == 0x030100):
+            # make note of address referenced
+            di.reference = int(di.data[:4], 16)
+            # get flags
+            di.flag = int(di.data[4:5], 16)
+            # make note of comment
+            di.comment = di.data[5:]
+            # add it to list to look for
+            CommentReferences += [di]
+            # now sort it so 1st is next to expire
+            CommentReferences.sort(key=attrgetter('end'))
             continue
 
         # now deal with machine code
@@ -3668,6 +3690,30 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 i = data[offset + dataOffset] + \
                     256*data[offset + dataOffset + 1]
 
+                # check for reference comments
+                for di in CommentReferences:
+                    # have we got right reference
+                    if(di.reference != i):
+                        continue
+                    # do the flags match
+                    if((di.flag & 1 == 1 and '(' in s) or
+                       (di.flag & 2 == 2 and s == 'LD SP,aa') or
+                       (di.flag & 4 == 4 and s[0] == 'C') or
+                       (di.flag & 8 == 8 and s[0] == 'J')):
+                        # handle comment
+                        if(di.instruction & 3 == 1):
+                            if(DisplayComments == 0):
+                                soutput += CommentOutput(di.comment, XMLOutput)
+                        # otherwise comnment end of this line or after
+                        elif(di.instruction & 3 == 2):
+                            if(CommentAfter is not ""):
+                                CommentAfter += "\n"
+                            CommentAfter += di.comment
+                        else:
+                            if(CommentEnd is not ""):
+                                CommentEnd += ". "
+                            CommentEnd += di.comment
+
                 s = s.replace("aa", _numbertostring(i, 16, AddressOutput,
                                                     True))
                 dataOffset += 2
@@ -3681,6 +3727,27 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 # get number
                 i = data[offset + dataOffset] + \
                     256*data[offset + dataOffset + 1]
+
+                # check for reference comments
+                for di in CommentReferences:
+                    # have we got right reference
+                    if(di.reference != i):
+                        continue
+                    # do the flags match
+                    if(di.flag & 2 == 2):
+                        # handle comment
+                        if(di.instruction & 3 == 1):
+                            if(DisplayComments == 0):
+                                soutput += CommentOutput(di.comment, XMLOutput)
+                        # otherwise comnment end of this line or after
+                        elif(di.instruction & 3 == 2):
+                            if(CommentAfter is not ""):
+                                CommentAfter += "\n"
+                            CommentAfter += di.comment
+                        else:
+                            if(CommentEnd is not ""):
+                                CommentEnd += ". "
+                            CommentEnd += di.comment
 
                 s = s.replace("nn", _numbertostring(i, 16, NumberOutput, True))
                 dataOffset += 2
@@ -4111,6 +4178,9 @@ class DisassembleInstruction:
         "Comment": 0x030000,
         "Comment Before": 0x030001,
         "Comment After": 0x030002,
+        "Comment Reference": 0x030100,
+        "Comment Reference Before": 0x030101,
+        "Comment Reference After": 0x030102,
         "Comment Pattern": 0x040001}
 
     DISASSEMBLE_DATABLOCK_CODES = {
@@ -5127,13 +5197,6 @@ DEFB               %#output instuction (DEFB or Define Byte)
             ','.join(["{0:X}".format(i) for i, c in enumerate(self.data) if
                       c == '\n']),
             self.data.replace('\n', ''))
-
-    def __cmp__(self, other):
-        # defined so can sort by starting address
-        c = self.start.__cmp__(other.start)
-        if(c == 0):
-            return self.end.__cmp__(other.end)
-        return c
 
     # for python 3, need lt to sort
     if(sys.hexversion > 0x03000000):

@@ -60,7 +60,7 @@ except:
     from PyQt4 import QtGui, QtCore
     from PyQt4.QtGui import (QColor, QStandardItemModel, QStandardItem,
                              QPainter, QFont, QPen, QItemSelectionModel)
-from operator import itemgetter
+from operator import itemgetter, attrgetter
 
 
 if(sys.hexversion >= 0x03000000):
@@ -632,7 +632,6 @@ characters as a '^' followed by it's 2 digit hexadecimal value.")
         cbASCIIBasicOutput.toggle()
         cbASCIIBasicOutput.setCheckState(False)
         self.cbASCIIBasicOutput = cbASCIIBasicOutput
-
 
         hbox = QtGui.QHBoxLayout()
         hbox.setSpacing(2)
@@ -1244,7 +1243,7 @@ be processed.")
         diInstructions[lwInstructions.currentRow()].Selected = True
 
         # now sort them
-        diInstructions = sorted(diInstructions)
+        diInstructions = sorted(diInstructions, key=attrgetter('start', 'end'))
 
         # find selected index
         for i in range(len(diInstructions)):
@@ -1337,6 +1336,14 @@ be processed.")
             self.EditComment(di)
 
         if(di.instruction == spectrumtranslate.DisassembleInstruction.
+           DISASSEMBLE_CODES["Comment Reference"] or
+           di.instruction == spectrumtranslate.DisassembleInstruction.
+           DISASSEMBLE_CODES["Comment Reference Before"] or
+           di.instruction == spectrumtranslate.DisassembleInstruction.
+           DISASSEMBLE_CODES["Comment Reference After"]):
+            self.EditCommentReference(di)
+
+        if(di.instruction == spectrumtranslate.DisassembleInstruction.
                 DISASSEMBLE_CODES["Comment Pattern"]):
             self.EditCommentPattern(di)
 
@@ -1397,6 +1404,139 @@ be processed.")
             self.Ddialog.cbDisassembleCommands.setCurrentIndex(
                 self.Ddialog.cbDisassembleCommands.findData(di.instruction))
 
+    def EditCommentReference(self, di):
+        # create dialog
+        dContainer = QtGui.QDialog(self)
+        dContainer.setWindowTitle("Edit Comment Reference")
+        dContainer.setModal(True)
+
+        lay = QtGui.QVBoxLayout()
+
+        lay.addWidget(QtGui.QLabel("Comment Text:"))
+
+        leCommentText = QtGui.QLineEdit()
+        if(di.data):
+            try:
+                leCommentText.setText(di.data[5:])
+            except:
+                pass
+        leCommentText.setToolTip("The text to be added as the comment.")
+        leCommentText.sizePolicy().setHorizontalPolicy(
+            QtGui.QSizePolicy.Expanding)
+        leCommentText.sizePolicy().setHorizontalStretch(1)
+        lay.addWidget(leCommentText)
+        dContainer.leCommentText = leCommentText
+
+        cbPosition = QtGui.QComboBox(self)
+        cbPosition.addItem("Comment End of line",
+                           spectrumtranslate.DisassembleInstruction.
+                           DISASSEMBLE_CODES["Comment Reference"])
+        cbPosition.addItem("Comment on line before",
+                           spectrumtranslate.DisassembleInstruction.
+                           DISASSEMBLE_CODES["Comment Reference Before"])
+        cbPosition.addItem("Comment on line after",
+                           spectrumtranslate.DisassembleInstruction.
+                           DISASSEMBLE_CODES["Comment Reference After"])
+        cbPosition.setToolTip("Where the comment is placed.")
+        cbPosition.setCurrentIndex(cbPosition.findData(di.instruction))
+        lay.addWidget(cbPosition)
+
+        lay.addWidget(QtGui.QLabel("address/value to be referenced:"))
+
+        i = 0
+        if(di.data):
+            try:
+                i = int(di.data[:4], 16)
+            except:
+                pass
+
+        leAddress = QtGui.QLineEdit()
+        leAddress.setText(self.Ddialog.Format.format(i))
+        leAddress.setToolTip("The address/value to be searched for and \
+commented on when found.\nShould be {0}.".format(
+            self.Ddialog.cbNumberFormat.currentText()))
+        lay.addWidget(leAddress)
+        dContainer.leAddress = leAddress
+
+        i = 0
+        if(di.data):
+            try:
+                i = int(di.data[4:5], 16)
+            except:
+                pass
+
+        cb1 = QtGui.QCheckBox("contents of address accessed")
+        cb1.setToolTip("Comment the address if it's used to access the memory \
+contents: LD A,(0x8000), or LD (0x4000),HL.")
+        cb1.toggle()
+        if((i & 1) == 0):
+            cb1.setCheckState(False)
+        lay.addWidget(cb1)
+
+        cb2 = QtGui.QCheckBox("address/value loaded into a register")
+        cb2.setToolTip("Comment the address/value if it's loaded into a \
+register: LD BC,0x9000.")
+        cb2.toggle()
+        if((i & 2) == 0):
+            cb2.setCheckState(False)
+        lay.addWidget(cb2)
+
+        cb3 = QtGui.QCheckBox("Call to this address")
+        cb3.setToolTip("Comment the address if it's called: CALL NZ,0x8000.")
+        cb3.toggle()
+        if((i & 4) == 0):
+            cb3.setCheckState(False)
+        lay.addWidget(cb3)
+
+        cb4 = QtGui.QCheckBox("Jump to this address")
+        cb4.setToolTip("Comment the address if it's jumped to: JP 0x8000.")
+        cb4.toggle()
+        if((i & 8) == 0):
+            cb4.setCheckState(False)
+        lay.addWidget(cb4)
+
+        lay2 = QtGui.QHBoxLayout()
+        lay2.addStretch(1)
+        ok = QtGui.QPushButton("Ok", self)
+        lay2.addWidget(ok)
+        ok.clicked.connect(self.CommentReferenceOk)
+        close = QtGui.QPushButton("Cancel", self)
+        lay2.addWidget(close)
+        close.clicked.connect(dContainer.reject)
+        lay2.addStretch(1)
+
+        lay.addLayout(lay2)
+
+        dContainer.setLayout(lay)
+
+        self.Ddialog.dCommentReference = dContainer
+
+        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+            a = self.CheckInstructionAddress(leAddress)
+            f = (1 if cb1.isChecked() else 0) + \
+                (2 if cb2.isChecked() else 0) + \
+                (4 if cb3.isChecked() else 0) + \
+                (8 if cb4.isChecked() else 0)
+            di.data = "{0:04X}{1:X}{2}".format(a, f, str(leCommentText.text()))
+            di.instruction = int(cbPosition.itemData(
+                                 cbPosition.currentIndex()).toInt()[0])
+            self.Ddialog.cbDisassembleCommands.setCurrentIndex(
+                self.Ddialog.cbDisassembleCommands.findData(di.instruction))
+
+        del self.Ddialog.dCommentReference
+
+    def CommentReferenceOk(self):
+        d = self.Ddialog.dCommentReference
+        if(self.CheckInstructionAddress(d.leAddress) == -1):
+            message = "Address must be between 0 and " + self.Ddialog.Format +\
+                " {1}."
+            QtGui.QMessageBox.warning(self, "Error!", message.format(
+                65535, self.Ddialog.cbNumberFormat.currentText()))
+        elif(d.leCommentText.text() == ""):
+            QtGui.QMessageBox.warning(self, "Error!", "No comment")
+        else:
+            d.accept()
+
     def EditCommentPattern(self, di):
         # get instruction parts
         parts = spectrumtranslate.detailsfromfindandcomment(di.data)
@@ -1437,7 +1577,8 @@ be processed.")
         createPredefined = QtGui.QPushButton(
             "Create search command for CALL/JP", self)
         createPredefined.setToolTip("Create Comment Pattern search command \
-for a CALL or JP command.")
+for a CALL or JP command.\nN.B. it will be more efficient to use a Comment \
+Reference command unless you want to do anything non-standard.")
         lay.addWidget(createPredefined)
         createPredefined.clicked.connect(
             self.CreateCommentPatternSearchCommand)
@@ -1501,7 +1642,7 @@ for a CALL or JP command.")
         leAddress = QtGui.QLineEdit()
         leAddress.setToolTip("The address which the call/jump to is being \
 searched for.\nShould be {0}.".format(
-    self.Ddialog.cbNumberFormat.currentText()))
+            self.Ddialog.cbNumberFormat.currentText()))
         lay.addWidget(leAddress)
         dContainer.leAddress = leAddress
 
@@ -1532,8 +1673,8 @@ searched for.\nShould be {0}.".format(
             i = cbCommand.currentIndex() + 1
             a = self.CheckInstructionAddress(leAddress)
             c = cbConditional.isChecked()
-            d1 = "  " if i==3 else ""
-            d2 = "" if i==3 else "  "
+            d1 = "  " if i == 3 else ""
+            d2 = "" if i == 3 else "  "
 
             searchcommand = "%(                     %#start test block\n"
             if(i == 3):
@@ -1542,8 +1683,8 @@ searched for.\nShould be {0}.".format(
                 searchcommand += "{0}  %X0700%MV0F00C7    {1}%#filter out \
 variable bits for conditional {2}{3}{4}\n".format(d1, d2,
                                                   "Call" if i & 1 == 1 else "",
-                                                  "/" if i==3 else "",
-                                                  "Jump" if i & 2 ==2 else "")
+                                                  "/" if i == 3 else "",
+                                                  "Jump" if i & 2 == 2 else "")
             if(i & 1 == 1):
                 searchcommand += "{{0}}  %?EQ0000C4         {{1}}%#do the bits\
  C7 at current address==0xC4 (CALL)\n" if c else "{{0}}  %?EQ%MV0F00CD      {{1}}\
@@ -1571,10 +1712,9 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
             message = "Address must be between 0 and " + self.Ddialog.Format +\
                 " {1}."
             QtGui.QMessageBox.warning(self, "Error!", message.format(
-                65535,self.Ddialog.cbNumberFormat.currentText()))
+                65535, self.Ddialog.cbNumberFormat.currentText()))
         else:
             self.Ddialog.CommentPatternSearchDialog.accept()
-            
 
     def EditPatternDataBlock(self, di):
         dContainer = QtGui.QDialog(self)
@@ -2403,6 +2543,12 @@ frequency must be between 0 and 255 decimal.")
              di.instruction == spectrumtranslate.DisassembleInstruction.
                 DISASSEMBLE_CODES["Comment After"] or
              di.instruction == spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Reference"] or
+             di.instruction == spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Reference Before"] or
+             di.instruction == spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Reference After"] or
+             di.instruction == spectrumtranslate.DisassembleInstruction.
                 DISASSEMBLE_CODES["Comment Pattern"]))
         dialog.cbDisassembleCommands.setEnabled(di is not None)
         dialog.leStart.setEnabled(di is not None)
@@ -2453,10 +2599,30 @@ frequency must be between 0 and 255 decimal.")
                                           lwInstruction.di.data)
 
         elif(lwInstruction.di.instruction == spectrumtranslate.
+             DisassembleInstruction.DISASSEMBLE_CODES["Comment Reference"] or
+             lwInstruction.di.instruction == spectrumtranslate.
+             DisassembleInstruction.DISASSEMBLE_CODES[
+                 "Comment Reference Before"] or
+             lwInstruction.di.instruction == spectrumtranslate.
+             DisassembleInstruction.DISASSEMBLE_CODES[
+                 "Comment Reference After"]):
+            try:
+                a = int(lwInstruction.di.data[:4], 16)
+            except:
+                a = 0
+
+            try:
+                c = lwInstruction.di.data[5:]
+            except:
+                c = ""
+
+            s += ' address: {0:04X} comment: "{1}"'.format(a, c)
+
+        elif(lwInstruction.di.instruction == spectrumtranslate.
              DisassembleInstruction.DISASSEMBLE_CODES["Comment Pattern"]):
             parts = spectrumtranslate.detailsfromfindandcomment(
                 lwInstruction.di.data)
-            s += ' comment: "{0}"'.format(
+            s += ' comment: "{0}"'.format("" if not parts else
                 spectrumtranslate.instructiontexttostring(parts[1]))
 
         lwInstruction.label.setText(s)
