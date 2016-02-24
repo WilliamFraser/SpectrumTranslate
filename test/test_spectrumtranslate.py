@@ -2234,6 +2234,475 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 
 """)
 
+    def test_predefined(self):
+        def testfunction(data, Settings, Vars, txt=None, val=None, mode=0):
+            if(mode == 1):
+                if(Vars[0] == 4):
+                    return 2
+                return 0
+            if(mode == 2):
+                if(Vars[0] == 4):
+                    return 4
+                return 0
+            if(val and not txt):
+                return val
+            if(txt and not val):
+                return txt
+            return val, txt
+
+        spectrumtranslate.DisassembleInstruction.PredefinedFunctions["Test"] =\
+            testfunction
+
+        tests = [
+            # define bytes
+            [[0, 1, 2, 3, 4, 5, 6, 7, 8, 0xDD, 0x0A, 0x7F],
+             [["10000#4000#4009##%PDefineByte()",
+               "30000#4001#4002##End",
+               "30001#4001#4002##Before",
+               "30002#4001#4002##After"],
+              ["10000#4000#4009##%PDefineByte()", "XML Output On",
+               "30000#4001#4002##End",
+               "30001#4001#4002##Before",
+               "30002#4001#4002##After"],
+              ["10000#4000#400B##%PDefineByte(Signed=True, Format=1)"],
+              ["10000#4000#400B##%PDefineByte(Format=2, MaxPerLine=3)"],
+              ["10000#4000#400D##%PDefineByte(Format=3, MaxPerLine = 5)"],
+              ["10000#4000#400B##%PDefineByte(GapFrequency=2, Gap=' ', \
+MaxPerLine=6,FormatIdentifyer=False)"]],
+             ["""ORG #4000
+
+4000    DB  #00
+      ;Before
+4001    DB  #01  ;End
+      ;After
+4002    DB  #02
+4003    DB  #03
+4004    DB  #04
+4005    DB  #05
+4006    DB  #06
+4007    DB  #07
+4008    DB  #08
+4009    DB  #DD
+
+400A  0A           LD A,(BC)
+400B  7F           LD A,A
+""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DB</instruction><data>#00</data>\
+</line>
+  <line><comment>Before</comment></line>
+  <line><address>4001</address><instruction>DB</instruction><data>#01</data>\
+<comment>End</comment></line>
+  <line><comment>After</comment></line>
+  <line><address>4002</address><instruction>DB</instruction><data>#02</data>\
+</line>
+  <line><address>4003</address><instruction>DB</instruction><data>#03</data>\
+</line>
+  <line><address>4004</address><instruction>DB</instruction><data>#04</data>\
+</line>
+  <line><address>4005</address><instruction>DB</instruction><data>#05</data>\
+</line>
+  <line><address>4006</address><instruction>DB</instruction><data>#06</data>\
+</line>
+  <line><address>4007</address><instruction>DB</instruction><data>#07</data>\
+</line>
+  <line><address>4008</address><instruction>DB</instruction><data>#08</data>\
+</line>
+  <line><address>4009</address><instruction>DB</instruction><data>#DD</data>\
+</line>
+
+  <line><address>400A</address><bytes>0A</bytes><instruction>LD A,(BC)\
+</instruction><flags>S- Z- H- PV- N- C-</flags><timeing><cycles>7</cycles>\
+<tstates>4,3</tstates></timeing></line>
+  <line><address>400B</address><bytes>7F</bytes><instruction>LD A,A\
+</instruction><flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles>\
+<tstates>4</tstates></timeing></line>\n</z80code>""",
+              """ORG #4000
+
+4000    SB  0
+4001    SB  1
+4002    SB  2
+4003    SB  3
+4004    SB  4
+4005    SB  5
+4006    SB  6
+4007    SB  7
+4008    SB  8
+4009    SB  -35
+400A    SB  10
+400B    SB  127
+
+""",
+              """ORG #4000
+
+4000    DB  o000,o001,o002
+4003    DB  o003,o004,o005
+4006    DB  o006,o007,o010
+4009    DB  o335,o012,o177
+
+""",
+              """ORG #4000
+
+4000    DB  b00000000,b00000001,b00000010,b00000011,b00000100
+4005    DB  b00000101,b00000110,b00000111,b00001000,b11011101
+400A    DB  b00001010,b01111111
+
+""",
+              """ORG #4000
+
+4000    DB  0001 0203 0405
+4006    DB  0607 08DD 0A7F
+
+"""]],
+            # define word
+            [[0, 1, 2, 3, 4, 5, 6, 7, 8, 0xDD, 0x0A, 0x7F],
+             [["10000#4000#4008##%PDefineWord()",
+               "30000#4001#4002##End",
+               "30001#4001#4002##Before",
+               "30002#4001#4002##After"],
+              ["10000#4000#4009##%PDefineWord()", "XML Output On",
+               "30000#4001#4002##End",
+               "30001#4001#4002##Before",
+               "30002#4001#4002##After"],
+              ["10000#4000#400B##%PDefineWord(Signed=True, Format=1)"],
+              ["10000#4000#400B##%PDefineWord(Format=2, MaxPerLine=5)"],
+              ["10000#4000#400D##%PDefineWord(Format=3, MaxPerLine = 3)"],
+              ["10000#4000#400B##%PDefineWord(GapFrequency=2, Gap=' ', \
+MaxPerLine=6,FormatIdentifyer=False, LittleEndian=False)"]],
+             ["""ORG #4000
+
+4000    DW  #0100
+      ;Before
+4002    DW  #0302  ;End
+      ;After
+4004    DW  #0504
+4006    DW  #0706
+4008    DW  #DD08
+
+400A  0A           LD A,(BC)
+400B  7F           LD A,A
+""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DW</instruction><data>#0100</data>\
+</line>
+  <line><comment>Before</comment></line>
+  <line><address>4002</address><instruction>DW</instruction><data>#0302</data>\
+<comment>End</comment></line>
+  <line><comment>After</comment></line>
+  <line><address>4004</address><instruction>DW</instruction><data>#0504</data>\
+</line>
+  <line><address>4006</address><instruction>DW</instruction><data>#0706</data>\
+</line>
+  <line><address>4008</address><instruction>DW</instruction><data>#DD08</data>\
+</line>
+
+  <line><address>400A</address><bytes>0A</bytes><instruction>LD A,(BC)\
+</instruction><flags>S- Z- H- PV- N- C-</flags><timeing><cycles>7</cycles>\
+<tstates>4,3</tstates></timeing></line>
+  <line><address>400B</address><bytes>7F</bytes><instruction>LD A,A\
+</instruction><flags>S- Z- H- PV- N- C-</flags><timeing><cycles>4</cycles>\
+<tstates>4</tstates></timeing></line>
+</z80code>""",
+              """ORG #4000
+
+4000    SW  256
+4002    SW  770
+4004    SW  1284
+4006    SW  1798
+4008    SW  -8952
+400A    SW  32522
+
+""",
+              """ORG #4000
+
+4000    DW  o000400,o001402,o002404,o003406,o156410
+400A    DW  o077412
+
+""",
+              """ORG #4000
+
+4000    DW  b0000000100000000,b0000001100000010,b0000010100000100
+4006    DW  b0000011100000110,b1101110100001000,b0111111100001010
+
+""",
+              """ORG #4000
+
+4000    DWBE  00010203 04050607 08DD0A7F
+
+"""]],
+            # define message
+            [[200, 16, 65] + [ord(x) for x in "BC\nLine 2"] + [0],
+             [["10000#4000#400B##%PDefineMessage()"],
+              ["10000#4000#400D##%PDefineMessage()", "XML Output On"],
+              ["10000#4000#400B##%PDefineMessage(Noncharoutofquotes=True)"],
+              ["Hex instead of non-ASCII On",
+               "10000#4000#400B##%PDefineMessage(Noncharoutofquotes=True)"]],
+             ["""ORG #4000
+
+4000    DM  ">= ^10^41BC^0ALine 2"
+
+400C  00           NOP
+""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DM</instruction><data>\
+">= ^10^41BC^0ALine 2^00"</data></line>
+
+</z80code>""",
+              """ORG #4000
+
+4000    DM  ">= ",0x10,0x41,"BC",0x0A,"Line 2"
+
+400C  00           NOP
+""",
+              """ORG #4000
+
+4000    DM  0xC8,0x10,0x41,"BC",0x0A,"Line 2"
+
+400C  00           NOP
+"""]],
+            # define message zero terminated
+            [[200] + [ord(x) for x in "Test\nLine2"] + [0, 16, 0, 65, 0, 0, 1],
+             [["10000#4000#4011##%PDefineMessage(DataType='DM0')"],
+              ["10000#4000#4012##%PDefineMessage(DataType='0')",
+               "XML Output On"],
+              ["10000#4000#400D##%PDefineMessage(Noncharoutofquotes=True,\
+DataType='DM0')"]],
+             ["""ORG #4000
+
+4000    DM0  ">= Test^0ALine2^00"
+400C    DM0  "^10^00A^00"
+4010    DM0  "^00"
+4011    DM0  "^01"
+
+""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DM0</instruction><data>\
+">= Test^0ALine2^00"</data></line>
+  <line><address>400C</address><instruction>DM0</instruction><data>\
+"^10^00A^00"</data></line>
+  <line><address>4010</address><instruction>DM0</instruction><data>\
+"^00"</data></line>
+  <line><address>4011</address><instruction>DM0</instruction><data>\
+"^01"</data></line>
+
+</z80code>""",
+              """ORG #4000
+
+4000    DM0  ">= Test",0x0A,"Line2",0x00
+400C    DM0  0x10,0x00,"A",0x00
+
+4010  00           NOP
+4011    DB  #01
+
+"""]],
+            # define message bit7 terminated
+            [[ord(x) for x in "Test\nLine2"] + [128, 16, 128, 65, 128, 128, 1],
+             [["10000#4000#4010##%PDefineMessage(DataType='DM7')"],
+              ["10000#4000#4012##%PDefineMessage(DataType='7')",
+               "XML Output On"],
+              ["10000#4000#400D##%PDefineMessage(Noncharoutofquotes=True,\
+DataType='DM7')"]],
+             ["""ORG #4000
+
+4000    DM7  "Test^0ALine2^80"
+400B    DM7  "^10^80A^80"
+400F    DM7  "^80"
+4010    DM7  "^01"
+
+""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DM7</instruction><data>\
+"Test^0ALine2^80"</data></line>
+  <line><address>400B</address><instruction>DM7</instruction><data>\
+"^10^80A^80"</data></line>
+  <line><address>400F</address><instruction>DM7</instruction><data>"^80"\
+</data></line>
+  <line><address>4010</address><instruction>DM7</instruction><data>"^01"\
+</data></line>
+
+</z80code>""",
+              """ORG #4000
+
+4000    DM7  "Test",0x0A,"Line2",0x80
+400B    DM7  0x10,0x80,"A",0x80
+
+400F  80           ADD A,B
+4010    DB  #01
+
+"""]],
+            # define message length byte
+            [[10] + [ord(x) for x in "Test\nLine2"] + [3, 16, 65, 65],
+             [["10000#4000#400C##%PDefineMessage(DataType='DMLB')"],
+              ["10000#4000#400F##%PDefineMessage(DataType='LB')",
+               "XML Output On"],
+              ["10000#4000#4004##%PDefineMessage(Noncharoutofquotes=True,\
+DataType='LB')"]],
+             ["""ORG #4000
+
+4000    DMLB  "Test^0ALine2"
+400B    DMLB  "^10^41A"
+
+""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DMLB</instruction><data>\
+"Test^0ALine2"</data></line>
+  <line><address>400B</address><instruction>DMLB</instruction><data>\
+"^10^41A"</data></line>
+
+</z80code>""",
+              """ORG #4000
+
+4000    DMLB  "Test",0x0A,"Line2"
+
+400B  03           INC BC
+400C  10,41        DJNZ #404F
+400E  41           LD B,C
+"""]],
+            # define message length word
+            [[10, 0] + [ord(x) for x in "Test\nLine2"] + [3, 0, 16, 65, 65],
+             [["10000#4000#400C##%PDefineMessage(DataType='DMLW')"],
+              ["10000#4000#400F##%PDefineMessage(DataType='LW')",
+               "XML Output On"],
+              ["10000#4000#4004##%PDefineMessage(Noncharoutofquotes=True,\
+DataType='LW')"]],
+             ["""ORG #4000
+
+4000    DMLW  "Test^0ALine2"
+400C    DMLW  "^10^41A"
+
+""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DMLW</instruction><data>\
+"Test^0ALine2"</data></line>
+  <line><address>400C</address><instruction>DMLW</instruction><data>\
+"^10^41A"</data></line>
+
+</z80code>""",
+              """ORG #4000
+
+4000    DMLW  "Test",0x0A,"Line2"
+
+400C  03           INC BC
+400D  00           NOP
+400E  10,41        DJNZ #4051
+4010  41           LD B,C
+"""]],
+            # define message length word big endian
+            [[0, 10] + [ord(x) for x in "Test\nLine2"] + [0, 3, 16, 65, 65],
+             [["10000#4000#400C##%PDefineMessage(DataType='DMLWBE')"],
+              ["10000#4000#400F##%PDefineMessage(DataType='LWBE')",
+               "XML Output On"],
+              ["10000#4000#4004##%PDefineMessage(Noncharoutofquotes=True,\
+DataType='BE')"]],
+             ["""ORG #4000
+
+4000    DMLWBE  "Test^0ALine2"
+400C    DMLWBE  "^10^41A"
+
+""",
+              """<?xml version="1.0" encoding="UTF-8" ?>
+<z80code>
+  <org>#4000</org>
+  <line><address>4000</address><instruction>DMLWBE</instruction><data>\
+"Test^0ALine2"</data></line>
+  <line><address>400C</address><instruction>DMLWBE</instruction><data>\
+"^10^41A"</data></line>
+
+</z80code>""",
+              """ORG #4000
+
+4000    DMLWBE  "Test",0x0A,"Line2"
+
+400C  00           NOP
+400D  03           INC BC
+400E  10,41        DJNZ #4051
+4010  41           LD B,C
+"""]],
+            # predefied find & start end
+            [[0x21, 0x44, 0x80, 0xCD, 0x44, 0x80, 0xC2, 0x44, 0x80],
+             [["20000#4000#4008#0,3,1F,2A,2D,66,69,70,85#%(  %!FindPattern\
+(0x44, 0x80)%) %#hello%(  %!StartandEndbyOffset(startoffset = -1,\
+ endoffset = 1)%)%F0502From:%WCA% To:%WCE%Q"]],
+             ["""ORG #4000
+
+From:4000 To:4002
+4000  21,44,80     LD HL,#8044
+From:4003 To:4005
+4003  CD,44,80     CALL #8044
+From:4006 To:4008
+4006  C2,44,80     JP NZ,#8044
+"""]],
+            # predefined functions
+            [[0],
+             [["10000#4000#4000#0,20,23,2A,2D,30,33,3B,3E,41#%I%(%PTest(val=0,\
+txt='Hello')%)%(  TRUE%)%J%(  FALSE%)%Q"],
+              ["10000#4000#4000#0,20,23,2A,2D,30,33,3B,3E,41#%I%(%PTest(val=1,\
+txt='Hello')%)%(  TRUE%)%J%(  FALSE%)%Q"],
+              ["10000#4000#4000#0,20,23,2A,2D,30,33,3B,3E,41#%I%(%PTest(val=\
+False, txt='A')%)%(  TRUE%)%J%(  FALSE%)%Q"],
+              ["10000#4000#4000#0,20,23,2A,2D,30,33,3B,3E,41#%I%(%PTest(val=\
+True, txt='B')%)%(  TRUE%)%J%(  FALSE%)%Q"],
+              ["10000#4000#4000#0,B,1E,21,32,43,4E,51,54#%X01000000%L%(\
+%?LT%V000005%)%(  %X0200%V000001  %PTest(mode=1)  LOOP%BC0%)%Q"],
+              ["10000#4000#4000#0,B,1E,21,32,43,4E,51,54#%X01000000%L%(\
+%?LT%V000005%)%(  %X0200%V000001  %PTest(mode=2)  LOOP%BC0%)%Q"]],
+             ["""ORG #4000
+
+HelloFALSE
+
+4000  00           NOP
+""",
+              """ORG #4000
+
+HelloTRUE
+
+4000  00           NOP
+""",
+              """ORG #4000
+
+AFALSE
+
+4000  00           NOP
+""",
+              """ORG #4000
+
+BTRUE
+
+4000  00           NOP
+""",
+              """ORG #4000
+
+LOOP01LOOP02LOOP03
+
+4000  00           NOP
+""",
+              """ORG #4000
+
+LOOP01LOOP02LOOP03LOOP05
+
+4000  00           NOP
+"""]]]
+        for data, instructions, outputs in tests:
+            for instruction, output in zip(instructions, outputs):
+                si = [spectrumtranslate.DisassembleInstruction(i) for i in
+                      instruction]
+                self.assertEqual(spectrumtranslate.disassemble(data, 0, 0x4000,
+                                 len(data), si), output)
+
 
 class TestSpectrumTranslateError(unittest.TestCase):
     def test_SpectrumTranslateError(self):

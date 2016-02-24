@@ -5,15 +5,13 @@
 <p>These instructions tell SpectrumTranslate how to alter the way it disassembles machine code.
 They can alter the formats of how the disassembler displays line numbers, the machine code, numbers, where
 to put line spacers, how you want to specify seperators between different parts of the output, how you want
-your line numbers displayed, if you want to list command timing, flags, etc.
-</p><p>
-They also allow you to specify data areas in the machine code. There are several in-built data formats, and
+your line numbers displayed, if you want to list command timing, flags, etc.</p>
+<p>They also allow you to specify data areas in the machine code. There are several in-built data formats, and
 you can specify your own if there isn't one to suit your needs. There is even the option to tell the disassembler
 to look for certain paterns and treat the area around it as data (usefull for where the data for a subroutine
-follows the call to that subroutine for example).
-</p>
-<p>
-Each Disassembly Instruction contains several atributes that tell the disassebler how to interperate it.
+follows the call to that subroutine for example), or to add comments.</p>
+<p>There are also predefined routines and functions that allow you to format certain types of data and comments. Although not as flexible as the inbuilt scripting language, these are much faster and simpler to use.</p>
+<p>Each Disassembly Instruction contains several atributes that tell the disassebler how to interperate it.
 They are:
 <ul>
     <li><strong>The instruction</strong> - this tells the disassebbler what to do. It needs to be one of the predefined values.</li>
@@ -104,21 +102,21 @@ script if you want to. See Below for details of scripts. See this <a href="#Patt
 </p>
 
 <a id="scipting"><center><h2>Data Block (and Pattern Data Block) instruction scripting.</h2></center></a>
-<p>The data that holds the instructions are carried out from the first character moving to
-the end of the data. Each character in turn is displayed (other than space, new line, or tabs) with the
+<p>The data in a <strong>Data Block</strong>, or <strong>Pattern Data Block</strong> (also part of a <strong>Comment Pattern</strong>) holds the instructions that are carried out from the first character moving to
+the end of the data. Each character in turn is displayed (other than whitespace such as space, new line, or tabs) with the
 exception of '%'. This is an 'escape code' which instructs the disassembler that the next character is an
 instruction, which may process more characters as data before resuming looking for characters to
 output as normal. If the end of the data is reached and the disassembler has not reached the end address
 for the DisassembleInstruction, then it starts a new line, and starts processing again from the first
-character of the data.</p>
-<p>To help process the data, the scripting language has access to 16 (numbered 0 to 15), 16bit variables. There are
+character of the data script.</p>
+<p>To help process the data, the scripting language has access to 16 (numbered 0 to 15), 16 bit variables. There are
 10 general purpose variables that can be used for anything. There are some that can't be changed such as the
 start address for the current line, the line number (incremented every time a new line is started), and the
 start address for the Instruction. There are also some that can be changed such as the offset in
-bytes from the start of the line, the current address, and the end address for the Instruction
-(which allows the Instruction to end the data block early and will override the origional end value).
+bytes from the start of the line to the current byte, the current address, and the end address for the Instruction
+(which allows the Instruction to end the data block early by setting a new end value).
 The current address is used to tell the disassembler when to end the data block (when it has passed the end
-address). The current address and the offset from the start of the line are linked. If you change one, then
+address). In some instructions this is ignored and the check to see if the data block has ended is only made at the end of a line. This is the case for example in DM0 instructions (where the end of a string is marked by a zero byte). The current address and the offset from the start of the line are linked. If you change one, then
 the other automatically will be updated. The variables are referenced by number. 0 to 9 are the general purpose
 variables. The address of the line is 10, and the line number is 11. The offset from the start of the line is
 12. The start position of the DisassembleInstruction is held in 13. The end position of the
@@ -251,6 +249,42 @@ start again interpreting at the start of the script instructions on a new line.<
 the end value to the current position, and leaves the DisassembleInstruction.</li>
 </ul></p>
 
+<h3>Predefined function and routine commands:</h3>
+<p>Predefined functions and routines are python functions that can be called from inside the script or directly. They have the advantage that they are much faster than the scripting language. The functions available can be added to, although this does involve writing your own python script and can only be done when accessing the disassembler via the code API and not via the graphic interface, or the command line. The predefined routines and functions are not as flexible as the scripting language, but if they suit what you're after then it is advised to use them as they are much simpler, and much, much faster.</p>
+<p>To call a function or routine you use the function name (which must follow %P or %!) which can consist of letters, underscore, or a number (but not a number as the first character). Following the function name must be an open and close brackets.  Any arguments must be enclosed within the brackets seperated by commas. Arguments can be simply listed, or be denoted with a keyword = before it. Valid arguments are strings (enclosed by a double or single quote), boolean, or numbers (which can be decimal, hexadecimal, binary or octal: octal is prefixed with o, binary with b, and hexadecimal with # or 0X). The exact arguments vary from function to function, but often have sensible defaults and can often be omitted. A predefined function can optionally return a string which will be added to the output text, and or either a boolean to denote True or False (and so be used as a test, or combined with other scripting tests in a boolean fashion), or an integer. The integer is a flag. Bit 0 is True or false, bit 1 is break, and bit 2 is continue (and so they can be used to control script routine flow). A predefined routine can also return a list of addresses as part of a <strong>Pattern Data Block</strong> or a <strong>Comment Pattern</strong>, or a list of tupples of the start and end addresses again to help with a <strong>Pattern Data Block</strong> or a <strong>Comment Pattern</strong>. There are subtle differences between functions and routines (see below) but are otherwise very similar. Any function or routine that is to be called must be referenced to in <strong>PredefinedFunctions</strong> if it's a function, or <strong>PredefinedRoutines</strong> if it's a routine (both of these are in the <strong>DisassebleInstruction</strong> class and is accessed by any object that is an instance of it. You don't have to pass the bytes to be disassembled, the Variables (including start, and end of the data block), or the disassembly settings to the function or routine as this is handled by the disassembler automatically.</p>
+<p><ul>
+<li><code><strong>%P</strong></code> - This marks a call to a predefined function. It can be embedded in a script amongst other commands. Imidiately after the %P must come the function name and argumets. This will return any text to add to the output, as well as any True, False, break, or continue instructions which may or may not have an effect depending on where in the script the call was made. The name of the function must be in the <strong>PredefinedFunctions</strong> dictionary variable in the <strong>DisassembleInstruction</strong> class (or the DisassembleInstruction instance object that's calling it) as a reference to a function defined elsewhere.</li>
+<li><code><strong>%!</strong></code> - This marks a call to a predefined routine. Predefined routines are designed to be run independently of a disassembly script but must not be mixed with other script (other than surrounded by an open and close brackets (<strong>%(</strong> or <strong>%)</strong>) when used as the test or preperation blocks in a pattern data block command. Imidiately after the %! must come the function name and argumets. This can return text to add to the output when used in place of a script in a <strong>Data Block</strong>. It also can return a list of addresses if used as the test block of a <strong>Pattern Data Block</strong> or a <strong>Comment Pattern</strong>, or a list of tupples holding the start and end addresses for the proposed data block in the preparation section of a <strong>Pattern Data Block</strong> or a <strong>Comment Pattern</strong>. (you can leave the preparation block empty if the test block returns a list of tupples of the start and end adresses instead of a list of addresses). The name of the function must be in the <strong>PredefinedRoutines</strong> dictionary variable in the <strong>DisassembleInstruction class</strong> (or the DisassembleInstruction instance object that's calling it) as a reference to a function defined elsewhere.</li>
+</ul></p>
+<p>Predefined Functions in <strong>PredefinedFunctions</strong> are:</p>
+<p><ul>
+<li><code><strong>DefineByte()</strong></code> - This function outputs the data from the current data position to the end of the Data block as bytes. Extra arguments are:<ul>
+  <li><code>Signed</code> - this specifies if the byte is siged or not. In a signed byte, values from 128 to 255 represent negative values. The default is False</li>
+  <li><code>Format</code> - this specifies the format to display the byte as. This is 0 for Hexadecimal, 1 for Decimal, 2 for Octal, 3 for Binary, 4 for the same format as is being used for addresses, 5 for the same format to be used for numbers, and 6 for the same format to be used as the bytes of a command. The default is 0.</li>
+  <li><code>FormatIdentifyer</code> - This sets how numbers are identified. If False, there is no identifyer, if True then the number is preceded by # for hexadecimal, o for octal and b for binary numbers. You can also set it to a string in which case this is used to precede the number. The default is True.</li>
+  <li><code>GapFrequency</code> - This sets how many bytes there are before a gap is inserted between numbers. Set this to 0 if you don't want any gaps between numbers. The default is 1.</li>
+  <li><code>Gap</code> - This defines what you want to insert between numbers whenever a gap is required. It defaults to a comma.</li>
+  <li><code>MaxPerLine</code> - This specifies the maximum number of bytes to display before starting a new line of data. The line may terminate early if the end of the datablock is reached. The default is 1.</li>
+</ul></li>
+<li><code><strong>DefineWord()</strong></code> - this function outputs the data from the current data position to the end of the Data Block as 2 byte words. Extra arguments are the same as for DefineByte but also includes:<ul>
+  <li><code>LittleEndian</code> - this sets the byte order of the word. On the spectrum typically the least significant byte is before the most significant byte of a word. This is known as little endian byte order. Set this to True if the least significant byte is first, or False if the most significant byte is first. This defaults to True.</li>
+</ul></li>
+<li><code><strong>DefineMessage()</strong></code> - this function formats the data from the current data position to the end of the data block (and possibly further) as text. If the length of a string is defined by a terminating zero, bit 7 being set, or if the length of the string is stored as the first byte or a word before the text starts, this will be used to work out the end of a string of characters rather than using the end of the data block. If the end of a string is reached before the end of a data block area, then another string will be decoded on a seperate line. The apropriate number of bytes after control codes (like 2 after AT or 1 after INK) will always be displayed as numbers even if they code for a valid ASCII character. Extra arguments are:<ul>
+  <li><code>DataType</code> - this specifies what marks the end of the string. 'DM' for a string that is ended at the end of the data block. 'DM0' or '0' for a zero terminated string. 'DM7' or '7' for a string where the last character is set by having bit 7 set. 'DMLB' or 'LB' for a string where the length of the string is stored in the first byte. 'DMLW' or 'LW' for a string where the length of the string is stored in the first 2 bytes as a little endian word. 'DMLWBE', 'LWBE, or 'BE' for a string where the length of the string is stored in the first 2 bytes as a big endian word. The Default is 'DM'.</li>
+  <li><code>Noncharoutofquotes</code> - Specifies that non-ASCII characters are to be listed as numbers outside of quotes if True, or inside quotes as a 2 digit hexadecimal number preceded by ^ if False. Defaults to False.</li>
+</ul></li>
+</ul></p>
+<p>Predefined Routines in <strong>PredefinedRoutines</strong> are:</p>
+<p><ul>
+<li><code><strong>DefineByte</strong></code> - Exactly the same as in <strong>PredefinedFunctions</strong>.</li>
+<li><code><strong>DefineWord</strong></code> - Exactly the same as in <strong>PredefinedFunctions</strong>.</li>
+<li><code><strong>DefineMessage</strong></code> - Exactly the same as in <strong>PredefinedFunctions</strong>.</li>
+<li><code><strong>FindPattern</strong></code> - Returns a list of addresses that matched the supplied bytes. The Extra arguments are the bytes to match in order seperated by commas. This is designed to be used as the test field in a <strong>Pattern Data Block</strong> or a <strong>Comment Pattern</strong>. Optionally it can return a list of tupples of the start and end addresses for a match, in which case the Preparation block will be skipped.</li>
+<li><code><strong>StartandEndbyOffset</strong></code> - Returns a list of tupples for the start and end address for the supplied list of addresses. This is to be used as the preparation block for a <strong>Pattern Data Block</strong> or a <strong>Comment Pattern</strong>. The list of addresses is supplied automatically. Extra arguments are:<ul>
+    <li><code>startoffset</code> - this specifies the offset from the address matched to the start of the data block. This defaults to 0.</li>
+    <li><code>endoffset</code> - this specifies the offset from the address matched to the end of the data block. This defaults to 0.</li>
+</ul></li>
+</ul></p>
 <h3>Miscelanious commands:</h3>
 <p><ul>
 <li><code><strong>%#</strong></code> - This denotes that everything after this until the end of a line is a comment.</li>
@@ -406,6 +440,17 @@ DM0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp
 %X020C%V0C0001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#add offset from linestart and 1 and save as offset from line start. moves past 0 terminating byte<br/>
 #00&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#print #00 as for terminating 0x00<br/>
 %$-D&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%#close data xml tag<br/>
+</code></p>
+<p>The above example uses the scripting language and is very flexible. You can alter any part to suit a different purpouse. However it is quite slow. Below is another Pattern Data Block that does the same thing, but uses predefined Functions and Routines.</p>
+<p><code>
+%(<br/>
+&nbsp;&nbsp;%!FindPattern(0xCD, 0X23, 0xC1)<br/>
+%)<br/>
+%(<br/>
+&nbsp;&nbsp;%!StartandEndbyOffset(startoffset=3, endoffset=3)<br/>
+%)<br/>
+%PDefineMessage(DataType='0')<br/>
+%F0502
 </code></p>
 </body>
 </html>

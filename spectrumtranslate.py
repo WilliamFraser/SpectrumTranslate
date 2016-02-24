@@ -2991,6 +2991,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     CommentEnd = ""
     CommentAfter = ""
     CommentReferences = []
+    FunctionMatcher = re.compile("^\s*%![a-zA-Z_][a-zA-Z_0-9]*[(].*[)]\s*$",
+                                 re.DOTALL)
+    MatcherinBraces = re.compile(
+        "^\s*%[(]\s*%!([a-zA-Z_][a-zA-Z_0-9]*[(].*[)])\s*%[)](\s*%#[^\n]*?)?$",
+        re.DOTALL)
 
     # Work out how much there is to process for progress callback
     # faster going through formatting at end than actual disassembling
@@ -3187,14 +3192,12 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
                 # first check is valid test block
                 if(TestBlock is None):
-                    raise _newSpectrumTranslateError(
-                        Vars[0x0A], 0, di.data,
+                    raise SpectrumTranslateError(
                         "patern to search for must be inside brackets")
 
                 # now check is valid preperation block
                 if(PrepBlock is None):
-                    raise _newSpectrumTranslateError(
-                        Vars[0x0A], 0, di.data,
+                    raise SpectrumTranslateError(
                         "preperation block must be inside brackets")
 
                 # now should have valid pattern match we can work with
@@ -3213,39 +3216,103 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                             "COMMANDOUTPUT": CommandOutput,
                             "XMLOutput": XMLOutput,
                             "HexForNonASCII": HexForNonASCII,
-                            "CommentsToAdd": []}
+                            "InstructionsToAdd": []}
 
                 Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, di.start, 0, 0, di.start,
                         di.end]
 
-                # move through area covered by instruction & check for
-                # matches
-                k = di.start
                 # work done after done this
                 wdafter = workdone + ((di.end - di.start) * 2)
-                while(k <= di.end):
-                    # update progress
-                    workdone += 2
-                    # call progress update
+
+                matches = []
+                # handle predefined routine
+                match = MatcherinBraces.match(TestBlock)
+                if(match):
                     if(progressfunction is not None):
-                        progressfunction("Evaluating Instructions",
-                                         workdone, worktodo1,
+                        progressfunction("Evaluating Instructions", workdone,
+                                         worktodo1,
                                          (workdone * 10) / worktodo1, 100)
-                    try:
-                        Settings["DATASTRINGPOS"] = 0
-                        Vars[0x00] = k
-                        Vars[0x01] = di.end
-                        Vars[0x0C] = 0
-                        Vars[0x0A] = k
-                        Vars[0x0D] = k
-                        Vars[0x0E] = di.end
-                        # test each address
-                        # will fail for Comment pattern but only after
-                        # pattern has been added
-                        if((_processcommandblock(TestBlock, Vars, Settings,
-                                                 data, True,
-                                                 True)[0] & 1) == 1):
-                            # have found match
+                    details = _ProcessFunctionDetails(match.group(1))
+                    if(isinstance(details, str)):
+                        raise SpectrumTranslateError(details)
+
+                    # check is valid command
+                    if(details[0] not in
+                       DisassembleInstruction.PredefinedRoutines):
+                        raise SpectrumTranslateError(
+                            'Routine "{0}" not defined'.format(details[0]))
+
+                    # process routine
+                    Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, di.start, 0, 0,
+                            di.start, di.end]
+                    args = [data, Settings, Vars] + details[1]
+                    keyargs = details[2]
+                    matches = DisassembleInstruction.\
+                        PredefinedRoutines[details[0]](*args, **keyargs)
+                else:
+                    # search for matches using scripting language
+
+                    # move through area covered by instruction & check for
+                    # matches
+                    k = di.start
+                    while(k <= di.end):
+                        # update progress
+                        workdone += 2
+                        # call progress update
+                        if(progressfunction is not None):
+                            progressfunction("Evaluating Instructions",
+                                             workdone, worktodo1,
+                                             (workdone * 10) / worktodo1, 100)
+                        try:
+                            Settings["DATASTRINGPOS"] = 0
+                            Vars[0x00] = k
+                            Vars[0x01] = di.end
+                            Vars[0x0C] = 0
+                            Vars[0x0A] = k
+                            Vars[0x0D] = k
+                            Vars[0x0E] = di.end
+                            # test each address
+                            # will fail for Comment pattern but only after
+                            # pattern has been added
+                            if((_processcommandblock(TestBlock, Vars, Settings,
+                                                     data, True,
+                                                     True)[0] & 1) == 1):
+                                matches += [k]
+                            k += 1
+
+                        except IndexError:
+                            # continue gracefully if test involves bytes
+                            # outside supplied data.
+                            continue
+
+                blockdetails = []
+                # process matches if needed
+                match = MatcherinBraces.match(PrepBlock)
+                if(len(matches) > 0 and isinstance(matches[0], list)):
+                    # matching routine has returned list of blockdetails
+                    blockdetails = matches
+                elif(len(matches) > 0 and match):
+                    details = _ProcessFunctionDetails(match.group(1))
+                    if(isinstance(details, str)):
+                        raise SpectrumTranslateError(details)
+
+                    # check is valid command
+                    if(details[0] not in
+                       DisassembleInstruction.PredefinedRoutines):
+                        raise SpectrumTranslateError(
+                            'Routine "{0}" not defined'.format(details[0]))
+
+                    # process routine
+                    Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, di.start, 0, 0,
+                            di.start, di.end]
+                    args = [data, Settings, Vars, matches] + details[1]
+                    keyargs = details[2]
+                    blockdetails = DisassembleInstruction.\
+                        PredefinedRoutines[details[0]](*args, **keyargs)
+                elif(len(matches) > 0):
+                    # process matches using scripting
+                    for k in matches:
+                        try:
                             Settings["DATASTRINGPOS"] = 0
                             Vars[0x00] = k
                             Vars[0x01] = di.end
@@ -3256,24 +3323,25 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                             # now adjust variables as needed
                             _processcommandblock(PrepBlock, Vars, Settings,
                                                  data, True, False)
-                            # add datablock
-                            DisassembleInstructions += [DisassembleInstruction(
-                                DisassembleInstruction.DISASSEMBLE_CODES[
-                                    "Data Block"], Vars[0x00], Vars[0x01],
-                                ActionBlock)]
+                            blockdetails += [[Vars[0x00], Vars[0x01]]]
+                        except IndexError:
+                            # continue gracefully if test involves bytes
+                            # outside supplied data.
+                            continue
 
-                            # increase work in disassembly phase
-                            worktodo2 += (Vars[0x01] - Vars[0x00]) * 2
-                        k += 1
-                    except IndexError:
-                        # exit gracefully if test involves bytes outside
-                        # supplied data.
-                        workdone = wdafter
-                        break
+                # add data blocks
+                for start, end in blockdetails:
+                    # add datablock
+                    DisassembleInstructions += [DisassembleInstruction(
+                        DisassembleInstruction.DISASSEMBLE_CODES["Data Block"],
+                        start, end, ActionBlock)]
 
-                # if have comments, add them
-                if(len(Settings["CommentsToAdd"]) > 0):
-                    DisassembleInstructions += Settings["CommentsToAdd"]
+                    # increase work in disassembly phase for each block
+                    worktodo2 += (end - start) * 2
+
+                # if have instructions, add them
+                if(len(Settings["InstructionsToAdd"]) > 0):
+                    DisassembleInstructions += Settings["InstructionsToAdd"]
 
                 workdone = wdafter
 
@@ -3404,8 +3472,43 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                                            CommentAfter, CommentOutput]}
             if(TreatDataNumbersAsLineReferences == 0):
                 Settings["ReferencedLineNumbers"] = ReferencedLineNumbers
-            di.end, txt = di.disassembledatablock(Settings, data)
+
+            if(FunctionMatcher.match(di.data)):
+                details = _ProcessFunctionDetails(di.data.strip()[2:])
+                if(isinstance(details, str)):
+                    raise SpectrumTranslateError(details)
+
+                # check is valid command
+                if(details[0] not in
+                   DisassembleInstruction.PredefinedRoutines):
+                    raise SpectrumTranslateError(
+                        'Routine "{0}" not defined'.format(details[0]))
+
+                # process routine
+                Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, di.start, 0, 0, di.start,
+                        di.end]
+                args = [data, Settings, Vars] + details[1]
+                keyargs = details[2]
+                result = DisassembleInstruction.PredefinedRoutines[details[0]](
+                    *args, **keyargs)
+                # adjust end of data block
+                di.end = Vars[10] - 1
+                # extract text from result
+                if(isinstance(result, (str, _unistr))):
+                    txt = result
+                elif(isinstance(result, list) and len(result) > 0 and
+                     isinstance(result[0], (str, _unistr))):
+                    txt = result[0]
+                elif(isinstance(result, list) and len(result) > 1 and
+                     isinstance(result[1], (str, _unistr))):
+                    txt = result[1]
+                else:
+                    txt = ""
+            else:
+                di.end, txt = di.disassembledatablock(Settings, data)
+
             soutput += txt
+
             # update comments
             CommentEnd = Settings["COMMENTCONTROL"][2]
             CommentAfter = Settings["COMMENTCONTROL"][3]
@@ -3768,12 +3871,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         except IndexError:
             # have tried to access bytes from beyond end of given data
             # output bytes as DB data
-            # create DisassembleInsgtruction to do this
-            di = DisassembleInstruction(
+            # create DisassembleInstruction to do this
+            DisassembleInstructions.insert(0, DisassembleInstruction(
                 DisassembleInstruction.DISASSEMBLE_CODES["Data Block"],
                 currentAddress, currentAddress + len(data)-offset-1,
-                DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES[
-                    "Define Byte"])
+                "%!DefineByte()"))
             # back too start of while loop & should enter data block
             continue
 
@@ -4121,6 +4223,454 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                          worktodo1 + worktodo2 + worktodo3)
 
     return soutput
+
+
+def PredefinedStartLine(Settings, Vars, datatitle):
+    """This functions starts off a line for predefined functions."""
+
+    soutput = ""
+
+    # check if any comments to be added to this data
+    if("COMMENTCONTROL" in Settings):
+        # move past any instructions that has been & gone
+        while(True):
+            dis = Settings["COMMENTCONTROL"][0]
+            while(dis and Vars[0x0A] > dis[0].end):
+                dis.pop(0)
+            # if is comment instruction process it
+            if(dis and
+               Vars[0x0A] >= dis[0].start and
+               dis[0].instruction & 0xFFFF00 == 0x030000 and
+               dis[0].data is not None and dis[0].data is not ""):
+                di = dis.pop(0)
+                if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
+                   "Comment Before"]):
+                    if(Settings["COMMENTCONTROL"][1] == 0):
+                        soutput += Settings["COMMENTCONTROL"][4](
+                            di.data, Settings["XMLOutput"])
+
+                # otherwise comnment end of this line or after
+                elif(di.instruction == 0x030002):
+                    if(Settings["COMMENTCONTROL"][3] is not ""):
+                        Settings["COMMENTCONTROL"][3] += "\n"
+                    Settings["COMMENTCONTROL"][3] += di.data
+                else:
+                    if(Settings["COMMENTCONTROL"][2] is not ""):
+                        Settings["COMMENTCONTROL"][2] += ". "
+                    Settings["COMMENTCONTROL"][2] += di.data
+            else:
+                # end if no more comments for line
+                break
+    # output line details
+    if(Settings["XMLOutput"] == 1):
+        if(not Settings["HadLineStart"]):
+            soutput += "  <line>"
+        soutput += "<address>{0}</address>".format(
+            _numbertostring(Vars[10], 16, Settings["ADDRESSOUTPUT"], False))
+        soutput += "<instruction>{0}</instruction>".format(datatitle)
+    else:
+        i = Settings["ADDRESSOUTPUT"] + 4
+        if(Settings["SEPERATOR"] != "  "):
+            i += 1 << 5
+        soutput += "\0" + chr(i) + chr(Settings["DISPLAYEVERYXLINES"])
+        soutput += "{0:04X}{1}{1}{2}{1}".format(Vars[10],
+                                                Settings["SEPERATOR"],
+                                                datatitle)
+
+    Settings["HadLineStart"] = True
+    Settings["HadLineEnd"] = False
+
+    return soutput
+
+
+def PredefinedEndLine(Settings, Vars):
+    """This functions ends a line for predefined functions."""
+
+    soutput = ""
+
+    # update position
+    Vars[0x0A] += Vars[0x0C]
+    # update line number
+    Vars[0x0B] += 1
+
+    # do comment
+    if("COMMENTCONTROL" in Settings and
+       Settings["COMMENTCONTROL"][1] == 0 and
+       Settings["COMMENTCONTROL"][2] is not ""):
+        # XML comments
+        if(Settings["XMLOutput"] == 1):
+            soutput += "<comment>{0}</comment>".format(
+                Settings["COMMENTCONTROL"][2])
+        # plain text comments
+        else:
+            # output pre comment text
+            soutput += Settings["SEPERATOR"] + ';'
+
+            if(Settings["COMMENTCONTROL"][2].find("\n") == -1):
+                soutput += Settings["COMMENTCONTROL"][2]
+
+            else:
+                comments = Settings["COMMENTCONTROL"][2].split("\n")
+                soutput += comments[0] + "\n"
+                soutput += Settings["COMMENTCONTROL"][4](
+                    "".join(comments[1:]), Settings["XMLOutput"])[:-1]
+
+    if(not Settings["HadLineEnd"]):
+        # end of line
+        if(Settings["XMLOutput"] == 1):
+            soutput += '</line>'
+
+        # new line
+        soutput += "\n"
+
+    # handle comments after line
+    if("COMMENTCONTROL" in Settings):
+        if(Settings["COMMENTCONTROL"][1] == 0 and
+           Settings["COMMENTCONTROL"][3] is not ""):
+            soutput += Settings["COMMENTCONTROL"][4](
+                Settings["COMMENTCONTROL"][3],
+                Settings["XMLOutput"])
+
+        # clear comments
+        Settings["COMMENTCONTROL"][2] = ""
+        Settings["COMMENTCONTROL"][3] = ""
+
+    Settings["HadLineStart"] = False
+    Settings["HadLineEnd"] = True
+
+    return soutput
+
+
+# pre-defined Functions
+def _PredefinedDefineByte(data, Settings, Vars, Signed=False, Format=0,
+                          FormatIdentifyer=True, GapFrequency=1, Gap=",",
+                          MaxPerLine=1):
+    """Outputs data as bytes.
+
+data is the data to process.
+Settings is a dictionary containing needed setings such as the origin of
+  the code, if wanting XML output, formats for adress, numbers, and
+  commands. This is the same as for the disassembledatablock in a
+  DisassembleInstruction object.
+Vars is a list of variables as used internally to process the scripting
+  code used by the disassembler. Of note Vars[0x0A] is the address of
+  the current line, Vars[0x0E] is the last byte that's part of the data,
+  and Vars[0x0C] is the offset of the current byte being processed in
+  bytes from Vars[0x0A].
+Signed specifies if 255 (0xFF) is 255 or -1.
+Format specifies the number format: 0 for Hexadecimal, 1 for decimal,
+  2 for octal, 3 for binary, 4 to use the same format as is used for
+  addresses, 5 to use same format as for numbers, and 6 to use the
+  same format as the bytes of a command
+FormatIdentifyer specifies if you want a label to identify the data:
+  # for hexadecimal numbers, b for binary, o for octal, nothing for
+  decimal. Set this to text if you want to specify your own identifyer
+  to use infront of a number.
+GapFrequency is how many bytes between gaps in the data output.
+  Set this to 0 if you don't want any gaps.
+Gap specifies what text you want to use between bytes in the output as
+  controlled by GapFrequency.
+MaxPerLine specified the maximum number of bytes output per line of data
+  before moveing onto a new line."""
+
+    if(Format == 4):
+        Format = Settings["ADDRESSOUTPUT"]
+    elif(Format == 5):
+        Format = Settings["NUMBEROUTPUT"]
+    elif(Format == 6):
+        Format = Settings["COMMANDOUTPUT"]
+    dataformat = FormatIdentifyer if isinstance(FormatIdentifyer, str) else \
+        (("#", "", "o", "b")[Format] if FormatIdentifyer else "")
+    dataformat += ("{0:02X}", "{0}", "{0:03o}", "{0:08b}")[Format]
+
+    soutput = ""
+
+    # look until have passed end point
+    while(Vars[0x0A] <= Vars[0x0E]):
+        # output line details
+        soutput += PredefinedStartLine(Settings, Vars,
+                                       "SB" if Signed else "DB")
+
+        # loop until run out of data area or hit max line length
+        Vars[0x0C] = 0
+        while(Vars[0x0A] + Vars[0x0C] <= Vars[0x0E] and
+              Vars[0x0C] < MaxPerLine):
+            if(Settings["XMLOutput"] == 1):
+                soutput += "<data>"
+            elif(GapFrequency > 0 and Vars[0x0C] > 0 and
+                 Vars[0x0C] % GapFrequency == 0):
+                soutput += Gap
+
+            # get value to output
+            n = data[Vars[0x0A] + Vars[0x0C] - Settings["ORIGIN"]]
+            # handle negative
+            if(Signed and n > 127):
+                soutput += "-"
+                n = 256 - n
+            # output value
+            soutput += dataformat.format(n)
+            if(Settings["XMLOutput"] == 1):
+                soutput += "</data>"
+            Vars[0x0C] += 1
+
+        # end of line
+        soutput += PredefinedEndLine(Settings, Vars)
+
+    Vars[0x0E] = Vars[0x0A] - 1
+    return soutput
+
+
+def _PredefinedDefineWord(data, Settings, Vars, Signed=False, Format=0,
+                          FormatIdentifyer=True, GapFrequency=1, Gap=',',
+                          MaxPerLine=1, LittleEndian=True):
+    """Outputs data as 2 byte words.
+
+data is the data to process.
+Settings is a dictionary containing needed setings such as the origin of
+  the code, if wanting XML output, formats for adress, numbers, and
+  commands. This is the same as for the disassembledatablock in a
+  DisassembleInstruction object.
+Vars is a list of variables as used internally to process the scripting
+  code used by the disassembler. Of note Vars[0x0A] is the address of
+  the current line, Vars[0x0E] is the last byte that's part of the data,
+  and Vars[0x0C] is the offset of the current byte being processed in
+  bytes from Vars[0x0A].
+Signed specifies if 255 (0xFF) is 255 or -1.
+Format specifies the number format: 0 for Hexadecimal, 1 for decimal,
+  2 for octal, 3 for binary, 4 to use the same format as is used for
+  addresses, 5 to use same format as for numbers, and 6 to use the
+  same format as the bytes of a command
+FormatIdentifyer specifies if you want a label to identify the data:
+  # for hexadecimal numbers, b for binary, o for octal, nothing for
+  decimal. Set this to text if you want to specify your own identifyer
+  to use infront of a number.
+GapFrequency is how many words between gaps in the data output.
+  Set this to 0 if you don't want any gaps.
+Gap specifies what text you want to use between words in the output as
+  controlled by GapFrequency.
+MaxPerLine specified the maximum number of words output per line of data
+  before moveing onto a new line."""
+
+    if(Format == 4):
+        Format = Settings["ADDRESSOUTPUT"]
+    elif(Format == 5):
+        Format = Settings["NUMBEROUTPUT"]
+    elif(Format == 6):
+        Format = Settings["COMMANDOUTPUT"]
+    dataformat = FormatIdentifyer if isinstance(FormatIdentifyer, str) else \
+        (("#", "", "o", "b")[Format] if FormatIdentifyer else "")
+    dataformat += ("{0:04X}", "{0}", "{0:06o}", "{0:016b}")[Format]
+    datatitle = "{0}{1}".format("SW" if Signed else "DW",
+                                "" if LittleEndian else "BE")
+
+    soutput = ""
+
+    # look until have passed end point
+    while(Vars[0x0A] <= Vars[0x0E]):
+        # output line details
+        soutput += PredefinedStartLine(Settings, Vars, datatitle)
+
+        # loop until run out of data area or hit max line length
+        Vars[0x0C] = 0
+        while(Vars[0x0A] + Vars[0x0C] <= Vars[0x0E] and
+              Vars[0x0C] < (MaxPerLine * 2)):
+            if(Settings["XMLOutput"] == 1):
+                soutput += "<data>"
+            elif(GapFrequency > 0 and Vars[0x0C] > 0 and
+                 Vars[0x0C] % (GapFrequency * 2) == 0):
+                soutput += Gap
+
+            # get value to output
+            n = Vars[0x0A] + Vars[0x0C] - Settings["ORIGIN"]
+            n = (data[n] + 256 * data[n + 1]) if LittleEndian else \
+                (data[n + 1] + 256 * data[n])
+            # handle negative
+            if(Signed and n > 0x7FFF):
+                soutput += "-"
+                n = 65536 - n
+            # output value
+            soutput += dataformat.format(n)
+            if(Settings["XMLOutput"] == 1):
+                soutput += "</data>"
+            Vars[0x0C] += 2
+
+        # end of line
+        soutput += PredefinedEndLine(Settings, Vars)
+
+    Vars[0x0E] = Vars[0x0A] - 1
+
+    return soutput
+
+
+def _PredefinedDefineMessage(data, Settings, Vars, DataType="DM",
+                             Noncharoutofquotes=False):
+    """Outputs data as text.
+
+data is the data to process.
+Settings is a dictionary containing needed setings such as the origin of
+  the code, if wanting XML output, formats for adress, numbers, and
+  commands. This is the same as for the disassembledatablock in a
+  DisassembleInstruction object.
+Vars is a list of variables as used internally to process the scripting
+  code used by the disassembler. Of note Vars[0x0A] is the address of
+  the current line, Vars[0x0E] is the last byte that's part of the data,
+  and Vars[0x0C] is the offset of the current byte being processed in
+  bytes from Vars[0x0A].
+DataType specifies the length encoding of the message. "DM" to be length
+  of the data block, "DM0" to be terminated by a zero byte (ignoring a
+  zero after a control code), "DM7" to be terminated by bit 7 being set
+  on the last character, "DMLB" where the string length is encoded as a
+  byte at the start of the string, "DMLW" where the length is encoded as
+  a Little endian string before the start of a string, and "DMLWBE"
+  where he length is encoded as a big-endian word before the string.
+Noncharoutofquotes defines if you want non characters (ie control codes,
+  or commands if the "Hex instead of non-ASCII On" control is being
+  used) displayed as hex numbers outside of strings instead of 2 digit
+  hexacecimal numbers preceded by '^' (which is never used on the
+  spectrum) inside a string."""
+    endings = {"DM": "DM",
+               "DM0": "DM0", "0": "DM0",
+               "DM7": "DM7", "7": "DM7",
+               "DMLB": "DMLB", "LB": "DMLB",
+               "DMLW": "DMLW", "LW": "DMLW",
+               "DMLWBE": "DMLWBE", "LWBE": "DMLWBE", "BE": "DMLWBE"}
+    if(DataType not in endings):
+        raise SpectrumTranslateError("{0} not a recognised Word format".format(
+            DataType))
+    datatitle = endings[DataType]
+
+    soutput = ""
+    maxaddress = len(data) + Settings["ORIGIN"] - 1
+
+    # look until have passed end point
+    while(Vars[0x0A] <= Vars[0x0E]):
+        # output line details
+        soutput += PredefinedStartLine(Settings, Vars, datatitle)
+        Vars[0x0C] = 0
+        # get last char of string
+        if(datatitle == "DM"):
+            end = Vars[0x0E]
+        elif(datatitle == "DM0"):
+            bytesaftercontrol = -1
+            end = Vars[0x0A]
+            while(end < maxaddress and (data[end - Settings["ORIGIN"]] != 0 or
+                  bytesaftercontrol > 0)):
+                bytesaftercontrol -= 1
+                d = data[end - Settings["ORIGIN"]]
+                end += 1
+                if(d >= 16 and d <= 21):
+                    bytesaftercontrol = 1
+                elif(d == 22):
+                    bytesaftercontrol = 2
+        elif(datatitle == "DM7"):
+            bytesaftercontrol = -1
+            end = Vars[0x0A]
+            while(end < maxaddress and (data[end - Settings["ORIGIN"]] < 128 or
+                  bytesaftercontrol > 0)):
+                bytesaftercontrol -= 1
+                d = data[end - Settings["ORIGIN"]]
+                end += 1
+                if(d >= 16 and d <= 21):
+                    bytesaftercontrol = 1
+                elif(d == 22):
+                    bytesaftercontrol = 2
+        elif(datatitle == "DMLB"):
+            length = data[Vars[0x0A] - Settings["ORIGIN"]]
+            end = min(maxaddress, Vars[0x0A] + length)
+            Vars[0x0C] = 1
+        elif(datatitle == "DMLW"):
+            length = data[Vars[0x0A] - Settings["ORIGIN"]] + \
+                     256 * data[Vars[0x0A] - Settings["ORIGIN"] + 1]
+            end = min(maxaddress, Vars[0x0A] + length + 1)
+            Vars[0x0C] = 2
+        else:
+            length = data[Vars[0x0A] - Settings["ORIGIN"] + 1] + \
+                     256 * data[Vars[0x0A] - Settings["ORIGIN"]]
+            end = min(maxaddress, Vars[0x0A] + length + 1)
+            Vars[0x0C] = 2
+
+        if(Settings["XMLOutput"] == 1):
+            soutput += "<data>"
+        # loop until run out of data area or hit max line length
+        bytesaftercontrol = 0
+        inquotes = False
+        startoffset = Vars[0x0C]
+        while(Vars[0x0A] + Vars[0x0C] <= end):
+            n = data[Vars[0x0A] + Vars[0x0C] - Settings["ORIGIN"]]
+            c = getspectrumchar(n, Settings["HexForNonASCII"])
+            # force bytes after control character to be number not char
+            # also bytes>127 in bit 7 mode
+            if(bytesaftercontrol > 0 or (datatitle == "DM7" and n > 127)):
+                c = "^{0:02X}".format(n)
+            bytesaftercontrol -= 1
+            # handle numbers outside quotes
+            if(c[0] == '^' and Noncharoutofquotes):
+                if(inquotes):
+                    soutput += '"'
+                    inquotes = False
+                soutput += "{0}0x{1:02X}".format(
+                    "" if Vars[0x0C] == startoffset else ",", n)
+            else:
+                # print enter quotes if needed
+                if(not inquotes):
+                    if(Vars[0x0C] > startoffset):
+                        soutput += ','
+                    soutput += '"'
+                    inquotes = True
+                soutput += c
+
+            # if is control code, work out how many bytes follow
+            if(n >= 16 and n <= 21):
+                bytesaftercontrol = 1
+            elif(n == 22):
+                bytesaftercontrol = 2
+
+            # move to next char
+            Vars[0x0C] += 1
+
+        # close quotes if needed
+        if(inquotes):
+            soutput += '"'
+
+        if(Settings["XMLOutput"] == 1):
+            soutput += "</data>"
+        # end of line
+        soutput += PredefinedEndLine(Settings, Vars)
+
+    Vars[0x0E] = end
+
+    return soutput
+
+
+def _PredefinedFindPattern(data, Settings, Vars, *args):
+    """Returns a list of matching addresses to the supplied list of
+bytes. After the basic data, just supp;y the vlues to search for in
+order."""
+    arglen = len(args)
+    if(arglen == 0):
+        raise SpectrumTranslateError("No bytes to match")
+
+    matches = []
+    pos = Vars[0x0A]
+    origin = Settings["ORIGIN"]
+    l = len(data)
+    # convert args to a bytearray so can be matched
+    args = bytearray(args)
+    while(pos <= Vars[0x0E] and pos - origin < l):
+        n = pos - origin
+        if(data[n:n + arglen] == args):
+            matches += [pos]
+        pos += 1
+
+    return matches
+
+
+def _PredefinedStartandEndByOffset(data, Settings, Vars, addresses,
+                                   startoffset=0, endoffset=0):
+    """Returns a list of lists for start and end addresses, given the
+offsets and origional addresses."""
+
+    return [[x + startoffset, x + endoffset] for x in addresses]
 
 
 class DisassembleInstruction:
@@ -5118,6 +5668,17 @@ DEFB               %#output instuction (DEFB or Define Byte)
         "RST#28 (Calculator)",
         "Custom")
 
+    # list of predefined functions and routines
+    PredefinedFunctions = {"DefineByte": _PredefinedDefineByte,
+                           "DefineWord": _PredefinedDefineWord,
+                           "DefineMessage": _PredefinedDefineMessage}
+    PredefinedRoutines = {"DefineByte": _PredefinedDefineByte,
+                          "DefineWord": _PredefinedDefineWord,
+                          "DefineMessage": _PredefinedDefineMessage,
+                          "FindPattern": _PredefinedFindPattern,
+                          "StartandEndbyOffset": _PredefinedStartandEndByOffset
+                          }
+
     def __init__(self, arg, start=0, end=65536, data=None):
         """Creates a new DisassembleInstruction which is used to control
         disassembly of Z80 code.
@@ -5257,7 +5818,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
 
                     continue
 
-            Vars[0x0C] = 0  # point  to start of line
+            Vars[0x0C] = 0  # point to start of line
 
             # for each line go through commandline instructions
             # character by chracter
@@ -5266,6 +5827,8 @@ DEFB               %#output instuction (DEFB or Define Byte)
             # output start line if needed
             if(Settings["XMLOutput"] == 1):
                 soutput += '  <line>'
+            Settings["HadLineStart"] = True
+            Settings["HadLineEnd"] = False
 
             while(Settings["DATASTRINGPOS"] < len(self.data)):
                 # make note of where command starts in case we have
@@ -5294,7 +5857,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
                                                     data, False, False)
                 except IndexError:
                     raise _newSpectrumTranslateError(
-                        Vars[0x0A], 0, di.data,
+                        Vars[0x0A], 0, self.data,
                         "attempt to access data outside of supplied code")
 
                 soutput += txt
@@ -5326,12 +5889,13 @@ DEFB               %#output instuction (DEFB or Define Byte)
                         soutput += Settings["COMMENTCONTROL"][4](
                             "".join(comments[1:]), Settings["XMLOutput"])[:-1]
 
-            # output end start line if needed
-            if(Settings["XMLOutput"] == 1):
-                soutput += '</line>'
+            if(not Settings["HadLineEnd"]):
+                # output end start line if needed
+                if(Settings["XMLOutput"] == 1):
+                    soutput += '</line>'
 
-            # new line
-            soutput += "\n"
+                # new line
+                soutput += "\n"
 
             # handle comments after line
             if("COMMENTCONTROL" in Settings):
@@ -5477,7 +6041,7 @@ def _movetoblockend(instructions, Vars, Settings, commandstart):
     # should always find end of block with close brackets, error if
     # block not closed
     raise _newSpectrumTranslateError(Vars[0x0A], commandstart, instructions,
-                                     "no closing brackets to  block")
+                                     "no closing brackets to block")
 
 
 def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
@@ -5721,6 +6285,76 @@ digit hexadecimal number")
                     Vars[0x0A], commandstart, instructions,
                     "unrecognised format setting")
 
+        elif(s[0] == '!'):  # process predefined routine
+                raise _newSpectrumTranslateError(
+                    Vars[0x0A], commandstart, instructions,
+                    "Predefined routines not allowed inside instructions. Use \
+predefined Functions instead.")
+
+        elif(s[0] == 'P'):  # process predefined function
+            # get details of command and it's arguments
+            details = _ProcessFunctionDetails(
+                instructions[Settings["DATASTRINGPOS"]:])
+            if(isinstance(details, str)):
+                raise _newSpectrumTranslateError(Vars[0x0A], commandstart,
+                                                 instructions, details)
+
+            # check is valid command
+            if(details[0] not in DisassembleInstruction.PredefinedFunctions):
+                raise _newSpectrumTranslateError(
+                    Vars[0x0A], commandstart, instructions,
+                    'function "{0}" not defined'.format(details[0]))
+
+            # process function and combine result
+            args = [data, Settings, Vars] + details[1]
+            keyargs = details[2]
+            result = DisassembleInstruction.PredefinedFunctions[details[0]](
+                *args, **keyargs)
+            # extract text and logic from result
+            if(isinstance(result, (str, (_unistr, str)))):
+                txt = result
+                logic = None
+            elif(isinstance(result, (bool, int))):
+                txt = None
+                logic = result
+            elif(isinstance(result, (list, tuple)) and len(result) > 1 and
+                 isinstance(result[1], (str, (_unistr, str))) and
+                 isinstance(result[0], (bool, int))):
+                txt = result[1]
+                logic = result[0]
+            elif(isinstance(result, (list, tuple)) and len(result) > 1 and
+                 isinstance(result[0], (str, (_unistr, str))) and
+                 isinstance(result[1], (bool, int))):
+                txt = result[0]
+                logic = result[1]
+            elif(isinstance(result, (list, tuple)) and len(result) > 0 and
+                 isinstance(result[0], (str, (_unistr, str)))):
+                txt = result[0]
+                logic = None
+            elif(isinstance(result, (list, tuple)) and len(result) > 0 and
+                 isinstance(result[0], (bool, int))):
+                txt = None
+                logic = result[0]
+            else:
+                txt = None
+                logic = None
+
+            # update pointer to instructions
+            Settings["DATASTRINGPOS"] += details[3]
+
+            # process text and logic
+            if(txt):
+                soutput += txt
+            if(logic is not None and isinstance(logic, bool)):
+                boolState = combineresults(boolMode, boolState, logic)
+            elif(logic is not None and isinstance(logic, int)):
+                boolState = combineresults(boolMode, boolState,
+                                           (logic & 1) == 1)
+            # if break or continue, leave, this will be False for bool
+            if(isinstance(logic, int) and logic & 6 != 0):
+                # leave block
+                return (logic & 6) + (1 if boolState else 0), soutput
+
         elif(s[0] == 'B'):  # ouput byte
             # get info
             i = int(_getnextcharacters(instructions, Settings, 2), 16)
@@ -5831,7 +6465,7 @@ digit hexadecimal number")
                                            False)
 
             else:
-                i = Settings["NUMBERFORMAT"] + 4
+                i = Settings["ADDRESSOUTPUT"] + 4
                 if(Settings["SEPERATOR"] != "  "):
                     i += 1 << 5
                 soutput += "\0" + chr(i) + chr(Settings["DISPLAYEVERYXLINES"])
@@ -6037,7 +6671,8 @@ digit hexadecimal number")
                 # process block
                 k, txt = _processcommandblock(instructions, Vars, Settings,
                                               data, True, InTest)
-                soutput += txt
+                if(not bTest):
+                    soutput += txt
 
             # otherwise reset string position
             else:
@@ -6104,7 +6739,7 @@ digit hexadecimal number")
         elif(s[0] == 'Q'):
             # setting end of data block as current position, then ending
             # line will quit data block
-            Vars[0x0E] = Vars[0x0A] + Vars[0x0C]
+            Vars[0x0E] = Vars[0x0A] + Vars[0x0C] - 1
 
             # by setting position to end of data string and returning,
             # this will end line
@@ -6331,13 +6966,95 @@ digit hexadecimal number")
             di = DisassembleInstruction(commentinstruction, commentstart,
                                         commentend, commenttext)
             # add to list of instructions
-            Settings["CommentsToAdd"] += [di]
+            Settings["InstructionsToAdd"] += [di]
 
         else:  # unrecognised command
             raise _newSpectrumTranslateError(
                 Vars[0x0A], commandstart, instructions, "unrecognised command")
 
     return 1 if boolState else 0, soutput
+
+
+def _ProcessFunctionDetails(txt):
+    # get function name, arguments, and offset to end of call
+
+    # get function name or fail
+    x = re.match("([a-zA-Z_][a-zA-Z_0-9]*)[(]", txt)
+    if(not x):
+        return "Invalid function name"
+    function_name = x.group(1)
+    # remove function name from text
+    length = x.end()
+    txt = txt[length:]
+
+    args = []
+    argmatch = re.compile("\s*(?:([a-zA-Z_][a-zA-Z_0-9]*)(?:\s*[=]\s*))?\
+(\"[^\"]*\"|\'[^\']*\'|\-?#[0-9a-fA-F]+|-?0[xX][0-9a-fA-F]+|-?o[0-7]+|\
+-?[0-9]+|-?b[0-1]+|[Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee])\s*,?", re.DOTALL)
+    keywordsused = 0
+    # cycle through the arguments
+    while(True):
+        # return error if end text without closing bracket
+        if(not txt):
+            return "No closing bracket"
+        # end loop if have hit end bracket
+        if(txt[0] == ')'):
+            break
+        # match string, boolean or number
+        x = argmatch.match(txt)
+        if(not x or len(x.groups()) != 2):
+            return "Invalid argument: " + txt
+        if(keywordsused == 1 and not x.group(1)):
+            return "Can't declare non-keyword argument after keyword argument"
+        if(x.group(1)):
+            keywordsused = 1
+            args += [[x.group(1), x.group(2)]]
+        else:
+            keywordsused = 0
+            args += [x.group(2)]
+        txt = txt[x.end():]
+        length += x.end()
+
+    # convert text args into string, int, or boolean
+    # add to list or dict
+    keys = {}
+    nonkeys = []
+    for a in args:
+        arg = a[1] if isinstance(a, list) else a
+        c = arg[0]
+        if(c == '-'):
+            isminus = True
+            arg = arg[1:]
+            c = arg[0]
+        else:
+            isminus = False
+        if(c == '"' or c == "'"):
+            arg = str(arg[1:-1])
+        elif(c == 'T' or c == 't'):
+            arg = True
+        elif(c == 'F' or c == 'f'):
+            arg = False
+        elif(c == '#'):
+            arg = int(arg[1:], 16)
+        elif(c == '0' and len(arg) > 1 and (arg[1] == 'x' or arg[1] == 'X')):
+            arg = int(arg[2:], 16)
+        elif(c == 'o'):
+            arg = int(arg[1:], 8)
+        elif(c == 'b'):
+            arg = int(arg[1:], 2)
+        else:
+            arg = int(arg)
+
+        if(isminus):
+            arg *= -1
+
+        if(isinstance(a, list)):
+            keys[a[0]] = arg
+        else:
+            nonkeys += [arg]
+
+    # return results (+1 to length for closing brackets)
+    return function_name, nonkeys, keys, length + 1
 
 
 def _newSpectrumTranslateError(address, pos, instructions, details):
