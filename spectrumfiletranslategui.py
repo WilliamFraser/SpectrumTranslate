@@ -43,6 +43,7 @@
 # Date: 14th January 2015
 
 import sys
+import re
 import os.path
 import spectrumtapblock
 import disciplefile
@@ -1899,6 +1900,12 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
 
         cbEditDataBlock = QtGui.QComboBox(self)
         for key in spectrumtranslate.DisassembleInstruction.\
+                PredefinedFunctions.keys():
+            cbEditDataBlock.addItem("PredefinedFunction: " + key)
+        for key in spectrumtranslate.DisassembleInstruction.\
+                PredefinedRoutines.keys():
+            cbEditDataBlock.addItem("PredefinedRoutine: " + key)
+        for key in spectrumtranslate.DisassembleInstruction.\
                 DISASSEMBLE_DATABLOCK_CODES_ORDERED:
             cbEditDataBlock.addItem(key)
 
@@ -1908,6 +1915,18 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
             if(spectrumtranslate.DisassembleInstruction.
                     DISASSEMBLE_DATABLOCK_CODES[key] == di.data):
                 break
+        match = re.match("^\s*%!([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$", di.data,
+                         re.DOTALL)
+        if(match and
+           match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
+               PredefinedRoutines.keys()):
+            key = "PredefinedRoutine: " + match.groups()[0]
+        match = re.match("^\s*%P([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$", di.data,
+                         re.DOTALL)
+        if(match and
+           match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
+               PredefinedFunctions.keys()):
+            key = "PredefinedFunction: " + match.groups()[0]
 
         _setcombo(cbEditDataBlock, key)
         self.cbEditDataBlock = cbEditDataBlock
@@ -1962,6 +1981,18 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
             if(spectrumtranslate.DisassembleInstruction.
                     DISASSEMBLE_DATABLOCK_CODES[key] == blockText):
                 break
+        match = re.match("^\s*%!([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$",
+                         blockText, re.DOTALL)
+        if(match and
+           match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
+               PredefinedRoutines.keys()):
+            key = "PredefinedRoutine: " + match.groups()[0]
+        match = re.match("^\s*%P([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$",
+                         blockText, re.DOTALL)
+        if(match and
+           match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
+               PredefinedFunctions.keys()):
+            key = "PredefinedFunction: " + match.groups()[0]
 
         self.cbEditDataBlock.currentIndexChanged[str].disconnect(
             self.ChangeEditDataBlock)
@@ -1971,8 +2002,28 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
 
     def ChangeEditDataBlock(self, txt):
         self.teDataBlock.textChanged.disconnect(self.ChangeDataBlock)
-        self.teDataBlock.setPlainText(spectrumtranslate.DisassembleInstruction.
-                                      DISASSEMBLE_DATABLOCK_CODES[str(txt)])
+        txt = str(txt)
+        if(txt == "PredefinedFunction: DefineByte"):
+            txt = "%PDefineByte(Signed=False, Format=0, FormatIdentifyer=True, GapFrequency=1, Gap=',', MaxPerLine=1)"
+        elif(txt == "PredefinedFunction: DefineWord"):
+            txt = "%PDefineWord(Signed=False, Format=0, FormatIdentifyer=True, GapFrequency=1, Gap=',', MaxPerLine=1, LittleEndian=True)"
+        elif(txt == "PredefinedFunction: DefineMessage"):
+            txt = "%PDefineMessage(DataType='DM', Noncharoutofquotes=False)"
+        elif(txt == "PredefinedRoutine: DefineByte"):
+            txt = "%!DefineByte(Signed=False, Format=0, FormatIdentifyer=True, GapFrequency=1, Gap=',', MaxPerLine=1)"
+        elif(txt == "PredefinedRoutine: DefineWord"):
+            txt = "%!DefineWord(Signed=False, Format=0, FormatIdentifyer=True, GapFrequency=1, Gap=',', MaxPerLine=1, LittleEndian=True)"
+        elif(txt == "PredefinedRoutine: DefineMessage"):
+            txt = "%!DefineMessage(DataType='DM', Noncharoutofquotes=False)"
+        elif(txt == "PredefinedRoutine: FindPattern"):
+            txt = "%!FindPattern(0,1,2,3,4)"
+        elif(txt == "PredefinedRoutine: StartandEndbyOffset"):
+            txt = "%!StartandEndbyOffset(startoffset=0, endoffset=0)"
+        else:
+            txt = spectrumtranslate.DisassembleInstruction.\
+                DISASSEMBLE_DATABLOCK_CODES[txt]
+
+        self.teDataBlock.setPlainText(txt)
         self.teDataBlock.textChanged.connect(self.ChangeDataBlock)
 
     def EditUnreferencedLineNumberFrequency(self, instruction):
@@ -2575,6 +2626,19 @@ frequency must be between 0 and 255 decimal.")
                 if(spectrumtranslate.DisassembleInstruction.
                    DISASSEMBLE_DATABLOCK_CODES[key] == lwInstruction.di.data):
                     break
+
+            match = re.match("^\s*%!([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$",
+                             lwInstruction.di.data, re.DOTALL)
+            if(match and
+               match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
+                    PredefinedRoutines.keys()):
+                key = "PredefinedRoutine: " + match.groups()[0]
+            match = re.match("^\s*%P([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$",
+                             lwInstruction.di.data, re.DOTALL)
+            if(match and
+               match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
+                   PredefinedFunctions.keys()):
+                key = "PredefinedFunction: " + match.groups()[0]
 
             s += " - " + key
 
