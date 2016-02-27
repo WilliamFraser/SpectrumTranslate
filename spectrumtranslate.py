@@ -2334,7 +2334,7 @@ def getgiffromscreen(data, delay=320):
                 # if cue full, then output it
                 if(self.output_cuePointer == 255):
                     self.out += [0xFF]
-                    self.out += cue
+                    self.out += self.cue
                     self.output_cuePointer = 0
 
                 self.output_cue >>= 8

@@ -45,6 +45,7 @@
 import spectrumtranslate
 import sys
 from os.path import isfile as _isfile
+from os import fstat
 from numbers import Integral as _INT_OR_LONG
 
 
@@ -991,6 +992,10 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         # for now just say not valid
         if(self.ImageSource == "Bytes" and (not hasattr(self, "bytedata") or
            len(self.bytedata) != 819200)):
+            return False
+
+        if((self.ImageSource == "File" or self.ImageSource == "FileName") and
+           fstat(self.filehandle.fileno()).st_size != 819200):
             return False
 
         # create empty sector map
