@@ -2940,11 +2940,10 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
     def CommentOutput(comment, XMLOutput):
         if(XMLOutput == 1):
-            return "  <line><comment>" + comment + "</comment></line>\n"
+            return "  <line><comment>" + comment + "</comment></line>"
         else:
             linestart = "\0" + chr(12) + chr(0) + "0000" + Seperator + ";"
-            return "".join([linestart + txt + "\n" for txt in
-                            comment.split("\n")])
+            return "\n".join([linestart + txt for txt in comment.split("\n")])
 
     # end nested functions
 
@@ -3392,13 +3391,13 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
     # output start text
     if(XMLOutput == 1):
-        soutput = '<?xml version="1.0" encoding="UTF-8" ?>\n<z80code>\n  <org>'
-        soutput += _numbertostring(currentAddress, 16, AddressOutput)
-        soutput += "</org>\n"
+        soutput = ['<?xml version="1.0" encoding="UTF-8" ?>', '<z80code>',
+                   '  <org>' + _numbertostring(currentAddress, 16,
+                                               AddressOutput) + '</org>']
 
     else:
-        soutput = "ORG " + _numbertostring(currentAddress, 16, AddressOutput)
-        soutput += "\n\n"
+        soutput = ['ORG ' + _numbertostring(currentAddress, 16, AddressOutput),
+                   '']
 
     # start disassembling
     while(length > 0):
@@ -3507,7 +3506,9 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             else:
                 di.end, txt = di.disassembledatablock(Settings, data)
 
-            soutput += txt
+            if(txt.endswith("\n")):
+                txt = txt[:-1]
+            soutput += txt.split("\n")
 
             # update comments
             CommentEnd = Settings["COMMENTCONTROL"][2]
@@ -3528,7 +3529,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             # put empty line after data if needed
             if(("LINEAFTERDATA" in Settings and Settings["LINEAFTERDATA"]) or
                (BreakAfterData == 0 and "LINEAFTERDATA" not in Settings)):
-                soutput += "\n"
+                soutput += ['']
 
             continue
 
@@ -3671,7 +3672,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
                     "Comment Before"]):
                 if(DisplayComments == 0):
-                    soutput += CommentOutput(di.data, XMLOutput)
+                    soutput += CommentOutput(di.data, XMLOutput).split("\n")
 
                 continue
             # otherwise comnment end of this line or after
@@ -3806,7 +3807,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                         # handle comment
                         if(di.instruction & 3 == 1):
                             if(DisplayComments == 0):
-                                soutput += CommentOutput(di.comment, XMLOutput)
+                                soutput += CommentOutput(di.comment,
+                                                         XMLOutput).split("\n")
                         # otherwise comnment end of this line or after
                         elif(di.instruction & 3 == 2):
                             if(CommentAfter is not ""):
@@ -3841,7 +3843,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                         # handle comment
                         if(di.instruction & 3 == 1):
                             if(DisplayComments == 0):
-                                soutput += CommentOutput(di.comment, XMLOutput)
+                                soutput += CommentOutput(di.comment,
+                                                         XMLOutput).split("\n")
                         # otherwise comnment end of this line or after
                         elif(di.instruction & 3 == 2):
                             if(CommentAfter is not ""):
@@ -3885,15 +3888,12 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
         # Handle XML output
         if(XMLOutput == 1):
-            soutput += "  <line><address>" + _numbertostring(
+            currentline = "  <line><address>" + _numbertostring(
                 currentAddress, 16, AddressOutput, AddressOutput > 1) + \
                 "</address>"
 
         # handle non-XML
         else:
-            # remember line start position in case needed later
-            linestartposition = len(soutput)
-
             # work out max length of address
             maxAddressLength = max(FormatAddressLength[AddressOutput],
                                    maxAddressLength)
@@ -3903,19 +3903,19 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             if(Seperator != "  "):
                 i += 1 << 5
 
-            soutput += "\0" + chr(i) + chr(ListEveryXLines)
-            soutput += _numbertostring(currentAddress, 16, 0, False)
+            currentline = "\0" + chr(i) + chr(ListEveryXLines)
+            currentline += _numbertostring(currentAddress, 16, 0, False)
 
             # add seperator after address
-            soutput += Seperator
+            currentline += Seperator
 
             # remember where commands start
-            k = len(soutput)-linestartposition
+            k = len(currentline)
 
         # output bytes of commands
         # Handle XML output
         if(XMLOutput == 1):
-            soutput += "<bytes>{0}</bytes>".format(
+            currentline += "<bytes>{0}</bytes>".format(
                 ",".join([_numbertostring(b, 8, CommandOutput, False) for b in
                           data[offset:offset + commandlength]]))
 
@@ -3923,7 +3923,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         else:
             # only do if want them output
             if(DisplayCommandBytes == 0):
-                soutput += ",".join(
+                currentline += ",".join(
                     [_numbertostring(b, 8, CommandOutput, False) for b in
                      data[offset:offset + commandlength]])
 
@@ -3935,9 +3935,9 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     if(CommandOutput > 0):
                         i += 4
                     i += k
-                    i -= len(soutput)-linestartposition
+                    i -= len(currentline)
                     while(i >= 0):
-                        soutput += " "
+                        currentline += " "
                         i -= 1
 
             # add seperator after command bytes
@@ -3945,59 +3945,60 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             # command bytes to not and have to ensure output stays in
             # same column in case tab seperated output is used in
             # spreadsheet
-            soutput += Seperator
+            currentline += Seperator
 
         # output opcode
         # Handle XML output
         if(XMLOutput == 1):
-            soutput += "<instruction>" + s + "</instruction>"
+            currentline += "<instruction>" + s + "</instruction>"
 
         # handle non-XML
         else:
-            soutput += s
+            currentline += s
 
         # Handle XML output of stuff in comments (timing, flags,
         # undocumented commands)
         if(XMLOutput == 1):
             # do comment
             if(DisplayComments == 0 and CommentEnd is not ""):
-                soutput += "<comment>" + CommentEnd + "</comment>"
+                currentline += "<comment>" + CommentEnd + "</comment>"
 
             # do flags
             sflags = getFlagChanges(instructionData)
             # output flag states if we have them
             if(sflags is not None):
-                soutput += "<flags>" + sflags + "</flags>"
+                currentline += "<flags>" + sflags + "</flags>"
 
             # do times
             # get times
             duration, states = GetTimingInfo(instructionTimes)
 
             # now output timings
-            soutput += "<timeing><cycles>"
-            soutput += "unknown" if duration[0] == 0 else str(duration[0])
-            soutput += "</cycles>"
+            currentline += "<timeing><cycles>"
+            currentline += "unknown" if duration[0] == 0 else str(duration[0])
+            currentline += "</cycles>"
 
             if(states is not None):
-                soutput += "<tstates>" + ",".join(str(x) for x in states[0])
-                soutput += "</tstates>"
+                currentline += "<tstates>" + ",".join(
+                    str(x) for x in states[0])
+                currentline += "</tstates>"
 
-            soutput += "</timeing>"
+            currentline += "</timeing>"
 
             if(duration[1] != 0):
-                soutput += '<timeing alternate="true"><cycles>'
-                soutput += str(duration[1]) + "</cycles>"
+                currentline += '<timeing alternate="true"><cycles>'
+                currentline += str(duration[1]) + "</cycles>"
 
                 if(states is not None):
-                    soutput += "<tstates>"
-                    soutput += ",".join(str(x) for x in states[1])
-                    soutput += "</tstates>"
+                    currentline += "<tstates>"
+                    currentline += ",".join(str(x) for x in states[1])
+                    currentline += "</tstates>"
 
-                soutput += "</timeing>"
+                currentline += "</timeing>"
 
             # do undocumented comments if needed
             if(((instructionData >> 21) & 1) == 1):
-                soutput += "<undocumented/>"
+                currentline += "<undocumented/>"
 
         # if we're not doing XML and want comments, do so
         elif(DisplayComments == 0):
@@ -4022,18 +4023,19 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             # do comment
             if(CommentEnd is not ""):
                 # output pre comment text
-                soutput += precomment
+                currentline += precomment
                 # note has been output
                 precomment = None
 
                 if(CommentEnd.find("\n") == -1):
-                    soutput += CommentEnd
+                    currentline += CommentEnd
 
                 else:
                     comments = CommentEnd.split("\n")
-                    soutput += comments[0] + "\n"
-                    soutput += CommentOutput("".join(comments[1:]),
-                                             XMLOutput)[:-1]
+                    currentline += comments[0]
+                    if(CommentAfter is not ""):
+                        CommentAfter = "\n" + CommentAfter
+                    CommentAfter = "\n".join(comments[1:]) + CommentAfter
 
                 # mark will need space if any comment following
                 bNeedSpace = True
@@ -4042,19 +4044,19 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             if(ShowFlags > 0):
                 if(precomment):
                     # output pre comment text
-                    soutput += precomment
+                    currentline += precomment
                     # note has been output
                     precomment = None
 
                 # insert space if needed
                 if(bNeedSpace):
-                    soutput += "  "
+                    currentline += "  "
 
                 # get flag states for this instruction
                 sflags = getFlagChanges(instructionData)
                 # output flag states if we have them
                 if(sflags is not None):
-                    soutput += sflags
+                    currentline += sflags
 
                     # mark will need space if any comment following
                     bNeedSpace = True
@@ -4062,36 +4064,37 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             if(OutputTStates > 0):
                 if(precomment):
                     # output pre comment text
-                    soutput += precomment
+                    currentline += precomment
                     # note has been output
                     precomment = None
 
                 # insert space if needed
                 if(bNeedSpace):
-                    soutput += "  "
+                    currentline += "  "
 
                 # get times
                 duration, states = GetTimingInfo(instructionTimes)
 
                 # now output timings
-                soutput += "T="
+                currentline += "T="
                 if((OutputTStates & 1) == 1):
                     if(duration[0] == 0):
-                        soutput += "unknown"
+                        currentline += "unknown"
                     else:
-                        soutput += str(duration[0])
+                        currentline += str(duration[0])
 
                 if((OutputTStates & 2) == 2 and states is not None):
-                    soutput += "(" + ",".join(str(x) for x in states[0]) + ")"
+                    currentline += "(" + ",".join(
+                        str(x) for x in states[0]) + ")"
 
                 if(duration[1] != 0):
-                    soutput += "/"
+                    currentline += "/"
                     if((OutputTStates & 1) == 1):
-                        soutput += str(duration[1])
+                        currentline += str(duration[1])
 
                     if((OutputTStates & 2) == 2 and states is not None):
-                        soutput += "(" + ",".join(str(x) for x in states[1])
-                        soutput += ")"
+                        currentline += "(" + ",".join(
+                            str(x) for x in states[1]) + ")"
 
                 bNeedSpace = True
 
@@ -4100,27 +4103,27 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                ((instructionData >> 21) & 1) == 1):
                 if(precomment):
                     # output pre comment text
-                    soutput += precomment
+                    currentline += precomment
                     # note has been output
                     precomment = None
 
                 # do we need gap?
                 if(bNeedSpace):
-                    soutput += "  "
+                    currentline += "  "
 
                 # record that is undocumented
-                soutput += "Undocumented Command"
+                currentline += "Undocumented Command"
 
         # end of line
         # Handle XML output
         if(XMLOutput == 1):
-            soutput += "</line>"
+            currentline += "</line>"
 
-        soutput += "\n"
+        soutput += [currentline]
 
         # handle comments after line
         if(DisplayComments == 0 and CommentAfter is not ""):
-            soutput += CommentOutput(CommentAfter, XMLOutput)
+            soutput += CommentOutput(CommentAfter, XMLOutput).split('\n')
 
         # clear comments
         CommentEnd = ""
@@ -4131,7 +4134,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         i = instructionData & 3
         if(XMLOutput == 0 and BreakAfterJumps != 0 and i != 0):
             if(BreakAfterJumps != 1 or i != 1):
-                soutput += "\n"
+                soutput += ['']
 
         length -= commandlength
         offset += commandlength
@@ -4141,36 +4144,37 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         workdone += commandlength * 2
 
     # end 1st pass
-
     if(XMLOutput == 1):
-        soutput += "</z80code>"
+        soutput += ["</z80code>"]
+    else:
+        soutput += ['']
 
     # now search for line numbers and remove them if not needed
     lastLineInData = -1  # -1 start, 0=last in code, 1=last in data
     # count how many lines since last address reference
     lineCounter = 0
 
-    # keep track of where we are in string
+    # keep track of where we are in text
     k = 0
+    lines = len(soutput)
 
     workdone = worktodo1 + worktodo2
 
-    # search for address markers, only needed if not doing XML
-    while(XMLOutput == 0):
+    # search for address markers
+    while(k < lines):
         # call progress update
         if(progressfunction is not None):
-            l = len(soutput)
-            progressfunction("Formatting", k, l,
-                             ((k * worktodo3) / l) + workdone,
+            progressfunction("Formatting", k, lines,
+                             ((k * worktodo3) / lines) + workdone,
                              worktodo1 + worktodo2 + worktodo3)
 
-        # find next or we've finnished
-        i = soutput.find("\0", k)
-        if(i == -1):
-            break
+        # skip lines that don't need formatting
+        if(len(soutput[k]) < 1 or soutput[k][0] != '\0'):
+            k += 1
+            continue
 
         # retrieve Address output formating details
-        AddressOutput = ord(soutput[i + 1])
+        AddressOutput = ord(soutput[k][1])
         # are we in a data block?
         bInData = (AddressOutput & 4) == 4
         # 0=All, 1=None,  2=only referenced lines
@@ -4178,7 +4182,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         # 0=2 spaces
         SeperatorMode = (AddressOutput >> 5) & 1
         # list every X lines regardless of LineNumberOutput
-        ListEveryXLines = ord(soutput[i + 2])
+        ListEveryXLines = ord(soutput[k][2])
         AddressOutput &= 3
 
         # if moved from data to code
@@ -4193,7 +4197,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         lineCounter += 1
 
         # retrieve address to format
-        currentAddress = int(soutput[i + 3:i + 7], 16)
+        currentAddress = int(soutput[k][3:7], 16)
 
         s = ""
         if(LineNumberOutput == 0 or
@@ -4209,20 +4213,20 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
         # if space seperator mode then pad with spaces if needed
         if(SeperatorMode == 0):
-            k = maxAddressLength-len(s)
-            s += " "*k
+            m = maxAddressLength - len(s)
+            s += " " * m
 
         # replace address sting with correct text
-        soutput = soutput[:i] + s + soutput[i + 7:]
-        # point k past line address details
-        k = i + len(s)
+        soutput[k] = s + soutput[k][7:]
+        # next line
+        k += 1
 
     # report job done
     if(progressfunction is not None):
         progressfunction("Done", 100, 100, worktodo1 + worktodo2 + worktodo3,
                          worktodo1 + worktodo2 + worktodo3)
 
-    return soutput
+    return "\n".join(soutput)
 
 
 def PredefinedStartLine(Settings, Vars, datatitle):
@@ -4247,7 +4251,7 @@ def PredefinedStartLine(Settings, Vars, datatitle):
                    "Comment Before"]):
                     if(Settings["COMMENTCONTROL"][1] == 0):
                         soutput += Settings["COMMENTCONTROL"][4](
-                            di.data, Settings["XMLOutput"])
+                            di.data, Settings["XMLOutput"]) + "\n"
 
                 # otherwise comnment end of this line or after
                 elif(di.instruction == 0x030002):
@@ -4313,7 +4317,7 @@ def PredefinedEndLine(Settings, Vars):
                 comments = Settings["COMMENTCONTROL"][2].split("\n")
                 soutput += comments[0] + "\n"
                 soutput += Settings["COMMENTCONTROL"][4](
-                    "".join(comments[1:]), Settings["XMLOutput"])[:-1]
+                    "".join(comments[1:]), Settings["XMLOutput"])
 
     if(not Settings["HadLineEnd"]):
         # end of line
@@ -4329,7 +4333,7 @@ def PredefinedEndLine(Settings, Vars):
            Settings["COMMENTCONTROL"][3] is not ""):
             soutput += Settings["COMMENTCONTROL"][4](
                 Settings["COMMENTCONTROL"][3],
-                Settings["XMLOutput"])
+                Settings["XMLOutput"]) + "\n"
 
         # clear comments
         Settings["COMMENTCONTROL"][2] = ""
@@ -5803,7 +5807,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
                        "Comment Before"]):
                         if(Settings["COMMENTCONTROL"][1] == 0):
                             soutput += Settings["COMMENTCONTROL"][4](
-                                di.data, Settings["XMLOutput"])
+                                di.data, Settings["XMLOutput"]) + "\n"
 
                         continue
                     # otherwise comnment end of this line or after
@@ -5885,9 +5889,12 @@ DEFB               %#output instuction (DEFB or Define Byte)
 
                     else:
                         comments = Settings["COMMENTCONTROL"][2].split("\n")
-                        soutput += comments[0] + "\n"
-                        soutput += Settings["COMMENTCONTROL"][4](
-                            "".join(comments[1:]), Settings["XMLOutput"])[:-1]
+                        soutput += comments[0]
+                        if(Settings["COMMENTCONTROL"][3] is not ""):
+                            Settings["COMMENTCONTROL"][3] = "\n" +\
+                                Settings["COMMENTCONTROL"][3]
+                        Settings["COMMENTCONTROL"][3] = "\n".join(
+                            comments[1:]) + Settings["COMMENTCONTROL"][3]
 
             if(not Settings["HadLineEnd"]):
                 # output end start line if needed
@@ -5903,7 +5910,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
                    Settings["COMMENTCONTROL"][3] is not ""):
                     soutput += Settings["COMMENTCONTROL"][4](
                         Settings["COMMENTCONTROL"][3],
-                        Settings["XMLOutput"])
+                        Settings["XMLOutput"]) + "\n"
 
                 # clear comments
                 Settings["COMMENTCONTROL"][2] = ""
