@@ -51,8 +51,6 @@ import sys
 import subprocess
 import re
 import os
-# imported elsewhere for memory reasons are:
-# unicode_escape_decode in the codecs module
 # imported io/StringIO later so get python version specific one
 # import modules from parent directory
 pathtemp = sys.path
