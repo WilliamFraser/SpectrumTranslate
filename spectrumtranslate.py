@@ -4237,22 +4237,23 @@ def PredefinedStartLine(Settings, Vars, datatitle):
     # check if any comments to be added to this data
     if("COMMENTCONTROL" in Settings):
         # move past any instructions that has been & gone
-        while(True):
-            dis = Settings["COMMENTCONTROL"][0]
-            while(dis and Vars[0x0A] > dis[0].end):
-                dis.pop(0)
+        dis = Settings["COMMENTCONTROL"][0]
+        #get rid of passed commands
+        while(dis and Vars[0x0A] > dis[0].end):
+            dis.pop(0)
+        # cycle through commands for this line to find comments
+        i = 0
+        while(dis and Vars[0x0A] >= dis[i].start):
             # if is comment instruction process it
-            if(dis and
-               Vars[0x0A] >= dis[0].start and
-               dis[0].instruction & 0xFFFF00 == 0x030000 and
-               dis[0].data is not None and dis[0].data is not ""):
-                di = dis.pop(0)
+            if(dis[i].instruction & 0xFFFF00 == 0x030000 and
+               dis[i].data is not None and dis[i].data is not ""):
+                di = dis.pop(i)
                 if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
                    "Comment Before"]):
                     if(Settings["COMMENTCONTROL"][1] == 0):
                         soutput += Settings["COMMENTCONTROL"][4](
                             di.data, Settings["XMLOutput"]) + "\n"
-
+                
                 # otherwise comnment end of this line or after
                 elif(di.instruction == 0x030002):
                     if(Settings["COMMENTCONTROL"][3] is not ""):
@@ -4263,8 +4264,8 @@ def PredefinedStartLine(Settings, Vars, datatitle):
                         Settings["COMMENTCONTROL"][2] += ". "
                     Settings["COMMENTCONTROL"][2] += di.data
             else:
-                # end if no more comments for line
-                break
+                i += 1
+
     # output line details
     if(Settings["XMLOutput"] == 1):
         if(not Settings["HadLineStart"]):
@@ -7065,12 +7066,13 @@ def _ProcessFunctionDetails(txt):
 
 
 def _newSpectrumTranslateError(address, pos, instructions, details):
+    line = instructions[:pos].count('\n')
+    bits = instructions[:pos].rpartition('\n')
+    pos = pos - len(bits[0] + bits[1])
     # generate exception
-    return SpectrumTranslateError('Data Format error processing "{0}" near \
-character number {1} on line starting at {2:04X}\n{3}'.format(instructions,
-                                                              pos,
-                                                              address,
-                                                              details))
+    return SpectrumTranslateError('Data Format error processing "{0}" after \
+character {1} on line {2}, starting at address {3:04X}\n{4}'.format(
+    instructions, pos, line, address, details))
 
 
 def get_custom_format_string(AddressOutput, NumberOutput, CommandOutput,
