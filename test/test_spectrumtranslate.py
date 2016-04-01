@@ -756,8 +756,8 @@ class TestUtilityFunctions(unittest.TestCase):
         error = spectrumtranslate._newSpectrumTranslateError(16384, 6,
                                                              "<code here>",
                                                              "Test")
-        self.assertEqual(error.value, 'Data Format error processing "<code \
-here>" near character number 6 on line starting at 4000\nTest')
+        self.assertEqual(error.value, 'Data Format error processing \
+"<code here>" after character 6 on line 0, starting at address 4000\nTest')
 
 
 class TestTextConvert(unittest.TestCase):

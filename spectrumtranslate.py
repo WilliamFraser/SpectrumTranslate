@@ -4238,7 +4238,7 @@ def PredefinedStartLine(Settings, Vars, datatitle):
     if("COMMENTCONTROL" in Settings):
         # move past any instructions that has been & gone
         dis = Settings["COMMENTCONTROL"][0]
-        #get rid of passed commands
+        # get rid of passed commands
         while(dis and Vars[0x0A] > dis[0].end):
             dis.pop(0)
         # cycle through commands for this line to find comments
@@ -4253,7 +4253,7 @@ def PredefinedStartLine(Settings, Vars, datatitle):
                     if(Settings["COMMENTCONTROL"][1] == 0):
                         soutput += Settings["COMMENTCONTROL"][4](
                             di.data, Settings["XMLOutput"]) + "\n"
-                
+
                 # otherwise comnment end of this line or after
                 elif(di.instruction == 0x030002):
                     if(Settings["COMMENTCONTROL"][3] is not ""):
@@ -7071,8 +7071,8 @@ def _newSpectrumTranslateError(address, pos, instructions, details):
     pos = pos - len(bits[0] + bits[1])
     # generate exception
     return SpectrumTranslateError('Data Format error processing "{0}" after \
-character {1} on line {2}, starting at address {3:04X}\n{4}'.format(
-    instructions, pos, line, address, details))
+character {1} on line {2}, starting at address {3:04X}\n{4}\
+'.format(instructions, pos, line, address, details))
 
 
 def get_custom_format_string(AddressOutput, NumberOutput, CommandOutput,
