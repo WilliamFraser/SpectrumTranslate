@@ -1336,13 +1336,13 @@ be processed.")
            DISASSEMBLE_CODES["Comment After"]):
             self.EditComment(di)
 
-        if(di.instruction == spectrumtranslate.DisassembleInstruction.
-           DISASSEMBLE_CODES["Comment Reference"] or
-           di.instruction == spectrumtranslate.DisassembleInstruction.
-           DISASSEMBLE_CODES["Comment Reference Before"] or
-           di.instruction == spectrumtranslate.DisassembleInstruction.
-           DISASSEMBLE_CODES["Comment Reference After"]):
+        if(di.instruction & 0xFFFF00 == spectrumtranslate.
+           DisassembleInstruction.DISASSEMBLE_CODES["Comment Reference"]):
             self.EditCommentReference(di)
+
+        if(di.instruction & 0xFFFF00 == spectrumtranslate.
+           DisassembleInstruction.DISASSEMBLE_CODES["Comment Displacement"]):
+            self.EditCommentDisplacement(di)
 
         if(di.instruction == spectrumtranslate.DisassembleInstruction.
                 DISASSEMBLE_CODES["Comment Pattern"]):
@@ -1404,6 +1404,115 @@ be processed.")
                                  cbPosition.currentIndex()).toInt()[0])
             self.Ddialog.cbDisassembleCommands.setCurrentIndex(
                 self.Ddialog.cbDisassembleCommands.findData(di.instruction))
+
+    def EditCommentDisplacement(self, di):
+        # create dialog
+        dContainer = QtGui.QDialog(self)
+        dContainer.setWindowTitle("Edit Comment Displacement")
+        dContainer.setModal(True)
+
+        lay = QtGui.QVBoxLayout()
+
+        lay.addWidget(QtGui.QLabel("Comment Text:"))
+
+        leCommentText = QtGui.QLineEdit()
+        if(di.data):
+            try:
+                leCommentText.setText(di.data[3:])
+            except:
+                pass
+        leCommentText.setToolTip("The text to be added as the comment.")
+        leCommentText.sizePolicy().setHorizontalPolicy(
+            QtGui.QSizePolicy.Expanding)
+        leCommentText.sizePolicy().setHorizontalStretch(1)
+        lay.addWidget(leCommentText)
+        dContainer.leCommentText = leCommentText
+
+        cbPosition = QtGui.QComboBox(self)
+        cbPosition.addItem("Comment End of line",
+                           spectrumtranslate.DisassembleInstruction.
+                           DISASSEMBLE_CODES["Comment Displacement"])
+        cbPosition.addItem("Comment on line before",
+                           spectrumtranslate.DisassembleInstruction.
+                           DISASSEMBLE_CODES["Comment Displacement Before"])
+        cbPosition.addItem("Comment on line after",
+                           spectrumtranslate.DisassembleInstruction.
+                           DISASSEMBLE_CODES["Comment Displacement After"])
+        cbPosition.setToolTip("Where the comment is placed.")
+        cbPosition.setCurrentIndex(cbPosition.findData(di.instruction))
+        lay.addWidget(cbPosition)
+
+        lay.addWidget(QtGui.QLabel("index to be referenced:"))
+
+        i = 0
+        if(di.data):
+            try:
+                i = int(di.data[:2], 16)
+            except:
+                pass
+
+        leAddress = QtGui.QLineEdit()
+        leAddress.setText(self.Ddialog.Format.format(i))
+        leAddress.setToolTip("The index to be searched for and commented on \
+when found.\nShould be {0}.".format(
+            self.Ddialog.cbNumberFormat.currentText()))
+        lay.addWidget(leAddress)
+        dContainer.leAddress = leAddress
+
+        i = 1
+        if(di.data):
+            try:
+                i = int(di.data[2:3], 16)
+            except:
+                pass
+
+        cbRegister = QtGui.QComboBox(self)
+        cbRegister.addItem("IX register", 1)
+        cbRegister.addItem("IY register", 2)
+        cbRegister.addItem("IX and IY registers", 3)
+        cbRegister.setToolTip("Displacements on which registers do you want \
+commented.")
+        cbRegister.setCurrentIndex(cbRegister.findData(i))
+        lay.addWidget(cbRegister)
+
+        lay2 = QtGui.QHBoxLayout()
+        lay2.addStretch(1)
+        ok = QtGui.QPushButton("Ok", self)
+        lay2.addWidget(ok)
+        ok.clicked.connect(self.CommentDisplacementOk)
+        close = QtGui.QPushButton("Cancel", self)
+        lay2.addWidget(close)
+        close.clicked.connect(dContainer.reject)
+        lay2.addStretch(1)
+
+        lay.addLayout(lay2)
+
+        dContainer.setLayout(lay)
+
+        self.Ddialog.dCommentDisplacement = dContainer
+
+        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+            a = self.CheckInstructionAddress(leAddress)
+            f = int(cbRegister.itemData(cbRegister.currentIndex()).toInt()[0])
+            di.data = "{0:02X}{1:X}{2}".format(a, f, str(leCommentText.text()))
+            di.instruction = int(cbPosition.itemData(
+                                 cbPosition.currentIndex()).toInt()[0])
+            self.Ddialog.cbDisassembleCommands.setCurrentIndex(
+                self.Ddialog.cbDisassembleCommands.findData(di.instruction))
+
+        del self.Ddialog.dCommentDisplacement
+
+    def CommentDisplacementOk(self):
+        d = self.Ddialog.dCommentDisplacement
+        if(self.CheckInstructionAddress(d.leAddress) == -1):
+            message = "Displacement must be between 0 and " + self.Ddialog.Format +\
+                " {1}."
+            QtGui.QMessageBox.warning(self, "Error!", message.format(
+                255, self.Ddialog.cbNumberFormat.currentText()))
+        elif(d.leCommentText.text() == ""):
+            QtGui.QMessageBox.warning(self, "Error!", "No comment")
+        else:
+            d.accept()
 
     def EditCommentReference(self, di):
         # create dialog
@@ -2600,6 +2709,12 @@ frequency must be between 0 and 255 decimal.")
              di.instruction == spectrumtranslate.DisassembleInstruction.
                 DISASSEMBLE_CODES["Comment Reference After"] or
              di.instruction == spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Displacement"] or
+             di.instruction == spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Displacement Before"] or
+             di.instruction == spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Displacement After"] or
+             di.instruction == spectrumtranslate.DisassembleInstruction.
                 DISASSEMBLE_CODES["Comment Pattern"]))
         dialog.cbDisassembleCommands.setEnabled(di is not None)
         dialog.leStart.setEnabled(di is not None)
@@ -2681,6 +2796,27 @@ frequency must be between 0 and 255 decimal.")
                 c = ""
 
             s += ' address: {0:04X} comment: "{1}"'.format(a, c)
+
+        elif(lwInstruction.di.instruction == spectrumtranslate.
+             DisassembleInstruction.DISASSEMBLE_CODES[
+                 "Comment Displacement"] or
+             lwInstruction.di.instruction == spectrumtranslate.
+             DisassembleInstruction.DISASSEMBLE_CODES[
+                 "Comment Displacement Before"] or
+             lwInstruction.di.instruction == spectrumtranslate.
+             DisassembleInstruction.DISASSEMBLE_CODES[
+                 "Comment Displacement After"]):
+            try:
+                d = int(lwInstruction.di.data[:2], 16)
+            except:
+                d = 0
+
+            try:
+                c = lwInstruction.di.data[3:]
+            except:
+                c = ""
+
+            s += ' displacement: {0:02X} comment: "{1}"'.format(d, c)
 
         elif(lwInstruction.di.instruction == spectrumtranslate.
              DisassembleInstruction.DISASSEMBLE_CODES["Comment Pattern"]):

@@ -2990,6 +2990,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     CommentEnd = ""
     CommentAfter = ""
     CommentReferences = []
+    CommentDisplacements = []
     FunctionMatcher = re.compile("^\s*%![a-zA-Z_][a-zA-Z_0-9]*[(].*[)]\s*$",
                                  re.DOTALL)
     MatcherinBraces = re.compile(
@@ -3433,10 +3434,15 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             CurrentFormatEnd = diTemp.end
             continue
 
-        # remove expired comment references
+        # remove expired comment references and displacements
         if(CommentReferences and currentAddress >= CommentReferences[0].end):
             CommentReferences = [x for x in CommentReferences if
                                  x.end > currentAddress]
+
+        if(CommentDisplacements and
+           currentAddress >= CommentDisplacements[0].end):
+            CommentDisplacements = [x for x in CommentDisplacements if
+                                    x.end > currentAddress]
 
         # skip past instructions not relavent to code
         while(DisassembleInstructions and
@@ -3701,6 +3707,20 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             CommentReferences.sort(key=attrgetter('end'))
             continue
 
+        # check is reference displacement
+        if(di is not None and di.instruction & 0xFFFF00 == 0x030200):
+            # make note of address referenced
+            di.reference = int(di.data[:2], 16)
+            # get flags
+            di.flag = int(di.data[2:3], 16)
+            # make note of comment
+            di.comment = di.data[3:]
+            # add it to list to look for
+            CommentDisplacements += [di]
+            # now sort it so 1st is next to expire
+            CommentDisplacements.sort(key=attrgetter('end'))
+            continue
+
         # now deal with machine code
 
         # set length for standard command (ignoring any associated data)
@@ -3767,8 +3787,33 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         try:
             # first check for & replace displacement byte
             if("d" in s):
-                s = s.replace("d", _numbertostring(data[offset + dataOffset],
-                                                   8, NumberOutput, True))
+                # get number
+                i = data[offset + dataOffset]
+
+                # check for reference comments
+                for di in CommentDisplacements:
+                    # have we got right reference
+                    if(di.reference != i):
+                        continue
+                    # do the flags match
+                    if((di.flag & 1 == 1 and 'IX' in s) or
+                       (di.flag & 2 == 2 and 'IY' in s)):
+                        # handle comment
+                        if(di.instruction & 3 == 1):
+                            if(DisplayComments == 0):
+                                soutput += CommentOutput(di.comment,
+                                                         XMLOutput).split("\n")
+                        # otherwise comnment end of this line or after
+                        elif(di.instruction & 3 == 2):
+                            if(CommentAfter is not ""):
+                                CommentAfter += "\n"
+                            CommentAfter += di.comment
+                        else:
+                            if(CommentEnd is not ""):
+                                CommentEnd += ". "
+                            CommentEnd += di.comment
+
+                s = s.replace("d", _numbertostring(i, 8, NumberOutput, True))
                 dataOffset += 1
                 commandlength += 1
 
@@ -4736,6 +4781,9 @@ class DisassembleInstruction:
         "Comment Reference": 0x030100,
         "Comment Reference Before": 0x030101,
         "Comment Reference After": 0x030102,
+        "Comment Displacement": 0x030200,
+        "Comment Displacement Before": 0x030201,
+        "Comment Displacement After": 0x030202,
         "Comment Pattern": 0x040001}
 
     DISASSEMBLE_DATABLOCK_CODES = {
