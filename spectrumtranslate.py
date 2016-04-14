@@ -3523,6 +3523,32 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             # adjust length
             length -= di.end-currentAddress + 1
 
+            # before update address, check for formatting that might
+            # have been missed
+            for ditemp in DisassembleInstructions:
+                # ensure is line after data and applies to this block
+                if(ditemp.instruction & 0xFFFFFF00 == 0xA00 and
+                   ditemp.start <= currentAddress and
+                   ditemp.end >= di.end):
+                    # record current format state in custom, place on stack
+                    s = get_custom_format_string(
+                        AddressOutput, NumberOutput, CommandOutput,
+                        OutputTStates, BreakAfterJumps, LineNumberOutput,
+                        ListEveryXLines, BreakAfterData,
+                        TreatDataNumbersAsLineReferences, DisplayCommandBytes,
+                        DisplayComments, Seperator, ShowFlags,
+                        MarkUndocumenedCommand, XMLOutput, HexForNonASCII)
+                    Format += [DisassembleInstruction(
+                        DisassembleInstruction.DISASSEMBLE_CODES[
+                            "Custom Format"],
+                        currentAddress, CurrentFormatEnd, s)]
+                    # update breakafterdata setting
+                    BreakAfterData = ditemp.instruction & 0x01
+                    # remember when format ends
+                    CurrentFormatEnd = ditemp.end
+                    # remove format command
+                    DisassembleInstructions.remove(ditemp)
+
             # point to end of data block
             currentAddress = di.end + 1
 
