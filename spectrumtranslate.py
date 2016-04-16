@@ -2990,7 +2990,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     CommentEnd = ""
     CommentAfter = ""
     CommentReferences = []
-    CommentDisplacements = []
+    CommentDisplacementsX = [[[None, 0x10000, 0], []] for i in range(256)]
+    CommentDisplacementsY = [[[None, 0x10000, 0], []] for i in range(256)]
     FunctionMatcher = re.compile("^\s*%![a-zA-Z_][a-zA-Z_0-9]*[(].*[)]\s*$",
                                  re.DOTALL)
     MatcherinBraces = re.compile(
@@ -3434,15 +3435,10 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             CurrentFormatEnd = diTemp.end
             continue
 
-        # remove expired comment references and displacements
+        # remove expired comment references
         if(CommentReferences and currentAddress >= CommentReferences[0].end):
             CommentReferences = [x for x in CommentReferences if
                                  x.end > currentAddress]
-
-        if(CommentDisplacements and
-           currentAddress >= CommentDisplacements[0].end):
-            CommentDisplacements = [x for x in CommentDisplacements if
-                                    x.end > currentAddress]
 
         # skip past instructions not relavent to code
         while(DisassembleInstructions and
@@ -3735,16 +3731,33 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
         # check is reference displacement
         if(di is not None and di.instruction & 0xFFFF00 == 0x030200):
+            # Remove expired comment displacements
+            for i in range(256):
+                while(currentAddress > CommentDisplacementsX[i][0][1]):
+                    CommentDisplacementsX[i][0] = CommentDisplacementsX[i][
+                        1].pop()
+                while(currentAddress > CommentDisplacementsY[i][0][1]):
+                    CommentDisplacementsY[i][0] = CommentDisplacementsY[i][
+                        1].pop()
+
             # make note of address referenced
-            di.reference = int(di.data[:2], 16)
+            reference = int(di.data[:2], 16)
             # get flags
-            di.flag = int(di.data[2:3], 16)
+            flag = int(di.data[2:3], 16)
             # make note of comment
-            di.comment = di.data[3:]
-            # add it to list to look for
-            CommentDisplacements += [di]
-            # now sort it so 1st is next to expire
-            CommentDisplacements.sort(key=attrgetter('end'))
+            comment = di.data[3:]
+            # add it to IX if indicated
+            if(flag & 1 == 1):
+                CommentDisplacementsX[reference][1] += [
+                    CommentDisplacementsX[reference][0]]
+                CommentDisplacementsX[reference][0] = [comment, di.end,
+                                                       di.instruction & 3]
+            # add it to IY if indicated
+            if(flag & 2 == 2):
+                CommentDisplacementsY[reference][1] += [
+                    CommentDisplacementsY[reference][0]]
+                CommentDisplacementsY[reference][0] = [comment, di.end,
+                                                       di.instruction & 3]
             continue
 
         # now deal with machine code
@@ -3813,31 +3826,51 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         try:
             # first check for & replace displacement byte
             if("d" in s):
+                # Remove expired comment displacements
+                for i in range(256):
+                    while(currentAddress > CommentDisplacementsX[i][0][1]):
+                        CommentDisplacementsX[i][0] = CommentDisplacementsX[i][
+                            1].pop()
+                    while(currentAddress > CommentDisplacementsY[i][0][1]):
+                        CommentDisplacementsY[i][0] = CommentDisplacementsY[i][
+                            1].pop()
+
                 # get number
                 i = data[offset + dataOffset]
 
                 # check for reference comments
-                for di in CommentDisplacements:
-                    # have we got right reference
-                    if(di.reference != i):
-                        continue
-                    # do the flags match
-                    if((di.flag & 1 == 1 and 'IX' in s) or
-                       (di.flag & 2 == 2 and 'IY' in s)):
-                        # handle comment
-                        if(di.instruction & 3 == 1):
-                            if(DisplayComments == 0):
-                                soutput += CommentOutput(di.comment,
-                                                         XMLOutput).split("\n")
-                        # otherwise comnment end of this line or after
-                        elif(di.instruction & 3 == 2):
-                            if(CommentAfter is not ""):
-                                CommentAfter += "\n"
-                            CommentAfter += di.comment
-                        else:
-                            if(CommentEnd is not ""):
-                                CommentEnd += ". "
-                            CommentEnd += di.comment
+                if('IX' in s and CommentDisplacementsX[i][0][0]):
+                    # handle comment
+                    if(CommentDisplacementsX[i][0][2] == 1):
+                        if(DisplayComments == 0):
+                            soutput += CommentOutput(
+                                CommentDisplacementsX[i][0][0],
+                                XMLOutput).split("\n")
+                    # otherwise comnment end of this line or after
+                    elif(CommentDisplacementsX[i][0][2] == 2):
+                        if(CommentAfter is not ""):
+                            CommentAfter += "\n"
+                        CommentAfter += CommentDisplacementsX[i][0][0]
+                    else:
+                        if(CommentEnd is not ""):
+                            CommentEnd += ". "
+                        CommentEnd += CommentDisplacementsX[i][0][0]
+                if('IY' in s and CommentDisplacementsY[i][0][0]):
+                    # handle comment
+                    if(CommentDisplacementsY[i][0][2] == 1):
+                        if(DisplayComments == 0):
+                            soutput += CommentOutput(
+                                CommentDisplacementsY[i][0][0],
+                                XMLOutput).split("\n")
+                    # otherwise comnment end of this line or after
+                    elif(CommentDisplacementsY[i][0][2] == 2):
+                        if(CommentAfter is not ""):
+                            CommentAfter += "\n"
+                        CommentAfter += CommentDisplacementsY[i][0][0]
+                    else:
+                        if(CommentEnd is not ""):
+                            CommentEnd += ". "
+                        CommentEnd += CommentDisplacementsY[i][0][0]
 
                 s = s.replace("d", _numbertostring(i, 8, NumberOutput, True))
                 dataOffset += 1

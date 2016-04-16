@@ -2203,6 +2203,15 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 4003  FD,77,04     LD (IY+#04),A
       ;Test
 4006  DD,77,00     LD (IX+#00),A
+"""]],
+            # test comment Displacement part 2
+            [[0xDD, 0x7E, 0x04, 0xFD, 0x77, 0x04, 0xDD, 0x77, 0x04],
+             [["30200#4000#4008##043A", "30200#4003#4005##043B"]],
+             ["""ORG #4000
+
+4000  DD,7E,04     LD A,(IX+#04)        ;A
+4003  FD,77,04     LD (IY+#04),A        ;B
+4006  DD,77,04     LD (IX+#04),A        ;A
 """]]
         ]
 
