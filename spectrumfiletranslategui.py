@@ -1406,6 +1406,8 @@ be processed.")
                 self.Ddialog.cbDisassembleCommands.findData(di.instruction))
 
     def EditCommentDisplacement(self, di):
+        # get components
+        d, f, c = spectrumtranslate.get_comment_displacement_values(di.data)
         # create dialog
         dContainer = QtGui.QDialog(self)
         dContainer.setWindowTitle("Edit Comment Displacement")
@@ -1416,11 +1418,8 @@ be processed.")
         lay.addWidget(QtGui.QLabel("Comment Text:"))
 
         leCommentText = QtGui.QLineEdit()
-        if(di.data):
-            try:
-                leCommentText.setText(di.data[3:])
-            except:
-                pass
+        if(c):
+            leCommentText.setText(c)
         leCommentText.setToolTip("The text to be added as the comment.")
         leCommentText.sizePolicy().setHorizontalPolicy(
             QtGui.QSizePolicy.Expanding)
@@ -1444,27 +1443,13 @@ be processed.")
 
         lay.addWidget(QtGui.QLabel("index to be referenced:"))
 
-        i = 0
-        if(di.data):
-            try:
-                i = int(di.data[:2], 16)
-            except:
-                pass
-
         leAddress = QtGui.QLineEdit()
-        leAddress.setText(self.Ddialog.Format.format(i))
+        leAddress.setText(self.Ddialog.Format.format(0 if d is None else d))
         leAddress.setToolTip("The index to be searched for and commented on \
 when found.\nShould be {0}.".format(
             self.Ddialog.cbNumberFormat.currentText()))
         lay.addWidget(leAddress)
         dContainer.leAddress = leAddress
-
-        i = 1
-        if(di.data):
-            try:
-                i = int(di.data[2:3], 16)
-            except:
-                pass
 
         cbRegister = QtGui.QComboBox(self)
         cbRegister.addItem("IX register", 1)
@@ -1472,7 +1457,7 @@ when found.\nShould be {0}.".format(
         cbRegister.addItem("IX and IY registers", 3)
         cbRegister.setToolTip("Displacements on which registers do you want \
 commented.")
-        cbRegister.setCurrentIndex(cbRegister.findData(i))
+        cbRegister.setCurrentIndex(cbRegister.findData(1 if f is None else f))
         lay.addWidget(cbRegister)
 
         lay2 = QtGui.QHBoxLayout()
@@ -1492,9 +1477,10 @@ commented.")
         self.Ddialog.dCommentDisplacement = dContainer
 
         if(dContainer.exec_() == QtGui.QDialog.Accepted):
-            a = self.CheckInstructionAddress(leAddress)
+            d = self.CheckInstructionAddress(leAddress)
             f = int(cbRegister.itemData(cbRegister.currentIndex()).toInt()[0])
-            di.data = "{0:02X}{1:X}{2}".format(a, f, str(leCommentText.text()))
+            di.data = spectrumtranslate.get_comment_displacement_string(
+                d, f, str(leCommentText.text()))
             di.instruction = int(cbPosition.itemData(
                                  cbPosition.currentIndex()).toInt()[0])
             self.Ddialog.cbDisassembleCommands.setCurrentIndex(
@@ -2638,6 +2624,16 @@ frequency must be between 0 and 255 decimal.")
                 di.data = spectrumtranslate.DisassembleInstruction.\
                     DISASSEMBLE_PATTERNBLOCK_CODES["RST#08 (Error)"]
 
+            elif(instructionchanged and
+                 txt.startswith("Comment Reference")):
+                di.data = spectrumtranslate.get_comment_reference_string(
+                    0, 0x0F, "Comment")
+
+            elif(instructionchanged and
+                 txt.startswith("Comment Displacement")):
+                di.data = spectrumtranslate.get_comment_displacement_string(
+                    0, 3, "Comment")
+
             elif(instructionchanged):
                 di.data = None
 
@@ -2786,16 +2782,8 @@ frequency must be between 0 and 255 decimal.")
              lwInstruction.di.instruction == spectrumtranslate.
              DisassembleInstruction.DISASSEMBLE_CODES[
                  "Comment Displacement After"]):
-            try:
-                d = int(lwInstruction.di.data[:2], 16)
-            except:
-                d = 0
-
-            try:
-                c = lwInstruction.di.data[3:]
-            except:
-                c = ""
-
+            d, f, c = spectrumtranslate.get_comment_displacement_values(
+                lwInstruction.di.data)
             s += ' displacement: {0:02X} comment: "{1}"'.format(d, c)
 
         elif(lwInstruction.di.instruction == spectrumtranslate.

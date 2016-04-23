@@ -3737,24 +3737,20 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     CommentDisplacementsY[i][0] = CommentDisplacementsY[i][
                         1].pop()
 
-            # make note of address referenced
-            reference = int(di.data[:2], 16)
-            # get flags
-            flag = int(di.data[2:3], 16)
-            # make note of comment
-            comment = di.data[3:]
+            # get displacement, flag, and comment
+            displace, flag, comment = get_comment_displacement_values(di.data)
             # add it to IX if indicated
             if(flag & 1 == 1):
-                CommentDisplacementsX[reference][1] += [
-                    CommentDisplacementsX[reference][0]]
-                CommentDisplacementsX[reference][0] = [comment, di.end,
-                                                       di.instruction & 3]
+                CommentDisplacementsX[displace][1] += [
+                    CommentDisplacementsX[displace][0]]
+                CommentDisplacementsX[displace][0] = [comment, di.end,
+                                                      di.instruction & 3]
             # add it to IY if indicated
             if(flag & 2 == 2):
-                CommentDisplacementsY[reference][1] += [
-                    CommentDisplacementsY[reference][0]]
-                CommentDisplacementsY[reference][0] = [comment, di.end,
-                                                       di.instruction & 3]
+                CommentDisplacementsY[displace][1] += [
+                    CommentDisplacementsY[displace][0]]
+                CommentDisplacementsY[displace][0] = [comment, di.end,
+                                                      di.instruction & 3]
             continue
 
         # now deal with machine code
@@ -7367,6 +7363,42 @@ def get_custom_format_values(data, bWantInstructionCode=False):
             "Hex instead of non-ASCII Off"]
 
     return ret
+
+
+def get_comment_displacement_string(displacement, flag, comment):
+    """Returns a string that can be used as data for a Comment
+    Displacement command.
+    displacement must be an 8 bit number to reference.
+    flag is an 2 bit number containing combination of the following
+    options to specify when to comment the reference if found:
+      1 comment when displacement matches an IX command.
+      2 comment when displacement matches an IY command.
+    comment is a string use as the comment when the displacement and
+    flag are matched.
+    """
+    return "{0:02X}{1:01X}{2}".format(displacement & 0xFF, flag & 0x3, comment)
+
+
+def get_comment_displacement_values(data):
+    """Breaks the data from a Comment Displacement command into it's
+    parts.
+    Returns a list containing the displacement to reference, the flag,
+    and the comment.
+    """
+    try:
+        displacement = int(data[:2], 16)
+    except:
+        displacement = None
+    try:
+        flag = int(data[2:3], 16)
+    except:
+        flag = None
+    try:
+        comment = data[3:]
+    except:
+        comment = None
+
+    return (displacement, flag, comment)
 
 
 def get_comment_reference_string(reference, flag, comment):

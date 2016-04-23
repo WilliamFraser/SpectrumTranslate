@@ -1327,6 +1327,14 @@ data"""
         self.assertEqual(spectrumtranslate.get_comment_reference_values(
             "1234FTest"), (0x1234, 0x0F, "Test"))
 
+    def test_get_comment_displacement_string(self):
+        self.assertEqual(spectrumtranslate.get_comment_displacement_string(
+            0x12, 0x03, "Test"), "123Test")
+
+    def test_get_comment_displacement_values(self):
+        self.assertEqual(spectrumtranslate.get_comment_displacement_values(
+            "123Test"), (0x12, 0x03, "Test"))
+
     def test_getpartsofpatterndatablock(self):
         parts = spectrumtranslate.getpartsofpatterndatablock(
             spectrumtranslate.DisassembleInstruction.
@@ -2238,12 +2246,30 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 """]],
             # test comment Displacement
             [[0xDD, 0x7E, 0x04, 0xFD, 0x77, 0x04, 0xDD, 0x77, 0x00],
-             [["30200#4000#4008##043Test"],
-              ["30200#4000#4008##041Test"],
-              ["30200#4000#4008##042Test"],
-              ["30200#4000#4002##043Test"],
-              ["30201#4000#4008##043Test"],
-              ["30202#4000#4008##043Test"]],
+             [[spectrumtranslate.DisassembleInstruction(
+                 "Comment Displacement", 0x4000, 0x4008,
+                 spectrumtranslate.get_comment_displacement_string(
+                     0x04, 3, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Displacement", 0x4000, 0x4008,
+                 spectrumtranslate.get_comment_displacement_string(
+                     0x04, 1, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Displacement", 0x4000, 0x4008,
+                 spectrumtranslate.get_comment_displacement_string(
+                     0x04, 2, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Displacement", 0x4000, 0x4002,
+                 spectrumtranslate.get_comment_displacement_string(
+                     0x04, 3, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Displacement Before", 0x4000, 0x4008,
+                 spectrumtranslate.get_comment_displacement_string(
+                     0x04, 3, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Displacement After", 0x4000, 0x4008,
+                 spectrumtranslate.get_comment_displacement_string(
+                     0x04, 3, "Test"))]],
              ["""ORG #4000
 
 4000  DD,7E,04     LD A,(IX+#04)        ;Test
