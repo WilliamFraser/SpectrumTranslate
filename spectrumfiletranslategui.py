@@ -1515,6 +1515,9 @@ commented.")
             d.accept()
 
     def EditCommentReference(self, di):
+        # get data
+        ref, flag, comment = spectrumtranslate.get_comment_reference_values(
+            di.data)
         # create dialog
         dContainer = QtGui.QDialog(self)
         dContainer.setWindowTitle("Edit Comment Reference")
@@ -1525,11 +1528,8 @@ commented.")
         lay.addWidget(QtGui.QLabel("Comment Text:"))
 
         leCommentText = QtGui.QLineEdit()
-        if(di.data):
-            try:
-                leCommentText.setText(di.data[5:])
-            except:
-                pass
+        if(comment):
+            leCommentText.setText(comment)
         leCommentText.setToolTip("The text to be added as the comment.")
         leCommentText.sizePolicy().setHorizontalPolicy(
             QtGui.QSizePolicy.Expanding)
@@ -1553,33 +1553,20 @@ commented.")
 
         lay.addWidget(QtGui.QLabel("address/value to be referenced:"))
 
-        i = 0
-        if(di.data):
-            try:
-                i = int(di.data[:4], 16)
-            except:
-                pass
-
         leAddress = QtGui.QLineEdit()
-        leAddress.setText(self.Ddialog.Format.format(i))
+        leAddress.setText(self.Ddialog.Format.format(ref if ref else 0))
         leAddress.setToolTip("The address/value to be searched for and \
 commented on when found.\nShould be {0}.".format(
             self.Ddialog.cbNumberFormat.currentText()))
         lay.addWidget(leAddress)
         dContainer.leAddress = leAddress
 
-        i = 0
-        if(di.data):
-            try:
-                i = int(di.data[4:5], 16)
-            except:
-                pass
-
+        flag = 0 if flag is None else flag
         cb1 = QtGui.QCheckBox("contents of address accessed")
         cb1.setToolTip("Comment the address if it's used to access the memory \
 contents: LD A,(0x8000), or LD (0x4000),HL.")
         cb1.toggle()
-        if((i & 1) == 0):
+        if((flag & 1) == 0):
             cb1.setCheckState(False)
         lay.addWidget(cb1)
 
@@ -1587,21 +1574,21 @@ contents: LD A,(0x8000), or LD (0x4000),HL.")
         cb2.setToolTip("Comment the address/value if it's loaded into a \
 register: LD BC,0x9000.")
         cb2.toggle()
-        if((i & 2) == 0):
+        if((flag & 2) == 0):
             cb2.setCheckState(False)
         lay.addWidget(cb2)
 
         cb3 = QtGui.QCheckBox("Call to this address")
         cb3.setToolTip("Comment the address if it's called: CALL NZ,0x8000.")
         cb3.toggle()
-        if((i & 4) == 0):
+        if((flag & 4) == 0):
             cb3.setCheckState(False)
         lay.addWidget(cb3)
 
         cb4 = QtGui.QCheckBox("Jump to this address")
         cb4.setToolTip("Comment the address if it's jumped to: JP 0x8000.")
         cb4.toggle()
-        if((i & 8) == 0):
+        if((flag & 8) == 0):
             cb4.setCheckState(False)
         lay.addWidget(cb4)
 
@@ -1627,7 +1614,8 @@ register: LD BC,0x9000.")
                 (2 if cb2.isChecked() else 0) + \
                 (4 if cb3.isChecked() else 0) + \
                 (8 if cb4.isChecked() else 0)
-            di.data = "{0:04X}{1:X}{2}".format(a, f, str(leCommentText.text()))
+            di.data = spectrumtranslate.get_comment_reference_string(
+                a, f, str(leCommentText.text()))
             di.instruction = int(cbPosition.itemData(
                                  cbPosition.currentIndex()).toInt()[0])
             self.Ddialog.cbDisassembleCommands.setCurrentIndex(
@@ -2785,16 +2773,8 @@ frequency must be between 0 and 255 decimal.")
              lwInstruction.di.instruction == spectrumtranslate.
              DisassembleInstruction.DISASSEMBLE_CODES[
                  "Comment Reference After"]):
-            try:
-                a = int(lwInstruction.di.data[:4], 16)
-            except:
-                a = 0
-
-            try:
-                c = lwInstruction.di.data[5:]
-            except:
-                c = ""
-
+            a, f, c = spectrumtranslate.get_comment_reference_values(
+                lwInstruction.di.data)
             s += ' address: {0:04X} comment: "{1}"'.format(a, c)
 
         elif(lwInstruction.di.instruction == spectrumtranslate.

@@ -3717,12 +3717,9 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
         # check is reference comment
         if(di is not None and di.instruction & 0xFFFF00 == 0x030100):
-            # make note of address referenced
-            di.reference = int(di.data[:4], 16)
-            # get flags
-            di.flag = int(di.data[4:5], 16)
-            # make note of comment
-            di.comment = di.data[5:]
+            # make note of reference, flag, and comment
+            di.reference, di.flag, di.comment = get_comment_reference_values(
+                di.data)
             # add it to list to look for
             CommentReferences += [di]
             # now sort it so 1st is next to expire
@@ -7370,6 +7367,43 @@ def get_custom_format_values(data, bWantInstructionCode=False):
             "Hex instead of non-ASCII Off"]
 
     return ret
+
+
+def get_comment_reference_string(reference, flag, comment):
+    """Returns a string that can be used as data for a CommentReference
+    command.
+    reference must be a 16 bit number or address to reference.
+    flag is an 8 bit number containing combination of the following
+    options to specify when to comment the reference if found:
+      1 comment when referenced as memory.
+      2 comment when referenced number loaded into a register pair.
+      4 comment when referenced number is called.
+      8 comment when referenced number is jumped to.
+    comment is a string use as the comment when the reference and flag
+    are matched.
+    """
+    return "{0:04X}{1:01X}{2}".format(reference & 0xFFFF, flag & 0xF, comment)
+
+
+def get_comment_reference_values(data):
+    """Breaks the data from a CommentReference command into it's parts.
+    Returns a list containing the address to reference, the flag, and
+    the comment.
+    """
+    try:
+        reference = int(data[:4], 16)
+    except:
+        reference = None
+    try:
+        flag = int(data[4:5], 16)
+    except:
+        flag = None
+    try:
+        comment = data[5:]
+    except:
+        comment = None
+
+    return (reference, flag, comment)
 
 
 def getpartsofpatterndatablock(pdb):

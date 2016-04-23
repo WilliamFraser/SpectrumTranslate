@@ -1319,6 +1319,14 @@ data"""
              'HexForNonASCII': 1,
              'ListEveryXLines': 7})
 
+    def test_get_comment_reference_string(self):
+        self.assertEqual(spectrumtranslate.get_comment_reference_string(
+            0x1234, 0x0F, "Test"), "1234FTest")
+
+    def test_get_comment_reference_values(self):
+        self.assertEqual(spectrumtranslate.get_comment_reference_values(
+            "1234FTest"), (0x1234, 0x0F, "Test"))
+
     def test_getpartsofpatterndatablock(self):
         parts = spectrumtranslate.getpartsofpatterndatablock(
             spectrumtranslate.DisassembleInstruction.
@@ -2130,31 +2138,103 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 
 """]],
             # test comment reference
-            [[0x21, 0x44, 0x80, 0xCD, 0x44, 0x80, 0xC2, 0x44, 0x80, 0x3A, 0x44,
-              0x80],
-             [["30100#4000#400B##8044FTest"],
-              ["30100#4000#400B##80443Test"],
-              ["30100#4000#4005##8044FTest"]],
+            [[0x21, 0x00, 0x40, 0xCD, 0x00, 0x40, 0xC2, 0x00, 0x40, 0x3A, 0x00,
+              0x40],
+             [[spectrumtranslate.DisassembleInstruction(
+                 "Comment Reference", 0x4000, 0x400B,
+                 spectrumtranslate.get_comment_reference_string(
+                     0x4000, 0x0F, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Reference", 0x4000, 0x400B,
+                 spectrumtranslate.get_comment_reference_string(
+                     0x4000, 0x01, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Reference", 0x4000, 0x400B,
+                 spectrumtranslate.get_comment_reference_string(
+                     0x4000, 0x02, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Reference", 0x4000, 0x400B,
+                 spectrumtranslate.get_comment_reference_string(
+                     0x4000, 0x04, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Reference", 0x4000, 0x400B,
+                 spectrumtranslate.get_comment_reference_string(
+                     0x4000, 0x08, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Reference", 0x4000, 0x4005,
+                 spectrumtranslate.get_comment_reference_string(
+                     0x4000, 0x0F, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Reference Before", 0x4000, 0x400B,
+                 spectrumtranslate.get_comment_reference_string(
+                     0x4000, 0x0F, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Reference After", 0x4000, 0x400B,
+                 spectrumtranslate.get_comment_reference_string(
+                     0x4000, 0x0F, "Test"))]],
              ["""ORG #4000
 
-4000  21,44,80     LD HL,#8044          ;Test
-4003  CD,44,80     CALL #8044           ;Test
-4006  C2,44,80     JP NZ,#8044          ;Test
-4009  3A,44,80     LD A,(#8044)         ;Test
+4000  21,00,40     LD HL,#4000          ;Test
+4003  CD,00,40     CALL #4000           ;Test
+4006  C2,00,40     JP NZ,#4000          ;Test
+4009  3A,00,40     LD A,(#4000)         ;Test
 """,
               """ORG #4000
 
-4000  21,44,80     LD HL,#8044          ;Test
-4003  CD,44,80     CALL #8044
-4006  C2,44,80     JP NZ,#8044
-4009  3A,44,80     LD A,(#8044)         ;Test
+4000  21,00,40     LD HL,#4000
+4003  CD,00,40     CALL #4000
+4006  C2,00,40     JP NZ,#4000
+4009  3A,00,40     LD A,(#4000)         ;Test
 """,
               """ORG #4000
 
-4000  21,44,80     LD HL,#8044          ;Test
-4003  CD,44,80     CALL #8044           ;Test
-4006  C2,44,80     JP NZ,#8044
-4009  3A,44,80     LD A,(#8044)
+4000  21,00,40     LD HL,#4000          ;Test
+4003  CD,00,40     CALL #4000
+4006  C2,00,40     JP NZ,#4000
+4009  3A,00,40     LD A,(#4000)
+""",
+              """ORG #4000
+
+4000  21,00,40     LD HL,#4000
+4003  CD,00,40     CALL #4000           ;Test
+4006  C2,00,40     JP NZ,#4000
+4009  3A,00,40     LD A,(#4000)
+""",
+              """ORG #4000
+
+4000  21,00,40     LD HL,#4000
+4003  CD,00,40     CALL #4000
+4006  C2,00,40     JP NZ,#4000          ;Test
+4009  3A,00,40     LD A,(#4000)
+""",
+              """ORG #4000
+
+4000  21,00,40     LD HL,#4000          ;Test
+4003  CD,00,40     CALL #4000           ;Test
+4006  C2,00,40     JP NZ,#4000
+4009  3A,00,40     LD A,(#4000)
+""",
+              """ORG #4000
+
+      ;Test
+4000  21,00,40     LD HL,#4000
+      ;Test
+4003  CD,00,40     CALL #4000
+      ;Test
+4006  C2,00,40     JP NZ,#4000
+      ;Test
+4009  3A,00,40     LD A,(#4000)
+""",
+              """ORG #4000
+
+4000  21,00,40     LD HL,#4000
+      ;Test
+4003  CD,00,40     CALL #4000
+      ;Test
+4006  C2,00,40     JP NZ,#4000
+      ;Test
+4009  3A,00,40     LD A,(#4000)
+      ;Test
 """]],
             # test comment Displacement
             [[0xDD, 0x7E, 0x04, 0xFD, 0x77, 0x04, 0xDD, 0x77, 0x00],
