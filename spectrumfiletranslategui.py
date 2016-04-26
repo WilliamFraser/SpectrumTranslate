@@ -1571,12 +1571,19 @@ register: LD BC,0x9000.")
             cb3.setCheckState(False)
         lay.addWidget(cb3)
 
-        cb4 = QtGui.QCheckBox("Jump to this address")
-        cb4.setToolTip("Comment the address if it's jumped to: JP 0x8000.")
+        cb4 = QtGui.QCheckBox("Jump absolute to this address")
+        cb4.setToolTip("Comment the address if it's jumped absolutly to: JP 0x8000.")
         cb4.toggle()
         if((flag & 8) == 0):
             cb4.setCheckState(False)
         lay.addWidget(cb4)
+
+        cb5 = QtGui.QCheckBox("Jump relative to this address")
+        cb5.setToolTip("Comment the address if it's jumped relative to: JR 0x8000.")
+        cb5.toggle()
+        if((flag & 16) == 0):
+            cb5.setCheckState(False)
+        lay.addWidget(cb5)
 
         lay2 = QtGui.QHBoxLayout()
         lay2.addStretch(1)
@@ -1599,7 +1606,8 @@ register: LD BC,0x9000.")
             f = (1 if cb1.isChecked() else 0) + \
                 (2 if cb2.isChecked() else 0) + \
                 (4 if cb3.isChecked() else 0) + \
-                (8 if cb4.isChecked() else 0)
+                (8 if cb4.isChecked() else 0) + \
+                (16 if cb5.isChecked() else 0)
             di.data = spectrumtranslate.get_comment_reference_string(
                 a, f, str(leCommentText.text()))
             di.instruction = int(cbPosition.itemData(
@@ -2627,7 +2635,7 @@ frequency must be between 0 and 255 decimal.")
             elif(instructionchanged and
                  txt.startswith("Comment Reference")):
                 di.data = spectrumtranslate.get_comment_reference_string(
-                    0, 0x0F, "Comment")
+                    0, 0x1F, "Comment")
 
             elif(instructionchanged and
                  txt.startswith("Comment Displacement")):

@@ -3878,6 +3878,28 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     data[offset + dataOffset] < 128) else \
                     data[offset + dataOffset] - 256
 
+                # check for reference comments
+                for di in CommentReferences:
+                    # have we got right reference
+                    if(di.reference != i):
+                        continue
+                    # do the flags match
+                    if(di.flag & 16 == 16):
+                        # handle comment
+                        if(di.instruction & 3 == 1):
+                            if(DisplayComments == 0):
+                                soutput += CommentOutput(di.comment,
+                                                         XMLOutput).split("\n")
+                        # otherwise comnment end of this line or after
+                        elif(di.instruction & 3 == 2):
+                            if(CommentAfter is not ""):
+                                CommentAfter += "\n"
+                            CommentAfter += di.comment
+                        else:
+                            if(CommentEnd is not ""):
+                                CommentEnd += ". "
+                            CommentEnd += di.comment
+
                 s = s.replace("j", _numbertostring(i, 16, AddressOutput, True))
                 dataOffset += 1
                 commandlength += 1
@@ -7411,10 +7433,11 @@ def get_comment_reference_string(reference, flag, comment):
       2 comment when referenced number loaded into a register pair.
       4 comment when referenced number is called.
       8 comment when referenced number is jumped to.
+      16 comment when reference number is jump relative to.
     comment is a string use as the comment when the reference and flag
     are matched.
     """
-    return "{0:04X}{1:01X}{2}".format(reference & 0xFFFF, flag & 0xF, comment)
+    return "{0:04X}{1:02X}{2}".format(reference & 0xFFFF, flag & 0x1F, comment)
 
 
 def get_comment_reference_values(data):
@@ -7427,11 +7450,11 @@ def get_comment_reference_values(data):
     except:
         reference = None
     try:
-        flag = int(data[4:5], 16)
+        flag = int(data[4:6], 16)
     except:
         flag = None
     try:
-        comment = data[5:]
+        comment = data[6:]
     except:
         comment = None
 

@@ -1321,11 +1321,11 @@ data"""
 
     def test_get_comment_reference_string(self):
         self.assertEqual(spectrumtranslate.get_comment_reference_string(
-            0x1234, 0x0F, "Test"), "1234FTest")
+            0x1234, 0x0F, "Test"), "12340FTest")
 
     def test_get_comment_reference_values(self):
         self.assertEqual(spectrumtranslate.get_comment_reference_values(
-            "1234FTest"), (0x1234, 0x0F, "Test"))
+            "12340FTest"), (0x1234, 0x0F, "Test"))
 
     def test_get_comment_displacement_string(self):
         self.assertEqual(spectrumtranslate.get_comment_displacement_string(
@@ -2147,45 +2147,50 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 """]],
             # test comment reference
             [[0x21, 0x00, 0x40, 0xCD, 0x00, 0x40, 0xC2, 0x00, 0x40, 0x3A, 0x00,
-              0x40],
+              0x40, 0x28, 0xF2],
              [[spectrumtranslate.DisassembleInstruction(
-                 "Comment Reference", 0x4000, 0x400B,
+                 "Comment Reference", 0x4000, 0x400D,
                  spectrumtranslate.get_comment_reference_string(
-                     0x4000, 0x0F, "Test"))],
+                     0x4000, 0x1F, "Test"))],
               [spectrumtranslate.DisassembleInstruction(
-                 "Comment Reference", 0x4000, 0x400B,
+                 "Comment Reference", 0x4000, 0x400D,
                  spectrumtranslate.get_comment_reference_string(
                      0x4000, 0x01, "Test"))],
               [spectrumtranslate.DisassembleInstruction(
-                 "Comment Reference", 0x4000, 0x400B,
+                 "Comment Reference", 0x4000, 0x400D,
                  spectrumtranslate.get_comment_reference_string(
                      0x4000, 0x02, "Test"))],
               [spectrumtranslate.DisassembleInstruction(
-                 "Comment Reference", 0x4000, 0x400B,
+                 "Comment Reference", 0x4000, 0x400D,
                  spectrumtranslate.get_comment_reference_string(
                      0x4000, 0x04, "Test"))],
               [spectrumtranslate.DisassembleInstruction(
-                 "Comment Reference", 0x4000, 0x400B,
+                 "Comment Reference", 0x4000, 0x400D,
                  spectrumtranslate.get_comment_reference_string(
                      0x4000, 0x08, "Test"))],
               [spectrumtranslate.DisassembleInstruction(
+                 "Comment Reference", 0x4000, 0x400D,
+                 spectrumtranslate.get_comment_reference_string(
+                     0x4000, 0x10, "Test"))],
+              [spectrumtranslate.DisassembleInstruction(
                  "Comment Reference", 0x4000, 0x4005,
                  spectrumtranslate.get_comment_reference_string(
-                     0x4000, 0x0F, "Test"))],
+                     0x4000, 0x1F, "Test"))],
               [spectrumtranslate.DisassembleInstruction(
-                 "Comment Reference Before", 0x4000, 0x400B,
+                 "Comment Reference Before", 0x4000, 0x400D,
                  spectrumtranslate.get_comment_reference_string(
-                     0x4000, 0x0F, "Test"))],
+                     0x4000, 0x1F, "Test"))],
               [spectrumtranslate.DisassembleInstruction(
-                 "Comment Reference After", 0x4000, 0x400B,
+                 "Comment Reference After", 0x4000, 0x400D,
                  spectrumtranslate.get_comment_reference_string(
-                     0x4000, 0x0F, "Test"))]],
+                     0x4000, 0x1F, "Test"))]],
              ["""ORG #4000
 
 4000  21,00,40     LD HL,#4000          ;Test
 4003  CD,00,40     CALL #4000           ;Test
 4006  C2,00,40     JP NZ,#4000          ;Test
 4009  3A,00,40     LD A,(#4000)         ;Test
+400C  28,F2        JR Z,#4000           ;Test
 """,
               """ORG #4000
 
@@ -2193,6 +2198,7 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 4003  CD,00,40     CALL #4000
 4006  C2,00,40     JP NZ,#4000
 4009  3A,00,40     LD A,(#4000)         ;Test
+400C  28,F2        JR Z,#4000
 """,
               """ORG #4000
 
@@ -2200,6 +2206,7 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 4003  CD,00,40     CALL #4000
 4006  C2,00,40     JP NZ,#4000
 4009  3A,00,40     LD A,(#4000)
+400C  28,F2        JR Z,#4000
 """,
               """ORG #4000
 
@@ -2207,6 +2214,7 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 4003  CD,00,40     CALL #4000           ;Test
 4006  C2,00,40     JP NZ,#4000
 4009  3A,00,40     LD A,(#4000)
+400C  28,F2        JR Z,#4000
 """,
               """ORG #4000
 
@@ -2214,6 +2222,15 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 4003  CD,00,40     CALL #4000
 4006  C2,00,40     JP NZ,#4000          ;Test
 4009  3A,00,40     LD A,(#4000)
+400C  28,F2        JR Z,#4000
+""",
+              """ORG #4000
+
+4000  21,00,40     LD HL,#4000
+4003  CD,00,40     CALL #4000
+4006  C2,00,40     JP NZ,#4000
+4009  3A,00,40     LD A,(#4000)
+400C  28,F2        JR Z,#4000           ;Test
 """,
               """ORG #4000
 
@@ -2221,6 +2238,7 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 4003  CD,00,40     CALL #4000           ;Test
 4006  C2,00,40     JP NZ,#4000
 4009  3A,00,40     LD A,(#4000)
+400C  28,F2        JR Z,#4000
 """,
               """ORG #4000
 
@@ -2232,6 +2250,8 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 4006  C2,00,40     JP NZ,#4000
       ;Test
 4009  3A,00,40     LD A,(#4000)
+      ;Test
+400C  28,F2        JR Z,#4000
 """,
               """ORG #4000
 
@@ -2242,6 +2262,8 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 4006  C2,00,40     JP NZ,#4000
       ;Test
 4009  3A,00,40     LD A,(#4000)
+      ;Test
+400C  28,F2        JR Z,#4000
       ;Test
 """]],
             # test comment Displacement
