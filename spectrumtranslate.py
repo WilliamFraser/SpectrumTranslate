@@ -3832,7 +3832,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 i = data[offset + dataOffset]
 
                 # check for reference comments
-                if('IX' in s and CommentDisplacementsX[i][0][0]):
+                if('IX' in s and CommentDisplacementsX[i][0][0] and
+                   CommentDisplacementsX[i][0][0] != ""):
                     # handle comment
                     if(CommentDisplacementsX[i][0][2] == 1):
                         if(DisplayComments == 0):
@@ -3848,7 +3849,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                         if(CommentEnd is not ""):
                             CommentEnd += ". "
                         CommentEnd += CommentDisplacementsX[i][0][0]
-                if('IY' in s and CommentDisplacementsY[i][0][0]):
+                if('IY' in s and CommentDisplacementsY[i][0][0] and
+                   CommentDisplacementsY[i][0][0] != ""):
                     # handle comment
                     if(CommentDisplacementsY[i][0][2] == 1):
                         if(DisplayComments == 0):

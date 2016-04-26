@@ -2275,6 +2275,14 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
               [spectrumtranslate.DisassembleInstruction(
                  "Comment Displacement", 0x4000, 0x4008,
                  spectrumtranslate.get_comment_displacement_string(
+                     0x04, 3, "Test")),
+               spectrumtranslate.DisassembleInstruction(
+                 "Comment Displacement", 0x4003, 0x4005,
+                 spectrumtranslate.get_comment_displacement_string(
+                     0x04, 3, ""))],
+              [spectrumtranslate.DisassembleInstruction(
+                 "Comment Displacement", 0x4000, 0x4008,
+                 spectrumtranslate.get_comment_displacement_string(
                      0x04, 1, "Test"))],
               [spectrumtranslate.DisassembleInstruction(
                  "Comment Displacement", 0x4000, 0x4008,
@@ -2296,6 +2304,12 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 
 4000  DD,7E,04     LD A,(IX+#04)        ;Test
 4003  FD,77,04     LD (IY+#04),A        ;Test
+4006  DD,77,00     LD (IX+#00),A
+""",
+              """ORG #4000
+
+4000  DD,7E,04     LD A,(IX+#04)        ;Test
+4003  FD,77,04     LD (IY+#04),A
 4006  DD,77,00     LD (IX+#00),A
 """,
               """ORG #4000
