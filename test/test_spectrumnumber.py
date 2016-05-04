@@ -51,6 +51,8 @@ import sys
 import os
 import subprocess
 import re
+import pep8
+# imported io/StringIO later so get python version specific one
 # import modules from parent directory
 pathtemp = sys.path
 sys.path += [os.path.dirname(os.getcwd())]
@@ -60,9 +62,11 @@ sys.path = pathtemp
 
 # 2to3 will complain about these lines but is 2 & 3 compatible
 if(sys.hexversion > 0x03000000):
+    from io import StringIO
     _longint = int
 else:
     # 2to3 will complain but won't cause problems in real life
+    from StringIO import StringIO
     _longint = long
 
 
@@ -368,12 +372,31 @@ class TestSpectrumNumberArithmeticMethods(unittest.TestCase):
 
 
 class Testformating(unittest.TestCase):
-    def runpep8(self, py_file, errignore, stdoutignore):
-        p = subprocess.Popen(["python",
-                              "/usr/local/lib/python2.6/dist-packages/pep8.py",
-                              "--repeat", py_file],
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output, error = p.communicate()
+    class Mystdout(StringIO):
+        # a class to mimic the buffer behaviour of stdout
+        class bufferemulator:
+            def __init__(self):
+                self.bytedata = bytearray()
+
+            def write(self, data):
+                self.bytedata += data
+
+        def __init__(self):
+            StringIO.__init__(self)
+            self.buffer = Testformating.Mystdout.bufferemulator()
+
+    def runpep8(self, py_file, stdoutignore):
+        saved_output = sys.stdout
+        output = Testformating.Mystdout()
+        sys.stdout = output
+        try:
+            c = pep8.Checker(py_file)
+            c.check_all()
+
+        finally:
+            sys.stdout = saved_output
+
+        output = output.getvalue()
 
         output = output.splitlines()
         if(len(output) > 0 and isinstance(output[0], bytes)):
@@ -381,28 +404,18 @@ class Testformating(unittest.TestCase):
         if(stdoutignore):
             output = [x for x in output if x not in stdoutignore]
 
-        error = error.splitlines()
-        if(len(error) > 0 and isinstance(error[0], bytes)):
-            error = [x.decode("utf-8") for x in error]
-        if(errignore):
-            error = [x for x in error if x not in errignore]
-
-        return "\n".join(output), "\n".join(error)
+        return "\n".join(output)
 
     def test_pep8(self):
-        output, error = self.runpep8("../spectrumnumber.py", [], [])
+        output = self.runpep8("../spectrumnumber.py", [])
         self.assertEqual(output, "", "../spectrumnumber.py pep8 formatting \
 errors:\n" + output)
-        self.assertEqual(error, "", "../spectrumnumber.py pep8 format check \
-had errors:\n" + error)
 
-        output, error = self.runpep8("test_spectrumnumber.py", [], [
-            "test_spectrumnumber.py:57:1: E402 module level import not at top \
+        output = self.runpep8("test_spectrumnumber.py", [
+            "test_spectrumnumber.py:59:1: E402 module level import not at top \
 of file"])
         self.assertEqual(output, "", "test_spectrumnumber.py pep8 formatting \
 errors:\n" + output)
-        self.assertEqual(error, "", "test_spectrumnumber.py pep8 format check \
-had errors:\n" + error)
 
 
 class Test2_3compatibility(unittest.TestCase):
