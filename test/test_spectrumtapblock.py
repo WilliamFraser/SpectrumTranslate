@@ -78,6 +78,13 @@ else:
         return _UED(x)[0]
 
 
+if(os.name == 'posix'):
+    cmd2to3 = ["/usr/bin/2to3"]
+elif(os.name == 'nt'):
+    cmd2to3 = [sys.executable,
+               os.path.dirname(sys.executable) + "\\Tools\\Scripts\\2to3.py"]
+
+
 def _getfile(name):
     with open(name, 'r') as f:
         return f.read()
@@ -186,6 +193,7 @@ class TestSpectrumTapBlock(unittest.TestCase):
         self.assertEqual(stb.getfilename(), "BASIC     ")
         stb.data = bytearray([0, 254, 65, 127, 96, 32, 32, 32, 32, 32, 32, 0,
                               0, 0, 0, 0, 0])
+        # 2to3 will complain but won't cause problems in real life
         self.assertEqual(stb.getfilename(), _u('RETURN A\xa9\xa3      '))
 
     def test_getrawfilename(self):
@@ -457,7 +465,7 @@ formatting errors:\n" + output)
 
 class Test2_3compatibility(unittest.TestCase):
     def run2to3(self, py_file, errignore, stdoutignore):
-        p = subprocess.Popen(["/usr/bin/2to3", py_file],
+        p = subprocess.Popen(cmd2to3 + [py_file],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
 
@@ -466,7 +474,9 @@ class Test2_3compatibility(unittest.TestCase):
         if(len(output) > 0 and isinstance(output[0], bytes)):
             output = [x.decode("utf-8") for x in output]
         refactorignore = ["--- " + py_file + " (original)",
-                          "+++ " + py_file + " (refactored)"]
+                          "+++ " + py_file + " (refactored)",
+                          "--- " + py_file + "\t(original)",
+                          "+++ " + py_file + "\t(refactored)"]
         output = "\n".join([x for x in output if x not in refactorignore])
         # split into diffs
         chunks = re.compile(
@@ -492,15 +502,21 @@ but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
         errignore += [
             "AssertionError: {0} 2to3 check had errors:".format(py_file),
             "RefactoringTool: Skipping implicit fixer: buffer",
+            "RefactoringTool: Skipping optional fixer: buffer",
             "RefactoringTool: Skipping implicit fixer: idioms",
+            "RefactoringTool: Skipping optional fixer: idioms",
             "RefactoringTool: Skipping implicit fixer: set_literal",
+            "RefactoringTool: Skipping optional fixer: set_literal",
             "RefactoringTool: Skipping implicit fixer: ws_comma",
+            "RefactoringTool: Skipping optional fixer: ws_comma",
             "RefactoringTool: Refactored {0}".format(py_file),
             "RefactoringTool: Files that need to be modified:",
             "RefactoringTool: {0}".format(py_file),
             "RefactoringTool: No changes to {0}".format(py_file)]
 
         error = [x for x in error if x not in errignore]
+        error = [x for x in error if x.find(
+            ": Generating grammar tables from ") == -1]
 
         return output, "".join(error)
 

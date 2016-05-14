@@ -87,6 +87,35 @@ else:
             return f.read().decode('utf8')
 
 
+if(os.name == 'posix'):
+    cmd2to3 = ["/usr/bin/2to3"]
+elif(os.name == 'nt'):
+    cmd2to3 = [sys.executable,
+               os.path.dirname(sys.executable) + "\\Tools\\Scripts\\2to3.py"]
+
+
+# 2to3 will complain but this code is python 2 & 3 compatible
+CHAR5E = _u("\u2191")
+CHAR60 = _u("\u00A3")
+CHAR7F = _u("\u00A9")
+CHAR80 = _u('\u2003')
+CHAR81 = _u('\u259D')
+CHAR82 = _u('\u2598')
+CHAR83 = _u('\u2580')
+CHAR84 = _u('\u2597')
+CHAR85 = _u('\u2590')
+CHAR86 = _u('\u259A')
+CHAR87 = _u('\u259C')
+CHAR88 = _u('\u2596')
+CHAR89 = _u('\u259E')
+CHAR8A = _u('\u258C')
+CHAR8B = _u('\u259B')
+CHAR8C = _u('\u2584')
+CHAR8D = _u('\u259F')
+CHAR8E = _u('\u2599')
+CHAR8F = _u('\u2588')
+
+
 def _getfileasbytearray(name):
     with open(name, 'rb') as infile:
         return bytearray(infile.read())
@@ -95,8 +124,9 @@ def _getfileasbytearray(name):
 class Testbasicconversion(unittest.TestCase):
     def test_basictotext(self):
         data = _getfileasbytearray("basictest.dat")
-        self.assertEqual(spectrumtranslate.basictotext(data), _u("""\
-10 REM ^16^00^00\u259C^11^05\u2597^11^03hello123^11^01^10^05^11^06
+        self.assertEqual(spectrumtranslate.basictotext(data), """\
+10 REM ^16^00^00""" + CHAR87 + """^11^05""" + CHAR84 + """^11^03hello123^11^01\
+^10^05^11^06
 15 PRINT ^10^00^11^07"80"
 20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
 
@@ -113,7 +143,7 @@ d$[2][2]={
 }
 FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
 z$="testing"
-"""))
+""")
 
         self.assertEqual(spectrumtranslate.basictotext(data,
                                                        hexfornonascii=True),
@@ -139,14 +169,15 @@ z$="testing"
 
     def test_basictoxml(self):
         data = _getfileasbytearray("basictest.dat")
-        self.assertEqual(spectrumtranslate.basictoxml(data), _u("""\
+        self.assertEqual(spectrumtranslate.basictoxml(data), """\
 <?xml version="1.0" encoding="UTF-8" ?>
 <basiclisting>
   <line>
     <linenumber>10</linenumber>
     <instruction>
       <keyword>REM</keyword>
-      <argument>^16^00^00\u259C^11^05\u2597^11^03hello123^11^01^10^05^11^06</argument>
+      <argument>^16^00^00""" + CHAR87 + """^11^05""" + CHAR84 + """^11^03hello\
+123^11^01^10^05^11^06</argument>
     </instruction>
   </line>
   <line>
@@ -230,11 +261,11 @@ z$="testing"
     </variable>
   </variables>
 </basiclisting>
-"""))
+""")
 
-        self.assertEqual(spectrumtranslate.basictoxml(data,
-                                                      hexfornonascii=True),
-                         _u("""\
+        self.assertEqual(spectrumtranslate.basictoxml(
+            # 2to3 will complain but won't cause problems in real life
+            data, hexfornonascii=True), """\
 <?xml version="1.0" encoding="UTF-8" ?>
 <basiclisting>
   <line>
@@ -325,7 +356,7 @@ z$="testing"
     </variable>
   </variables>
 </basiclisting>
-"""))
+""")
 
 
 class TestArrayConversion(unittest.TestCase):
@@ -430,16 +461,16 @@ class TestArrayConversion(unittest.TestCase):
 }""")
 
         data = [2, 2, 0, 1, 0, 0xFF, 0x7F]
-        self.assertEqual(spectrumtranslate.arraytotext(data, 0xD3), _u("""{
+        self.assertEqual(spectrumtranslate.arraytotext(data, 0xD3), '''{
   "COPY ",
-  "\u00A9"
-}"""))
+  "''' + CHAR7F + '''"
+}''')
 
-        self.assertEqual(spectrumtranslate.arraytotext(data, 0xD3, True),
-                         _u("""{
+        self.assertEqual(spectrumtranslate.arraytotext(
+            data, 0xD3, True), """{
   "^FF",
   "^7F"
-}"""))
+}""")
 
     def test_arraytoxml(self):
         data = _getfileasbytearray("arraytest_number.dat")
@@ -703,18 +734,19 @@ class TestArrayConversion(unittest.TestCase):
 </dimension>""")
 
         data = [2, 2, 0, 1, 0, 0xFF, 0x7F]
-        self.assertEqual(spectrumtranslate.arraytoxml(data, 0xD3), _u("""\
+        self.assertEqual(spectrumtranslate.arraytoxml(
+            data, 0xD3), """\
 <dimension>
   <string>COPY </string>
-  <string>\u00A9</string>
-</dimension>"""))
+  <string>""" + CHAR7F + """</string>
+</dimension>""")
 
-        self.assertEqual(spectrumtranslate.arraytoxml(data, 0xD3, True),
-                         _u("""\
+        self.assertEqual(spectrumtranslate.arraytoxml(
+            data, 0xD3, True), """\
 <dimension>
   <string>^FF</string>
   <string>^7F</string>
-</dimension>"""))
+</dimension>""")
 
 
 class TestUtilityFunctions(unittest.TestCase):
@@ -773,15 +805,15 @@ class TestTextConvert(unittest.TestCase):
                      "@", "A", "B", "C", "D", "E", "F", "G",
                      "H", "I", "J", "K", "L", "M", "N", "O",
                      "P", "Q", "R", "S", "T", "U", "V", "W",
-                     "X", "Y", "Z", "[", "\\", "]", _u("\u2191"), "_",
-                     _u("\u00A3"), "a", "b", "c", "d", "e", "f", "g",
+                     "X", "Y", "Z", "[", "\\", "]", CHAR5E, "_",
+                     CHAR60, "a", "b", "c", "d", "e", "f", "g",
                      "h", "i", "j", "k", "l", "m", "n", "o",
                      "p", "q", "r", "s", "t", "u", "v", "w",
-                     "x", "y", "z", "{", "|", "}", "~", _u("\u00A9"),
-                     _u('\u2003'), _u('\u259D'), _u('\u2598'), _u('\u2580'),
-                     _u('\u2597'), _u('\u2590'), _u('\u259A'), _u('\u259C'),
-                     _u('\u2596'), _u('\u259E'), _u('\u258C'), _u('\u259B'),
-                     _u('\u2584'), _u('\u259F'), _u('\u2599'), _u('\u2588'),
+                     "x", "y", "z", "{", "|", "}", "~", CHAR7F,
+                     CHAR80, CHAR81, CHAR82, CHAR83,
+                     CHAR84, CHAR85, CHAR86, CHAR87,
+                     CHAR88, CHAR89, CHAR8A, CHAR8B,
+                     CHAR8C, CHAR8D, CHAR8E, CHAR8F,
                      "^90", "^91", "^92", "^93", "^94", "^95", "^96", "^97",
                      "^98", "^99", "^9A", "^9B", "^9C", "^9D", "^9E", "^9F",
                      "^A0", "^A1", "^A2", "SPECTRUM ",
@@ -877,7 +909,9 @@ class TestImageConvert(unittest.TestCase):
 
     def test_getgiffromscreen(self):
         # get reference images
-        irReference = Image.open("screentest.gif")
+        gifdata = _getfileasbytearray("screentest.gif")
+        # can't load direct as causes ResourceWarning
+        irReference = Image.open(BytesIO(gifdata))
         refimage1 = self.imageto32bitlist(irReference)
         irReference.seek(1)
         refimage2 = self.imageto32bitlist(irReference)
@@ -918,10 +952,13 @@ class TestImageConvert(unittest.TestCase):
 
     def test_getrgbfromscreen(self):
         # get reference images
-        irReference = Image.open("screentest.gif")
+        gifdata = _getfileasbytearray("screentest.gif")
+        # can't load direct as causes ResourceWarning
+        irReference = Image.open(BytesIO(gifdata))
         refimage1 = self.imageto32bitlist(irReference)
         irReference.seek(1)
         refimage2 = self.imageto32bitlist(irReference)
+        irReference.close()
 
         gifscreen = spectrumtranslate.getrgbfromscreen(
             _getfileasbytearray("screentest.dat"), alphamask=0)
@@ -952,7 +989,7 @@ class TestImageConvert(unittest.TestCase):
         self.assertEqual(type(gifscreen[1][0]), list)
         self.assertEqual(len(gifscreen[1][0]), 4)
         # compare images now
-        irReference.seek(0)
+        irReference = Image.open(BytesIO(gifdata))
         refimage1 = [list(x) for x in irReference.convert("RGBA").getdata()]
         irReference.seek(1)
         refimage2 = [list(x) for x in irReference.convert("RGBA").getdata()]
@@ -974,7 +1011,7 @@ class TestImageConvert(unittest.TestCase):
         self.assertEqual(type(gifscreen[1][0]), list)
         self.assertEqual(len(gifscreen[1][0]), 3)
         # compare images now
-        irReference.seek(0)
+        irReference = Image.open(BytesIO(gifdata))
         refimage1 = [list(x) for x in irReference.convert("RGB").getdata()]
         irReference.seek(1)
         refimage2 = [list(x) for x in irReference.convert("RGB").getdata()]
@@ -1084,8 +1121,8 @@ data"""
         # 1 line
         self.assertEqual([ord(x) for x in text[:3]], [0, 4, 1])
         # check text
-        self.assertEqual(text[3:],
-                         _u('4000    DM  "ABC\u00A9"^16^00^00"12"\n'))
+        self.assertEqual(
+            text[3:], '4000    DM  "ABC' + CHAR7F + '"^16^00^00"12"\n')
 
     def test_numbertostring(self):
         self.assertEqual(spectrumtranslate._numbertostring(256, 16, 0, False),
@@ -2136,11 +2173,11 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 0F%V0E%)%(%I%(%(%?EQ%V000001%?BA%(%?LT%MV0F0020%?BO%(%?MT%MV0F007F%?BA%?LT%MV0\
 F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 0F0080%)%)%)%)%("%X03000001%V00%)%C0F%)%I%(%?EQ%V000001%)%("%)"""]],
-             [_u("""ORG #4000
+             ['''ORG #4000
 
-4000    DM  "COPY A\u00A9"
+4000    DM  "COPY A''' + CHAR7F + '''"
 
-"""),
+''',
               """ORG #4000
 
 4000    DM  "^FFA^7F"
@@ -2962,7 +2999,7 @@ formatting errors:\n" + output)
 
 class Test2_3compatibility(unittest.TestCase):
     def run2to3(self, py_file, errignore, stdoutignore):
-        p = subprocess.Popen(["/usr/bin/2to3", py_file],
+        p = subprocess.Popen(cmd2to3 + [py_file],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
 
@@ -2971,7 +3008,9 @@ class Test2_3compatibility(unittest.TestCase):
         if(len(output) > 0 and isinstance(output[0], bytes)):
             output = [x.decode("utf-8") for x in output]
         refactorignore = ["--- " + py_file + " (original)",
-                          "+++ " + py_file + " (refactored)"]
+                          "+++ " + py_file + " (refactored)",
+                          "--- " + py_file + "\t(original)",
+                          "+++ " + py_file + "\t(refactored)"]
         output = "\n".join([x for x in output if x not in refactorignore])
         # split into diffs
         chunks = re.compile(
@@ -2997,15 +3036,21 @@ but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
         errignore += [
             "AssertionError: {0} 2to3 check had errors:".format(py_file),
             "RefactoringTool: Skipping implicit fixer: buffer",
+            "RefactoringTool: Skipping optional fixer: buffer",
             "RefactoringTool: Skipping implicit fixer: idioms",
+            "RefactoringTool: Skipping optional fixer: idioms",
             "RefactoringTool: Skipping implicit fixer: set_literal",
+            "RefactoringTool: Skipping optional fixer: set_literal",
             "RefactoringTool: Skipping implicit fixer: ws_comma",
+            "RefactoringTool: Skipping optional fixer: ws_comma",
             "RefactoringTool: Refactored {0}".format(py_file),
             "RefactoringTool: Files that need to be modified:",
             "RefactoringTool: {0}".format(py_file),
             "RefactoringTool: No changes to {0}".format(py_file)]
 
         error = [x for x in error if x not in errignore]
+        error = [x for x in error if x.find(
+            ": Generating grammar tables from ") == -1]
 
         return output, "".join(error)
 
@@ -3106,8 +3151,9 @@ class Testcommandline(unittest.TestCase):
 
     def test_basic(self):
         self.assertEqual(self.runtest("basic basictest.dat temp.txt", ""), "")
-        self.assertEqual(_getfile("temp.txt"), _u("""\
-10 REM ^16^00^00\u259c^11^05\u2597^11^03hello123^11^01^10^05^11^06
+        self.assertEqual(_getfile("temp.txt"), """\
+10 REM ^16^00^00""" + CHAR87 + """^11^05""" + CHAR84 + """^11^03hello123^11^01\
+^10^05^11^06
 15 PRINT ^10^00^11^07"80"
 20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
 
@@ -3124,8 +3170,9 @@ d$[2][2]={
 }
 FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
 z$="testing"
-"""))
-        self.assertEqual(self.runtest("basic -o -a basictest.dat", ""), _u("""\
+""")
+        # 2to3 will complain but won't cause problems in real life
+        self.assertEqual(self.runtest("basic -o -a basictest.dat", ""), """\
 10 REM ^16^00^00^87^11^05^84^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
 20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
@@ -3143,11 +3190,12 @@ d$[2][2]={
 }
 FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
 z$="testing"
-"""))
-        self.assertEqual(self.runtest("basic -o -s 10 basictest.dat", ""),
-                         _u("""\
+""")
+        self.assertEqual(self.runtest(
+            "basic -o -s 10 basictest.dat", ""), """\
 Autostart at line:10
-10 REM ^16^00^00\u259c^11^05\u2597^11^03hello123^11^01^10^05^11^06
+10 REM ^16^00^00""" + CHAR87 + """^11^05""" + CHAR84 + """^11^03hello123^11^01\
+^10^05^11^06
 15 PRINT ^10^00^11^07"80"
 20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
 
@@ -3164,16 +3212,17 @@ d$[2][2]={
 }
 FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
 z$="testing"
-"""))
-        self.assertEqual(self.runtest("basic -o --xml basictest.dat", ""),
-                         _u("""\
+""")
+        self.assertEqual(self.runtest(
+            "basic -o --xml basictest.dat", ""), """\
 <?xml version="1.0" encoding="UTF-8" ?>
 <basiclisting>
   <line>
     <linenumber>10</linenumber>
     <instruction>
       <keyword>REM</keyword>
-      <argument>^16^00^00\u259C^11^05\u2597^11^03hello123^11^01^10^05^11^06</argument>
+      <argument>^16^00^00""" + CHAR87 + """^11^05""" + CHAR84 + """^11^03hello\
+123^11^01^10^05^11^06</argument>
     </instruction>
   </line>
   <line>
@@ -3257,9 +3306,9 @@ z$="testing"
     </variable>
   </variables>
 </basiclisting>
-"""))
-        self.assertEqual(self.runtest("basic -o --xml -s 10 basictest.dat",
-                                      ""), _u("""\
+""")
+        self.assertEqual(self.runtest(
+            "basic -o --xml -s 10 basictest.dat", ""), """\
 <?xml version="1.0" encoding="UTF-8" ?>
 <basiclisting>
   <autostart>10</autostart>
@@ -3267,7 +3316,8 @@ z$="testing"
     <linenumber>10</linenumber>
     <instruction>
       <keyword>REM</keyword>
-      <argument>^16^00^00\u259C^11^05\u2597^11^03hello123^11^01^10^05^11^06</argument>
+      <argument>^16^00^00""" + CHAR87 + """^11^05""" + CHAR84 + """^11^03hello\
+123^11^01^10^05^11^06</argument>
     </instruction>
   </line>
   <line>
@@ -3351,7 +3401,7 @@ z$="testing"
     </variable>
   </variables>
 </basiclisting>
-"""))
+""")
 
         # tidy up
         os_remove("temp.txt")
@@ -3360,16 +3410,16 @@ z$="testing"
         def _listtostring(b):
             return bytearray(b).decode('latin-1')
 
-        self.assertEqual(self.runtest("text -i -o",
-                                      '\x7F\x60\x5E\x01\x41\x80\xFF'),
-                         _u('\xA9\xA3\u2191^01A\u2003COPY '))
+        self.assertEqual(self.runtest(
+            "text -i -o", '\x7F\x60\x5E\x01\x41\x80\xFF'),
+            CHAR7F + CHAR60 + CHAR5E + '^01A' + CHAR80 + 'COPY ')
         self.assertEqual(self.runtest("text -i temp.txt", _listtostring(
             [0x7F, 0x60, 0x5E, 0x01, 0x41, 0x80, 0xFF])), "")
         self.assertEqual(_getfile("temp.txt"),
-                         _u('\xA9\xA3\u2191^01A\u2003COPY '))
+                         CHAR7F + CHAR60 + CHAR5E + '^01A' + CHAR80 + 'COPY ')
         self.assertEqual(self.runtest("text -i -o -a", _listtostring(
             [0x7F, 0x60, 0x5E, 0x01, 0x41, 0x80, 0xFF])),
-                         _u('^7F^60^5E^01A^80^FF'))
+                         '^7F^60^5E^01A^80^FF')
         self.assertEqual(self.runtest("text -o -a -k 0x1F -l 4 \
 arraytest_char.tap", ""), 'test')
 
@@ -3390,27 +3440,25 @@ arraytest_number.dat temp.txt", ""), "")
         self.assertEqual(self.runtest("array -t 0x98 -d -o \
 arraytest_number.dat ", ""), "2")
 
-        self.assertEqual(self.runtest("array -t 0xC0 -i -o",
-                                      "\x02\x02\x00\x01\x00\xFF\x7F"),
-                         _u("""{
+        self.assertEqual(self.runtest(
+            "array -t 0xC0 -i -o", "\x02\x02\x00\x01\x00\xFF\x7F"), '''{
   "COPY ",
-  "\u00A9"
-}"""))
+  "''' + CHAR7F + '''"
+}''')
 
-        self.assertEqual(self.runtest("array -t 0xC0 -i -o -a",
-                                      "\x02\x02\x00\x01\x00\xFF\x7F"),
-                         _u("""{
+        self.assertEqual(self.runtest(
+            "array -t 0xC0 -i -o -a", "\x02\x02\x00\x01\x00\xFF\x7F"), """{
   "^FF",
   "^7F"
-}"""))
+}""")
 
         self.assertEqual(self.runtest("array -t 0xC0 -i -x temp.txt",
                                       "\x02\x02\x00\x01\x00\xFF\x7F"), "")
-        self.assertEqual(_getfile("temp.txt"), _u("""\
+        self.assertEqual(_getfile("temp.txt"), """\
 <dimension>
   <string>COPY </string>
-  <string>\u00A9</string>
-</dimension>"""))
+  <string>""" + CHAR7F + """</string>
+</dimension>""")
 
         self.assertEqual(self.runtest("array -t 0xC0 -i -o -a -x",
                                       "\x02\x02\x00\x01\x00\xFF\x7F"),
@@ -3438,13 +3486,16 @@ arraytest_number.dat ", ""), "2")
 
         self.assertEqual(self.runtest("screen -g -f -1 screentest.dat \
 temp.gif", ""), "")
-        irReference = Image.open("screentest.gif")
+        gifdata = _getfileasbytearray("screentest.gif")
+        # can't load direct as causes ResourceWarning
+        irReference = Image.open(BytesIO(gifdata))
         refimage = imageto32bitlist(irReference)
         irTemp = Image.open("temp.gif")
         tempimg = imageto32bitlist(irTemp)
         self.assertEqual(refimage, tempimg, "Screen test Failed 2.")
         # ensure only 1 image
         self.assertRaises(EOFError, irTemp.seek, 2)
+        irTemp.close()
 
         irReference.seek(1)
         self.assertEqual(self.runtest("screen -g -f -2 screentest.dat \
@@ -3455,8 +3506,9 @@ temp.gif", ""), "")
         self.assertEqual(refimage1, tempimg, "Screen test Failed 3.")
         # ensure only 1 image
         self.assertRaises(EOFError, irTemp.seek, 2)
+        irTemp.close()
 
-        irReference.seek(0)
+        irReference = Image.open(BytesIO(gifdata))
         self.assertEqual(self.runtest("screen -o -f -1 screentest.dat", "",
                                       True), imagetobytearray(irReference),
                          "Screen test Failed 4.")

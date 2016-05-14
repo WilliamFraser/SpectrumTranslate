@@ -69,6 +69,13 @@ else:
     from StringIO import StringIO
 
 
+if(os.name == 'posix'):
+    cmd2to3 = ["/usr/bin/2to3"]
+elif(os.name == 'nt'):
+    cmd2to3 = [sys.executable,
+               os.path.dirname(sys.executable) + "\\Tools\\Scripts\\2to3.py"]
+
+
 def _getfile(name):
     with open(name, 'r') as f:
         return f.read()
@@ -459,6 +466,7 @@ class TestDiscipleImage(unittest.TestCase):
         di.setfile(imagefile, form="MGT")
         self.assertEqual(di.ImageSource, "File")
         self.assertEqual(di.ImageFormat, "MGT")
+        imagefile.close()
 
     def test_setfilename(self):
         di = disciplefile.DiscipleImage()
@@ -575,6 +583,7 @@ class TestDiscipleImage(unittest.TestCase):
         self.assertEqual(diff[1][0:3], [4, 2, bytearray([1] * 512)])
 
         # tidy up
+        del(di)
         os.remove("diskimagecopy.mgt")
 
         # test write to image in internal byte list
@@ -990,16 +999,18 @@ of file"])
 
 class Test2_3compatibility(unittest.TestCase):
     def run2to3(self, py_file, errignore, stdoutignore):
-        p = subprocess.Popen(["/usr/bin/2to3", py_file],
+        p = subprocess.Popen(cmd2to3 + [py_file],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
 
-        # remove refactoring info
+        # remove refactoring info and grammar table info
         output = output.splitlines()
         if(len(output) > 0 and isinstance(output[0], bytes)):
             output = [x.decode("utf-8") for x in output]
         refactorignore = ["--- " + py_file + " (original)",
-                          "+++ " + py_file + " (refactored)"]
+                          "+++ " + py_file + " (refactored)",
+                          "--- " + py_file + "\t(original)",
+                          "+++ " + py_file + "\t(refactored)"]
         output = "\n".join([x for x in output if x not in refactorignore])
         # split into diffs
         chunks = re.compile(
@@ -1025,15 +1036,21 @@ but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
         errignore += [
             "AssertionError: {0} 2to3 check had errors:".format(py_file),
             "RefactoringTool: Skipping implicit fixer: buffer",
+            "RefactoringTool: Skipping optional fixer: buffer",
             "RefactoringTool: Skipping implicit fixer: idioms",
+            "RefactoringTool: Skipping optional fixer: idioms",
             "RefactoringTool: Skipping implicit fixer: set_literal",
+            "RefactoringTool: Skipping optional fixer: set_literal",
             "RefactoringTool: Skipping implicit fixer: ws_comma",
+            "RefactoringTool: Skipping optional fixer: ws_comma",
             "RefactoringTool: Refactored {0}".format(py_file),
             "RefactoringTool: Files that need to be modified:",
             "RefactoringTool: {0}".format(py_file),
             "RefactoringTool: No changes to {0}".format(py_file)]
 
         error = [x for x in error if x not in errignore]
+        error = [x for x in error if x.find(
+            ": Generating grammar tables from ") == -1]
 
         return output, "".join(error)
 

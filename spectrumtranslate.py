@@ -1982,12 +1982,16 @@ def getspectrumchar(c, hexfornonascii=False):
         c = ord(c[0]) & 0xFF
 
     if(c == 127):
+        # 2to3 will complain but this code is python 2 & 3 compatible
         return "^7F" if hexfornonascii else _u("\u00A9")
     if(c == 96):
+        # 2to3 will complain but this code is python 2 & 3 compatible
         return "^60" if hexfornonascii else _u("\u00A3")
     if(c == 94):
+        # 2to3 will complain but this code is python 2 & 3 compatible
         return "^5E" if hexfornonascii else _u("\u2191")
     if(c >= 128 and c <= 143 and not hexfornonascii):
+        # 2to3 will complain but this code is python 2 & 3 compatible
         return (_u('\u2003'), _u('\u259D'), _u('\u2598'), _u('\u2580'),
                 _u('\u2597'), _u('\u2590'), _u('\u259A'), _u('\u259C'),
                 _u('\u2596'), _u('\u259E'), _u('\u258C'), _u('\u259B'),
