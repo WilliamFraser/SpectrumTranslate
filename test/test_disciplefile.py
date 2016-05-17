@@ -1157,6 +1157,16 @@ class Testcommandline(unittest.TestCase):
     4   Screen      14      SCREEN$
 """)
 
+        self.assertEqual(self.runtest("list -oc diskimagetest.img", ""),
+                         """\
+  pos   filename  sectors   type
+    1   BASIC test   1      BAS
+    2   Array C      1      $.ARRAY
+    3   Array X      2      D.ARRAY
+    4   Screen      14      SCREEN$
+786420 bytes free.
+""")
+
         self.assertEqual(self.runtest("list --details --listempty \
 diskimagetest.img temp.txt", ""), "")
         self.assertEqual(_getfile("temp.txt"), """\
@@ -1432,6 +1442,9 @@ entry number (should be 1 to 80).")
         # invalid index to copy & delete single or -s
         self.checkinvalidcommand("delete 80-88 in out", "[80, 81, 82, 83, 84, \
 85, 86, 87, 88] is not a valid entry number (should be 1 to 80).")
+        # invalid multiple flag
+        self.checkinvalidcommand("list -xyz in out", "-x is not a recognised \
+flag.")
 
 
 if __name__ == "__main__":

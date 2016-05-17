@@ -428,14 +428,14 @@
   <dd>specifies that both the input and output are definitions of instructions spread over multiple lines.  The instruction name or decimal code, or hexadecimal code preceded by '0x' is on the first line, the start address is on the second line (decimal or hexadecimal preceded by '0x'), the end address (either decimal or '0x' hexadecimal) is on the third line, and any data is from the fourth line onwards.</dd>
   <dt><code>--multiline</code></dt>
   <dd>same as <code>-m</code>.</dd>
-  <dt><code>-mi</code></dt>
+  <dt><code>--mi</code></dt>
   <dd>same as <code>-m</code> flag but indicates that only the input is multiline.</dd>
   <dt><code>--multilinein</code></dt>
-  <dd>same as <code>-mi</code>.</dd>
-  <dt><code>-mo</code></dt>
+  <dd>same as <code>--mi</code>.</dd>
+  <dt><code>--mo</code></dt>
   <dd>same as <code>-m</code> flag but indicates that only the output is multiline.</dd>
   <dt><code>--multilineout</code></dt>
-  <dd>same as <code>-mo</code>.</dd>
+  <dd>same as <code>--mo</code>.</dd>
   <dt><code>-n</code></dt>
   <dd>specifies that want names of instruction or data rather than code in the output.  Input will accept either instruction number, data code, instruction name, or data instruction name.</dd>
   <dt><code>--namewanted</code></dt>
@@ -469,9 +469,9 @@
   <dd>This will translate the code in code.bin and save it translated to assembly language instructions as code.txt.  For the purposes of translation, the start of the code is assumed to be 32768.</dd>
   <dt><code>python spectrumtranslate.py code -a -c f instructions.txt code.bin code.txt</code></dt>
   <dd>This will translate the code in code.bin and save it translated to assembly language instructions as code.txt.  As no start address was specified, it is assumed to be 0.  The output will be in XML.  The commands in instructions.txt will be applied to the code file as it is translated.  instructions.txt is a text file with one instruction per line.  Each line in instruction.txt is a command.  You can create them by hand, generate them from more human readable input using the instruction mode of spectrumtranslate.py or create them and save them off from the graphical interface program.  The instructions for these commands is <a href="DisassembleInstructionHelp.html">here</a>.</dd>
-  <dt><code>python spectrumtranslate.py instruction -mi -i instruction.txt</code></dt>
+  <dt><code>python spectrumtranslate.py instruction --mi -i instruction.txt</code></dt>
   <dd>This will convert a multiline command from the standard input (keyboard most often), and save it to instruction.txt file.  This will wait for the user to type in a disassembler instruction, followed by enter, then the start address in decimal or 0x prefixed hexadecimal followed by enter, followed by the then end address and enter.  Any aditional code for specialised commands can be added afterwards on as many lines as you want.  Use CTRL-D to end input of the code.</dd>
-  <dt><code>python spectrumtranslate.py instruction -o -n -mo instruction.txt</code></dt>
+  <dt><code>python spectrumtranslate.py instruction -o -n --mo instruction.txt</code></dt>
   <dd>This will output the instructions held in the instruction.txt file to the standard output (usually the screen) with the instruction in human readable form.</dd>
 </dl>
 

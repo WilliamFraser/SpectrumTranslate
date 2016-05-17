@@ -627,6 +627,12 @@ class Testcommandline(unittest.TestCase):
 0\tHeadder\tBASIC     \tProgram\t190\t0\t78
 1\tData\t255\t190
 """)
+
+        self.assertEqual(self.runtest("list -od basictest.tap", ""), """\
+0\tHeadder\tBASIC     \tProgram\t190\t0\t78
+1\tData\t255\t190
+""")
+
         # tidy up
         os.remove("temp.txt")
 
@@ -837,6 +843,9 @@ the source data.")
         self.checkinvalidcommand("copy 88 screentest.tap out",
                                  "88 is greater than the number of entries in \
 the source data.")
+        # invalid multiple flag
+        self.checkinvalidcommand("list -xyz in out", "-x is not a recognised \
+flag.")
 
 
 if __name__ == "__main__":

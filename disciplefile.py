@@ -1665,10 +1665,10 @@ def usage():
     -c specifies that after the listing is complete you want the number
        of bytes free on the disk to be displayed on a new line.
     --capacity same as -c.
-    -ck same as -c but number of free K on disk is listed.  If the
+    --ck same as -c but number of free K on disk is listed.  If the
         number seems odd then remember that only 510 bytes can be fitted
         in per sector.
-    -cs same as -c but number of free sectors on disk is listed.
+    --cs same as -c but number of free sectors on disk is listed.
 
     copy flags:
     -p specifies the positions where you want to copy the file entries
@@ -1800,12 +1800,17 @@ screen.')
             creating = arg
             continue
 
-        if(arg == '-filename' or arg == '--filename'):
+        # chack for multiple flags in one arg and split them
+        if(arg[0] == '-' and len(arg) > 2 and arg[1] != '-'):
+            args = args[0:i] + ['-' + x for x in arg[1:]] + args[i + 1:]
+            arg = args[i]
+
+        if(arg == '--filename'):
             i += 1
             creatingfilename = spectrumtranslate.stringtospectrum(args[i])
             continue
 
-        if(arg == '-autostart' or arg == '--autostart'):
+        if(arg == '--autostart'):
             i += 1
             try:
                 creatingautostart = getint(args[i])
@@ -1815,7 +1820,7 @@ screen.')
                 raise spectrumtranslate.SpectrumTranslateError(
                     '{0} is not a valid autostart number.'.format(args[i]))
 
-        if(arg == '-variableoffset' or arg == '--variableoffset'):
+        if(arg == '--variableoffset'):
             i += 1
             try:
                 creatingvariableoffset = getint(args[i])
@@ -1825,12 +1830,11 @@ screen.')
                 raise spectrumtranslate.SpectrumTranslateError(
                     '{0} is not a valid variable offset.'.format(args[i]))
 
-        if(arg == '-donotoverwriteexisting' or
-           arg == '--donotoverwriteexisting'):
+        if(arg == '--donotoverwriteexisting'):
             creatingoverwritename = False
             continue
 
-        if(arg == '-origin' or arg == '--origin'):
+        if(arg == '--origin'):
             i += 1
             try:
                 creatingorigin = getint(args[i])
@@ -1845,7 +1849,7 @@ screen.')
                     '{0} is not a valid code origin.'.format(args[i]))
                 break
 
-        if(arg == '-arraytype' or arg == '--arraytype'):
+        if(arg == '--arraytype'):
             i += 1
             if(args[i] == 'character' or args[i] == 'c'):
                 creatingarraytype = 192
@@ -1863,7 +1867,7 @@ screen.')
                 raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
 valid array type (must be character, number or string).'.format(args[i]))
 
-        if(arg == '-arrayname' or arg == '--arrayname'):
+        if(arg == '--arrayname'):
             i += 1
             creatingarrayname = args[i]
             if(len(creatingarrayname) == 1 and
@@ -1874,44 +1878,37 @@ valid array type (must be character, number or string).'.format(args[i]))
                 '{0} is not a valid variable name.'.format(args[i]))
             break
 
-        if(arg == '-i' or arg == '-fromstandardinput' or arg == '--i' or
-           arg == '--fromstandardinput'):
+        if(arg == '-i' or arg == '--fromstandardinput'):
             fromstandardinput = True
             continue
 
-        if(arg == '-o' or arg == '-tostandardoutput' or arg == '--o' or
-           arg == '--tostandardoutput'):
+        if(arg == '-o' or arg == '--tostandardoutput'):
             tostandardoutput = True
             continue
 
-        if(arg == '-d' or arg == '-details' or arg == '--d' or
-           arg == '--details'):
+        if(arg == '-d' or arg == '--details'):
             wantdetails = True
             continue
 
-        if(arg == '-l' or arg == '-listempty' or arg == '--l' or
-           arg == '--listempty'):
+        if(arg == '-l' or arg == '--listempty'):
             listempty = True
             continue
 
-        if(arg == '-c' or arg == '-capacity' or arg == '--c' or
-           arg == '--capacity'):
+        if(arg == '-c' or arg == '--capacity'):
             wantdiskcapacity = True
             continue
 
-        if(arg == '-cs' or arg == '--cs'):
+        if(arg == '--cs'):
             wantdiskcapacity = True
             capacityformat = "Sector"
             continue
 
-        if(arg == '-ck' or arg == '--ck'):
+        if(arg == '--ck'):
             wantdiskcapacity = True
             capacityformat = "K"
             continue
 
-        if(arg == '-s' or arg == '-specifyfiles' or
-           arg == '-specificfiles' or arg == '--s' or
-           arg == '--specifyfiles' or arg == '--specificfiles'):
+        if(arg == '-s' or arg == '--specifyfiles' or arg == '--specificfiles'):
             i += 1
             specifiedfiles = getindices(args[i])
             if(specifiedfiles is None):
@@ -1920,8 +1917,7 @@ valid array type (must be character, number or string).'.format(args[i]))
 
             continue
 
-        if(arg == '-p' or arg == '-position' or arg == '-pos' or
-           arg == '--p' or arg == '--position' or arg == '--pos'):
+        if(arg == '-p' or arg == '--position' or arg == '--pos'):
             i += 1
             copyposition = getindices(args[i])
             if(not copyposition):
@@ -1930,6 +1926,9 @@ valid index for the output file.'.format(args[i]))
             continue
 
         # have unrecognised argument.
+        if(arg[0] == '-' or arg[0:2] == '--'):
+            raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
+recognised flag.'.format(arg))
 
         # check if is what entry we want to extract
         if(mode == 'extract' and entrywanted is None):

@@ -7804,10 +7804,10 @@ instruction flags:
     the end address (either decimal or '0x' hexadecimal) is on the third
     line, and any data is from the fourth line onwards.
 --multiline same as -m.
--mi same as -m flag but indicates that only the input is multiline.
---multilinein same as -mi.
--mo same as -m flag but indicates that only the output is multiline.
---multilineout same as -mo.
+--mi same as -m flag but indicates that only the input is multiline.
+--multilinein same as --mi.
+--mo same as -m flag but indicates that only the output is multiline.
+--multilineout same as --mo.
 -n  specifies that want names of instruction or data rather than code in the
     output.  Input will accept either instruction number, data code,
     instruction name, or data instruction name.
@@ -7865,11 +7865,16 @@ def _commandline(args):
             raise SpectrumTranslateError('No translateing mode (basic, code, \
 screen, array, text, or instruction) specified.')
 
-        if(arg == '-x' or arg == '-xml' or arg == '--x' or arg == '--xml'):
+        # chack for multiple flags in one arg and split them
+        if(arg[0] == '-' and len(arg) > 2 and arg[1] != '-'):
+            args = args[0:i] + ['-' + x for x in arg[1:]] + args[i + 1:]
+            arg = args[i]
+
+        if(arg == '-x' or arg == '--xml'):
             xml = True
             continue
 
-        if(arg == '-s' or arg == '-start' or arg == '--s' or arg == '--start'):
+        if(arg == '-s' or arg == '--start'):
             try:
                 i += 1
                 start = getint(args[i])
@@ -7878,8 +7883,7 @@ screen, array, text, or instruction) specified.')
                 raise SpectrumTranslateError(
                     "Missing or invalid autostart line number.")
 
-        if(arg == '-v' or arg == '-variableoffset' or arg == '--v' or
-           arg == '--variableoffset'):
+        if(arg == '-v' or arg == '--variableoffset'):
             try:
                 i += 1
                 varoff = getint(args[i])
@@ -7888,7 +7892,7 @@ screen, array, text, or instruction) specified.')
                 raise SpectrumTranslateError(
                     "Missing or invalid offset to variables.")
 
-        if(arg == '-t' or arg == '-type' or arg == '--t' or arg == '--type'):
+        if(arg == '-t' or arg == '--type'):
             try:
                 i += 1
                 opt = args[i]
@@ -7918,27 +7922,23 @@ number, character, or string.")
                 raise SpectrumTranslateError(
                     "Missing or invalid array description.")
 
-        if(arg == '-d' or arg == '-dimensions' or arg == '--d' or
-           arg == '--dimensions'):
+        if(arg == '-d' or arg == '--dimensions'):
             wantarraydimensions = True
             continue
 
-        if(arg == '-i' or arg == '-fromstandardinput' or arg == '--i' or
-           arg == '--fromstandardinput'):
+        if(arg == '-i' or arg == '--fromstandardinput'):
             fromstandardinput = True
             continue
 
-        if(arg == '-o' or arg == '-tostandardoutput' or arg == '--o' or
-           arg == '--tostandardoutput'):
+        if(arg == '-o' or arg == '--tostandardoutput'):
             tostandardoutput = True
             continue
 
-        if(arg == '-h' or arg == '-help' or arg == '--h' or arg == '--help'):
+        if(arg == '-h' or arg == '--help'):
             mode = 'help'
             break
 
-        if(arg == '-f' or arg == '-flashrate' or arg == '--f' or
-           arg == '--flashrate'):
+        if(arg == '-f' or arg == '--flashrate'):
             try:
                 i += 1
                 flashrate = getint(args[i])
@@ -7947,12 +7947,11 @@ number, character, or string.")
                 raise SpectrumTranslateError(
                     "Missing or invalid image flash rate.")
 
-        if(arg == '-g' or arg == '-gif' or arg == '--g' or arg == '--gif'):
+        if(arg == '-g' or arg == '--gif'):
             imageFormat = "GIF"
             continue
 
-        if(arg == '-b' or arg == '-baseaddress' or arg == '-base' or
-           arg == '--b' or arg == '--baseaddress' or arg == '--base'):
+        if(arg == '-b' or arg == '--baseaddress' or arg == '--base'):
             try:
                 i += 1
                 baseaddress = getint(args[i])
@@ -7961,8 +7960,7 @@ number, character, or string.")
                 raise SpectrumTranslateError(
                     "Missing or invalid base code address.")
 
-        if(arg == '-c' or arg == '-commands' or arg == '--c' or
-           arg == '--commands'):
+        if(arg == '-c' or arg == '--commands'):
             try:
                 i += 1
                 if(args[i] != 'f' and args[i] != 's' and args[i] != 'si'):
@@ -7982,28 +7980,24 @@ source descriptor for special instructions.")
                 raise SpectrumTranslateError(
                     "Missing or invalid commands information.")
 
-        if(arg == '-m' or arg == '-multiline' or arg == '--m' or
-           arg == '--multiline'):
+        if(arg == '-m' or arg == '--multiline'):
             multilinein = True
             multilineout = True
             continue
 
-        if(arg == '-mi' or arg == '-multilinein' or arg == '--mi' or
-           arg == '--multilinein'):
+        if(arg == '--mi' or arg == '--multilinein'):
             multilinein = True
             continue
 
-        if(arg == '-mo' or arg == '-multilineout' or arg == '--mo' or
-           arg == '--multilineout'):
+        if(arg == '--mo' or arg == '--multilineout'):
             multilineout = True
             continue
 
-        if(arg == '-n' or arg == '-namewanted' or arg == '--n' or
-           arg == '--namewanted'):
+        if(arg == '-n' or arg == '--namewanted'):
             wantinstructionname = True
             continue
 
-        if(arg == '-a' or arg == '-ascii' or arg == '--a' or arg == '--ascii'):
+        if(arg == '-a' or arg == '--ascii'):
             hexfornonascii = True
             continue
 
@@ -8016,8 +8010,7 @@ source descriptor for special instructions.")
                 raise SpectrumTranslateError(
                     "Missing or invalid number of bytes to skip.")
 
-        if(arg == '-l' or arg == '-len' or arg == '-length' or arg == '--l' or
-           arg == '--len' or arg == '--length'):
+        if(arg == '-l' or arg == '--len' or arg == '--length'):
             try:
                 i += 1
                 usebytes = getint(args[i])
@@ -8027,6 +8020,10 @@ source descriptor for special instructions.")
                     "Missing or invalid bytes length number.")
 
         # have unrecognised argument.
+        if(arg[0] == '-' or arg[0:2] == '--'):
+            raise SpectrumTranslateError(
+                '{0} is not a recognised flag.'.format(arg))
+
         # check if is input or output file
         # will be inputfile if not already defined, and
         # fromstandardinput is False

@@ -3432,7 +3432,7 @@ temp.txt", ""), "")
         self.assertEqual(_getfile("temp.txt"), spectrumtranslate.arraytotext(
             _getfileasbytearray("arraytest_number.dat"), 0x98))
 
-        self.assertEqual(self.runtest("array -t 0x98 -xml \
+        self.assertEqual(self.runtest("array -t 0x98 --xml \
 arraytest_number.dat temp.txt", ""), "")
         self.assertEqual(_getfile("temp.txt"), spectrumtranslate.arraytoxml(
             _getfileasbytearray("arraytest_number.dat"), 0x98))
@@ -3532,21 +3532,21 @@ temp.gif", ""), "")
 0000  21,12,34     LD HL,#3412
 """)
 
-        self.assertEqual(self.runtest("code -i -o -base 0x4000",
+        self.assertEqual(self.runtest("code -i -o --base 0x4000",
                                       "\x21\x12\x34"),
                          """ORG #4000
 
 4000  21,12,34     LD HL,#3412
 """)
 
-        self.assertEqual(self.runtest("code -i -o -b 32768",
+        self.assertEqual(self.runtest("code -io -b 32768",
                                       "\x21\x12\x34"),
                          """ORG #8000
 
 8000  21,12,34     LD HL,#3412
 """)
 
-        self.assertEqual(self.runtest("code -i -o --xml",
+        self.assertEqual(self.runtest("code -io --xml",
                                       "\x21\x12\x34"),
                          """\
 <?xml version="1.0" encoding="UTF-8" ?>
@@ -3572,29 +3572,29 @@ code.dat temp.txt", ""), "")
     def test_instruction(self):
         self.assertEqual(self.runtest("instruction -i -o", "0100#0000#FFFF##",
                                       avoidbuffer=True), "100#0#FFFF#")
-        self.assertEqual(self.runtest("instruction -i -o -mo",
+        self.assertEqual(self.runtest("instruction -i -o --mo",
                                       "0100#0000#FFFF##", avoidbuffer=True),
                          "100\n0\nFFFF\n")
         self.assertEqual(self.runtest("instruction -i -o -n",
                                       "0100#0000#FFFF##", avoidbuffer=True),
                          "100#0#FFFF#")
-        self.assertEqual(self.runtest("instruction -i -o -mo -n",
+        self.assertEqual(self.runtest("instruction -i -o --mo -n",
                                       "0100#0000#FFFF##", avoidbuffer=True),
                          "Address Output Format Hex\n0\nFFFF\n")
-        self.assertEqual(self.runtest("instruction -i -o -mi",
+        self.assertEqual(self.runtest("instruction -i -o --mi",
                                       "Address Output Format Hex\n0\n0xFFFF",
                                       avoidbuffer=True), "100#0#FFFF#")
-        self.assertEqual(self.runtest("instruction -i -o -mi",
+        self.assertEqual(self.runtest("instruction -i -o --mi",
                                       "256\n0\n65535", avoidbuffer=True),
                          "100#0#FFFF#")
         self.assertEqual(self.runtest("instruction -i -o -m",
                                       "Address Output Format Hex\n0\n0xFFFF",
                                       avoidbuffer=True), "100\n0\nFFFF\n")
-        self.assertEqual(self.runtest("instruction -i -o -mi",
+        self.assertEqual(self.runtest("instruction -i -o --mi",
                                       "512\n0\n65535\nHello\nTest",
                                       avoidbuffer=True),
                          "200#0#FFFF#5#HelloTest")
-        self.assertEqual(self.runtest("instruction -i -o -mo",
+        self.assertEqual(self.runtest("instruction -i -o --mo",
                                       "200#0#FFFF#5#HelloTest",
                                       avoidbuffer=True),
                          "200\n0\nFFFF\nHello\nTest")
@@ -3658,6 +3658,9 @@ source descriptor for special instructions.")
                                  "Missing or invalid bytes length number.")
         self.checkinvalidcommand("code -l 200 -o code.dat",
                                  'Invalid length value.')
+        # invalid multiple flag
+        self.checkinvalidcommand("code -yz in out", "-y is not a recognised \
+flag.")
 
 
 if __name__ == "__main__":
