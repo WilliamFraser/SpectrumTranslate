@@ -4294,17 +4294,6 @@ def main(fileToOpen=None):
 
     sftGUI = SpectrumFileTranslateGUI(fileToOpen)
 
-    # todo remove once debugging complete
-    # sftGUI = SpectrumFileTranslateGUI('/home/william/RR.tap/REBRAID1.TAP')
-    # sftGUI = SpectrumFileTranslateGUI("/home/william/java/tap reader/01.img")
-
-    # todo remove once debugging complete
-    # move screen to right for debugging
-    screen = QtGui.QDesktopWidget().screenGeometry()
-    mysize = sftGUI.geometry()
-    hpos = screen.width() - mysize.width()
-    sftGUI.move(hpos, 0)
-
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
