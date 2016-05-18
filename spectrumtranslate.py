@@ -2187,7 +2187,15 @@ def getgiffromscreen(data, delay=320):
         def __init__(self, data):
             # remember screen we're encodeing
             self.data = data
-            self.out = []
+            self.out = [0] * 10000
+            self.pout = 0
+
+        def OutAdd(self, x):
+            xlen = len(x)
+            if(xlen + self.pout > len(self.out)):
+                self.out += [0] * 10000
+            self.out[self.pout: self.pout + xlen] = x
+            self.pout += xlen
 
         def PutImageAsGif(self, bFlash, delay, bFirst):
             """this method outputs an image to the supplied stream."""
@@ -2337,8 +2345,7 @@ def getgiffromscreen(data, delay=320):
                 self.output_cuePointer += 1
                 # if cue full, then output it
                 if(self.output_cuePointer == 255):
-                    self.out += [0xFF]
-                    self.out += self.cue
+                    self.OutAdd([0xFF] + self.cue)
                     self.output_cuePointer = 0
 
                 self.output_cue >>= 8
@@ -2346,8 +2353,8 @@ def getgiffromscreen(data, delay=320):
 
             # if still bits in cue
             if(self.output_cuePointer > 0):
-                self.out += [self.output_cuePointer]
-                self.out += self.cue[0:self.output_cuePointer]
+                self.OutAdd([self.output_cuePointer] +
+                            self.cue[0:self.output_cuePointer])
 
         def GetPixelColour(self, x, y, bFlash):
             """
@@ -2389,10 +2396,8 @@ def getgiffromscreen(data, delay=320):
                 self.output_cuePointer += 1
                 # if buffer full, output them to stream
                 if(self.output_cuePointer == 255):
-                    # block headder
-                    self.out += [0xFF]
-                    # output cue
-                    self.out += self.cue
+                    # block headder & cue
+                    self.OutAdd([0xFF] + self.cue)
                     # reset byte cue pointer
                     self.output_cuePointer = 0
 
@@ -2403,15 +2408,15 @@ def getgiffromscreen(data, delay=320):
 
         # output 2 byte word
         def PutWord(self, w):
-            self.out += [w & 0xff, (w >> 8) & 0xff]
+            self.OutAdd([w & 0xff, (w >> 8) & 0xff])
 
         # output string
         def PutString(self, s):
-            self.out += [ord(x) for x in s]
+            self.OutAdd([ord(x) for x in s])
 
         # output single byte
         def PutByte(self, b):
-            self.out += [b]
+            self.OutAdd([b])
 
     # end of private class
 
@@ -2426,13 +2431,7 @@ def getgiffromscreen(data, delay=320):
     bFlash = False
 
     # is there a flash flag set in the colour area?
-    i = 0x1800
-    while(i < 0x1B00):
-        if(data[i] >= 0x80):
-            bFlash = True
-            break
-
-        i += 1
+    bFlash = any(i > 0x7F for i in data[0x1800:0x1B00])
 
     # create object to encode gif data
     ges = _gif_encoder_stream(data)
@@ -2474,7 +2473,7 @@ def getgiffromscreen(data, delay=320):
     # gif trailer
     ges.PutByte(0x3b)
 
-    return bytearray(ges.out)
+    return bytearray(ges.out[:ges.pout])
 
 
 def getrgbfromscreen(data, alphamask=0xFF, imageformat=0):
@@ -2524,14 +2523,7 @@ def getrgbfromscreen(data, alphamask=0xFF, imageformat=0):
 
     # calculate number of images needed: is there a flash flag set in
     # the colour area?
-    bFlash = False
-    i = 0x1800
-    while(i < 0x1B00):
-        if(data[i] >= 0x80):
-            bFlash = True
-            break
-
-        i += 1
+    bFlash = any(i > 0x7F for i in data[0x1800:0x1B00])
 
     image1 = []
     for y in range(192):
