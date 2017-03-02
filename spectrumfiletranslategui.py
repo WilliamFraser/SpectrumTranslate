@@ -50,13 +50,16 @@ import disciplefile
 import spectrumtranslate
 # Manage moveing of functions and renameing modules from PyQt4 to PyQt5
 try:
-    from PyQt5.QtWebKitWidgets import QWebView
+    try:
+        from PyQt5.QtWebEngineWidgets import QWebEngineView as QWebView
+    except:
+        from PyQt5.QtWebKitWidgets import QWebView
     from PyQt5 import QtCore
     from PyQt5.QtGui import (QColor, QStandardItemModel, QStandardItem,
                              QPainter, QFont, QPen)
     from PyQt5.QtCore import QItemSelectionModel
     import PyQt5.QtWidgets as QtGui
-except:
+except ImportError:
     from PyQt4.QtWebKit import QWebView
     from PyQt4 import QtGui, QtCore
     from PyQt4.QtGui import (QColor, QStandardItemModel, QStandardItem,
