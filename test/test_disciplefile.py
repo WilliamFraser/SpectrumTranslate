@@ -643,16 +643,15 @@ class TestDiscipleImage(unittest.TestCase):
     def test_isimagevalid(self):
         di = disciplefile.DiscipleImage()
         # ensure fails with undefined source
-        self.assertFalse(di.isimagevalid())
+        self.assertEqual(di.isimagevalid(), (False, "No image source defined"))
         # ensure fails with unknown format
-        di.ImageSource = "Bytes"
-        self.assertFalse(di.isimagevalid())
+        di.setbytes([1] * 819200)
+        self.assertEqual(di.isimagevalid(), (False, "Can't work out image \
+format"))
         # ensure fails with wrong byte size
         di.setbytes([1])
-        self.assertFalse(di.isimagevalid())
-        # ensure fails with bad data
-        di.setbytes([1] * 819200)
-        self.assertFalse(di.isimagevalid())
+        self.assertEqual(di.isimagevalid(), (False, "Image wrong size for 2 \
+sided, 80 track, 10 sector per track, 512 byte sector image."))
 
         # create memory copy to play with
         fi = open("diskimagetest.mgt", "rb")
@@ -662,39 +661,48 @@ class TestDiscipleImage(unittest.TestCase):
         di.setbytes(imagedata)
 
         # ensure known valid image works
-        self.assertTrue(di.isimagevalid())
+        self.assertEqual(di.isimagevalid(), (True, None))
 
         # now break image and test
         # have incorrect file type
         sector = di.getsector(0, 1)
         di.writesector(bytearray([12]) + sector[1:], 0, 1)
-        self.assertFalse(di.isimagevalid())
+        self.assertEqual(di.isimagevalid(), (False, "Contains invalid filetype \
+in directory entry number 1"))
         # corrupt FAT table
         di.writesector(sector[:271] + bytearray([3]) + sector[272:], 0, 1)
-        self.assertFalse(di.isimagevalid())
+        self.assertEqual(di.isimagevalid(), (False, "File Allocation Tables \
+overlap"))
         # sector not matching sectors owned
         di.writesector(sector[:15] + bytearray([2]) + sector[16:], 0, 1)
-        self.assertFalse(di.isimagevalid())
+        self.assertEqual(di.isimagevalid(), (False, "Contains file (number 1) \
+where used sector doesn't match FAT table entries"))
         # sector map not matching number of sectors used
-        di.writesector(sector[:15] + bytearray([3]) + sector[16:], 0, 1)
-        self.assertFalse(di.isimagevalid())
+        di.writesector(sector[:12] + bytearray([2]) + sector[13:], 0, 1)
+        self.assertEqual(di.isimagevalid(), (False, "Contains file (number 1) \
+where number of sectors do not match number of sectors in FAT"))
         # number of sectors not matching file size
         di.writesector(sector[:212] + bytearray([10, 10]) + sector[214:], 0, 1)
-        self.assertFalse(di.isimagevalid())
+        self.assertEqual(di.isimagevalid(), (False, "Contains file (number 1) \
+that is the wrong length for number of sectors used"))
         # premature file chain end
         di.writesector(sector, 0, 1)
         di.writesector([0] * 512, 4, 5)
-        self.assertFalse(di.isimagevalid(True))
+        self.assertEqual(di.isimagevalid(True), (False, "Contains file (number \
+4) where sector chain terminates early"))
         # invalid sector in file chain
         di.writesector([0] * 510 + [255, 255], 4, 5)
-        self.assertFalse(di.isimagevalid(True))
+        self.assertEqual(di.isimagevalid(True), (False, "Contains file (number \
+4) with invalid sector reference in chain"))
         # sector in file chain not owned by file
         di.writesector([0] * 510 + [4, 1], 4, 5)
-        self.assertFalse(di.isimagevalid(True))
+        self.assertEqual(di.isimagevalid(True), (False, "Contains file (number \
+4) using sector not owned by that file"))
         # track & sector of last sector in file not 0, 0
         di.writesector([0] * 510 + [4, 6], 4, 5)
         di.writesector([0] * 510 + [5, 9], 5, 8)
-        self.assertFalse(di.isimagevalid(True))
+        self.assertEqual(di.isimagevalid(True), (False, "Contains file (number \
+4) with mismatch between details and sector chain"))
 
     def test_writefile(self):
         di = disciplefile.DiscipleImage()

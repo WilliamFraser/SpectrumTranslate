@@ -827,11 +827,11 @@ class DiscipleImage:
 
         # simplest way I can think of is to try out the different formats
         self.ImageFormat = "MGT"
-        if(self.isimagevalid(True)):
+        if(self.isimagevalid(True)[0]):
             return self.ImageFormat
 
         self.ImageFormat = "IMG"
-        if(self.isimagevalid(True)):
+        if(self.isimagevalid(True)[0]):
             return self.ImageFormat
 
         self.ImageFormat = "Unknown"
@@ -970,33 +970,38 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
     def isimagevalid(self, deeptest=False):
         """
         This method will go through all the file entries in an image and
-        ensure they have propper values, and that sectors don't overlap.
+        ensure they have proper values, and that sectors don't overlap.
         N.B. this might return False for an image that works in real
         life (like hidden sectors in the FAT table that aren't in the
         file chain).
         if deeptest is True, then will go through each track and sector
         of a file ensureing that it matches the FAT. This will involve
         loading lots of sectors and may take some time.
+        This returns True for a valid image, or False for an invalid one,
+        and either None if valid, or a message detailing the problem with
+        the image.
         """
 
         # check image source
         if(self.ImageSource == "Undefined"):
-            return False
-
-        if(self.ImageFormat == "Unknown"):
-            self.guessimageformat()
-            if(self.ImageFormat == "Unknown"):
-                return False
+            return False, "No image source defined"
 
         # todo handle non 80 track, 2 sided disks
         # for now just say not valid
         if(self.ImageSource == "Bytes" and (not hasattr(self, "bytedata") or
            len(self.bytedata) != 819200)):
-            return False
+            return False, "Image wrong size for 2 sided, 80 track, 10 sector \
+per track, 512 byte sector image."
 
         if((self.ImageSource == "File" or self.ImageSource == "FileName") and
            fstat(self.filehandle.fileno()).st_size != 819200):
-            return False
+            return False, "Image wrong size for 2 sided, 80 track, 10 sector \
+per track, 512 byte sector image."
+
+        if(self.ImageFormat == "Unknown"):
+            self.guessimageformat()
+            if(self.ImageFormat == "Unknown"):
+                return False, "Can't work out image format"
 
         # create empty sector map
         sectorMap = bytearray(195)
@@ -1020,7 +1025,8 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                 continue
 
             if(filetype > 11):
-                return False
+                return False, "Contains invalid filetype in directory \
+entry number %d" % entry
 
             # check sector map
             sectorcount = 0
@@ -1028,7 +1034,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             for i in range(195):
                 if(sectorMap[i] & headder[headderstart + 15 + i] != 0):
                     # we have conflicting FAT entries
-                    return False
+                    return False, "File Allocation Tables overlap"
 
                 # update sector map
                 sectorMap[i] |= headder[headderstart + 15 + i]
@@ -1038,7 +1044,8 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
             # check number of sectors line up with FAT table
             if(sectorcount != headder[headderstart + 12] + 256 *
                     headder[headderstart + 11]):
-                return False
+                return False, "Contains file (number %d) where number of \
+sectors do not match number of sectors in FAT" % entry
 
             # compare file length against sectors used in FAT table for
             # length workoutable files
@@ -1076,7 +1083,8 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                 estimatedsectors = (filelen + 509) // 510
                 # now see if matches
                 if(sectorcount != estimatedsectors):
-                    return False
+                    return False, "Contains file (number %d) that is the wrong \
+length for number of sectors used" % entry
 
             # check start sector is in FAT
             startsector = headder[headderstart + 14]
@@ -1087,7 +1095,8 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                                                                  startsector)
             # check if is sector owned by this file
             if((sectorMap[o] & b) != b):
-                return False
+                return False, "Contains file (number %d) where used sector \
+doesn't match FAT table entries" % entry
 
             if(deeptest):
                 # go through file chain matching against sector map &
@@ -1108,18 +1117,21 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                 while(sectorcount > 0):
                     # have we reached early end of file?
                     if(t == 0 and s == 0):
-                        return False
+                        return False, "Contains file (number %d) where sector \
+chain terminates early" % entry
 
                     # do we have valid sector?
                     if((t & 127) > 79 or t < 4 or s < 1 or s > 10):
-                        return False
+                        return False, "Contains file (number %d) with invalid \
+sector reference in chain" % entry
 
                     # calculate offset & bit of this track & sector in
                     # sectorMap
                     o, b = self.get_offset_and_bit_from_track_and_sector(t, s)
                     # check if is sector owned by this file
                     if((sm[o] & b) != b):
-                        return False
+                        return False, "Contains file (number %d) using sector \
+not owned by that file" % entry
 
                     # remove from copy of sectorMap
                     sm[o] -= b
@@ -1137,7 +1149,8 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
 
                 # track & sector of last sector read should be 0
                 if(t != 0 and s != 0):
-                    return False
+                    return False, "Contains file (number %d) with mismatch \
+between details and sector chain" % entry
 
                 # sectorMap should now be blank, otherwise there are
                 # unused sectors.
@@ -1147,9 +1160,10 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
                 # directory entry that this file uses.
                 # Still just in case...
                 if(any(i != 0 for i in sm)):
-                    return False
+                    return False, "Contains file (number %d) with incorect FAT \
+table" % entry
 
-        return True
+        return True, None
 
     def writefile(self, headder, filedata, position=-1):
         """This method will write the supplied filedata to the disk
