@@ -42,6 +42,7 @@
 # Author: william.fraser@virgin.net
 # Date: 14th January 2015
 
+# 2to3 will complain but won't cause problems in real life
 import spectrumnumber
 import sys
 import re

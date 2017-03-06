@@ -430,11 +430,12 @@ File name: "BASIC test"
 File type: 1 = Basic
 File length: 190(BE)
 Autostart: -1
-Variable offfset: 78(4E)
+Variable offset: 78(4E)
 file details:     1   BASIC test   1      BAS
 directory entry address: T=0 S=1 offset=0
 Number of sectors used: 1
-Sector chain:  4;1(A000) 0;0""")
+Sectors in FAT: 4;1
+Sector chain: 4;1(A000) 0;0""")
         df = disciplefile.DiscipleFile(di, 4)
         self.assertEqual(df.getdisciplefiledetails(), """\
 filenumber: 4
@@ -445,7 +446,8 @@ code start address: 16384(4000)
 file details:     4   Screen      14      SCREEN$
 directory entry address: T=0 S=2 offset=256
 Number of sectors used: 14
-Sector chain:  4;5(A800) 4;6(AA00) 4;7(AC00) 4;8(AE00) 4;9(B000) 4;10(B200) \
+Sectors in FAT: 4;5 4;6 4;7 4;8 4;9 4;10 5;1 5;2 5;3 5;4 5;5 5;6 5;7 5;8
+Sector chain: 4;5(A800) 4;6(AA00) 4;7(AC00) 4;8(AE00) 4;9(B000) 4;10(B200) \
 5;1(C800) 5;2(CA00) 5;3(CC00) 5;4(CE00) 5;5(D000) 5;6(D200) 5;7(D400) \
 5;8(D600) 0;0""")
 

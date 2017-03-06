@@ -42,6 +42,7 @@
 # Author: william.fraser@virgin.net
 # Date: 14th January 2015
 
+# 2to3 will complain but won't cause problems in real life
 import spectrumtranslate
 import sys
 from os.path import isfile as _isfile
@@ -707,7 +708,7 @@ class DiscipleFile:
             self.getfilelength(headderdata))
 
         if(t == 1):  # basic
-            s += "Autostart: {0}\nVariable offfset: {1}({1:X})\n".format(
+            s += "Autostart: {0}\nVariable offset: {1}({1:X})\n".format(
                 self.getautostartline(headderdata),
                 self.getvariableoffset(headderdata))
 
@@ -727,11 +728,24 @@ class DiscipleFile:
         s += "Number of sectors used: {0}\n".format(
             self.getsectorsused(headderdata))
 
+        s += "Sectors in FAT:"
+        for i in range(0, 195):
+            if(headderdata[i + 15]):
+                l = i * 8
+                b = headderdata[i + 15]
+                while(b & 0xFF):
+                    if(b & 1):
+                        s += " {0};{1}".format(
+                            (l // 10) + (52 if (l >= 760) else 4),
+                            (l % 10) + 1)
+                    b >>= 1
+                    l += 1
+
         track = headderdata[13]
         sector = headderdata[14]
         i = self.getsectorsused(headderdata)
 
-        s += "Sector chain: "
+        s += "\nSector chain:"
         while(i > 0):
             s += " {0};{1}({2:X})".format(
                 track, sector,
