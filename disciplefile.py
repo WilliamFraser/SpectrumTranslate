@@ -747,6 +747,10 @@ class DiscipleFile:
 
         s += "\nSector chain:"
         while(i > 0):
+            if(sector < 1 or sector > 10 or track < 0 or (track & 127) > 79):
+                s += " {0};{1}(invalid sector!)".format(track, sector)
+                sector = -1
+                break
             s += " {0};{1}({2:X})".format(
                 track, sector,
                 self.image.getsectorposition(track & 127, sector, track >> 7))
@@ -755,7 +759,8 @@ class DiscipleFile:
             sector = sectordata[511]
             i -= 1
 
-        s += " {0};{1}".format(track, sector)
+        if(sector != -1):
+            s += " {0};{1}".format(track, sector)
 
         return s
 
