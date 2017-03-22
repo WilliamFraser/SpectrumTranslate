@@ -55,11 +55,14 @@ import pep8
 # imported io/StringIO later so get python version specific one
 # import modules from parent directory
 pathtemp = sys.path
-sys.path += [os.path.dirname(os.getcwd())]
+sys.path += [os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]
 import disciplefile
 import spectrumtranslate
 # restore system path
 sys.path = pathtemp
+
+# change to current directory in cae being run from elsewhere
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 if(sys.hexversion > 0x03000000):
     from io import StringIO
@@ -451,6 +454,71 @@ Sector chain: 4;5(A800) 4;6(AA00) 4;7(AC00) 4;8(AE00) 4;9(B000) 4;10(B200) \
 5;1(C800) 5;2(CA00) 5;3(CC00) 5;4(CE00) 5;5(D000) 5;6(D200) 5;7(D400) \
 5;8(D600) 0;0""")
 
+    def test_checkforfaults(self):
+        # create memory copy to play with
+        fi = open("diskimagetest.mgt", "rb")
+        imagedata = fi.read()
+        fi.close()
+        di = disciplefile.DiscipleImage()
+        di.setbytes(imagedata)
+
+        # test return ok for valid file
+        df = disciplefile.DiscipleFile(di, 1)
+        self.assertEqual(df.checkforfaults(), None)
+
+        # now break image and test
+        # have incorrect file type
+        sector = di.getsector(0, 1)
+        di.writesector(bytearray([12]) + sector[1:], 0, 1)
+        self.assertEqual(df.checkforfaults(), ["Contains invalid filetype"])
+        # corrupt FAT table
+        di.writesector(sector[:271] + bytearray([3]) + sector[272:], 0, 1)
+        self.assertIn("File Allocation Table overlaps with other file(s)",
+                      df.checkforfaults())
+        # sector map not matching number of sectors used
+        di.writesector(sector[:12] + bytearray([2]) + sector[13:], 0, 1)
+        self.assertEqual(df.checkforfaults(), ["Number of sectors do not match \
+number of sectors in FAT"])
+        # number of sectors not matching file size
+        di.writesector(sector[:212] + bytearray([10, 10]) + sector[214:], 0, 1)
+        self.assertEqual(df.checkforfaults(),
+                         ["Wrong length for number of sectors used"])
+        # sector not matching sectors owned
+        di.writesector(sector[:15] + bytearray([2]) + sector[16:], 0, 1)
+        self.assertIn("Used sectors don't match FAT table entries",
+                      df.checkforfaults())
+        # test multiple results
+        self.assertEqual(df.checkforfaults(),
+                         ['File Allocation Table overlaps with other file(s)',
+                          'Number of sectors do not match number of sectors in \
+FAT',
+                          'Wrong length for number of sectors used',
+                          "Used sectors don't match FAT table entries",
+                          'Mismatch between details and sector chain',
+                          'Incorect FAT table'])
+        # test for fast result
+        self.assertEqual(df.checkforfaults(fast=True),
+                         ["File Allocation Table overlaps with other file(s)"])
+        # premature file chain end
+        df = disciplefile.DiscipleFile(di, 4)
+        di.writesector(sector, 0, 1)
+        di.writesector([0] * 512, 4, 5)
+        self.assertEqual(df.checkforfaults(),
+                         ["Sector chain terminates early"])
+        # invalid sector in file chain
+        di.writesector([0] * 510 + [255, 255], 4, 5)
+        self.assertEqual(df.checkforfaults(),
+                         ["Invalid sector reference in chain"])
+        # sector in file chain not owned by file
+        di.writesector([0] * 510 + [4, 1], 4, 5)
+        self.assertIn("Using sector not owned by this file",
+                      df.checkforfaults())
+        # track & sector of last sector in file not 0, 0
+        di.writesector([0] * 510 + [4, 6], 4, 5)
+        di.writesector([0] * 510 + [5, 9], 5, 8)
+        self.assertEqual(df.checkforfaults(),
+                         ["Mismatch between details and sector chain"])
+
 
 class TestDiscipleImage(unittest.TestCase):
     def test_create(self):
@@ -499,6 +567,10 @@ class TestDiscipleImage(unittest.TestCase):
                          (0, 1))
         self.assertEqual(di.get_offset_and_bit_from_track_and_sector(128, 3),
                          (95, 4))
+        self.assertRaises(spectrumtranslate.SpectrumTranslateError,
+                          di.get_offset_and_bit_from_track_and_sector, 3, 1)
+        self.assertRaises(spectrumtranslate.SpectrumTranslateError,
+                          di.get_offset_and_bit_from_track_and_sector, 208, 1)
 
     def test_guessimageformat(self):
         di = disciplefile.DiscipleImage("diskimagetest.mgt")
@@ -669,42 +741,17 @@ sided, 80 track, 10 sector per track, 512 byte sector image."))
         # have incorrect file type
         sector = di.getsector(0, 1)
         di.writesector(bytearray([12]) + sector[1:], 0, 1)
-        self.assertEqual(di.isimagevalid(), (False, "Contains invalid filetype \
-in directory entry number 1"))
-        # corrupt FAT table
-        di.writesector(sector[:271] + bytearray([3]) + sector[272:], 0, 1)
-        self.assertEqual(di.isimagevalid(), (False, "File Allocation Tables \
-overlap"))
-        # sector not matching sectors owned
-        di.writesector(sector[:15] + bytearray([2]) + sector[16:], 0, 1)
         self.assertEqual(di.isimagevalid(), (False, "Contains file (number 1) \
-where used sector doesn't match FAT table entries"))
-        # sector map not matching number of sectors used
-        di.writesector(sector[:12] + bytearray([2]) + sector[13:], 0, 1)
-        self.assertEqual(di.isimagevalid(), (False, "Contains file (number 1) \
-where number of sectors do not match number of sectors in FAT"))
-        # number of sectors not matching file size
-        di.writesector(sector[:212] + bytearray([10, 10]) + sector[214:], 0, 1)
-        self.assertEqual(di.isimagevalid(), (False, "Contains file (number 1) \
-that is the wrong length for number of sectors used"))
-        # premature file chain end
-        di.writesector(sector, 0, 1)
-        di.writesector([0] * 512, 4, 5)
-        self.assertEqual(di.isimagevalid(True), (False, "Contains file (number \
-4) where sector chain terminates early"))
-        # invalid sector in file chain
-        di.writesector([0] * 510 + [255, 255], 4, 5)
-        self.assertEqual(di.isimagevalid(True), (False, "Contains file (number \
-4) with invalid sector reference in chain"))
-        # sector in file chain not owned by file
-        di.writesector([0] * 510 + [4, 1], 4, 5)
-        self.assertEqual(di.isimagevalid(True), (False, "Contains file (number \
-4) using sector not owned by that file"))
+with the error: Contains invalid filetype."))
         # track & sector of last sector in file not 0, 0
         di.writesector([0] * 510 + [4, 6], 4, 5)
         di.writesector([0] * 510 + [5, 9], 5, 8)
-        self.assertEqual(di.isimagevalid(True), (False, "Contains file (number \
-4) with mismatch between details and sector chain"))
+        self.assertEqual(di.isimagevalid(True), (False, 'Contains file (number \
+1) with the error: Contains invalid filetype.\nContains file (number 4) with \
+the error: Mismatch between details and sector chain.'))
+        # test shallow (faster) test
+        self.assertEqual(di.isimagevalid(False), (False, 'Contains file (number \
+1) with the error: Contains invalid filetype.'))
 
     def test_writefile(self):
         di = disciplefile.DiscipleImage()

@@ -47,6 +47,7 @@ Unit Test for SpectrumTranslate file
 """
 
 import unittest
+import warnings
 import subprocess
 import re
 import sys
@@ -59,14 +60,19 @@ from io import BytesIO
 from os import remove as os_remove
 # import modules from parent directory
 pathtemp = sys.path
-sys.path += [os.path.dirname(os.getcwd())]
+sys.path += [os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]
 import spectrumtranslate
 import spectrumnumber
 # restore system path
 sys.path = pathtemp
 
+# change to current directory in cae being run from elsewhere
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 if(_PYTHON_VERSION_HEX > 0x03000000):
     from io import StringIO
+
+    WIN_CONSOLE_PYTHON3 = (os.name == 'nt')
 
     def _u(x):
         return x
@@ -78,6 +84,8 @@ if(_PYTHON_VERSION_HEX > 0x03000000):
 else:
     # 2to3 will complain but won't cause problems in real life
     from StringIO import StringIO
+
+    WIN_CONSOLE_PYTHON3 = False
 
     def _u(x):
         return _UED(x)[0]
@@ -2989,9 +2997,9 @@ class Testformating(unittest.TestCase):
 errors:\n" + output)
 
         output = self.runpep8("test_spectrumtranslate.py", [
-            "test_spectrumtranslate.py:63:1: E402 module level import not at \
-top of file",
             "test_spectrumtranslate.py:64:1: E402 module level import not at \
+top of file",
+            "test_spectrumtranslate.py:65:1: E402 module level import not at \
 top of file"])
         self.assertEqual(output, "", "test_spectrumtranslate.py pep8 \
 formatting errors:\n" + output)
@@ -3150,8 +3158,14 @@ class Testcommandline(unittest.TestCase):
         self.assertEqual(self.runtest("help", ""), spectrumtranslate.usage())
 
     def test_basic(self):
-        self.assertEqual(self.runtest("basic basictest.dat temp.txt", ""), "")
-        self.assertEqual(_getfile("temp.txt"), """\
+        # unicode fails in python3 in windows console
+        if(WIN_CONSOLE_PYTHON3):
+            warnings.warn("Can't test function using unicode in python3 in \
+windows console")
+        else:
+            self.assertEqual(self.runtest("basic basictest.dat temp.txt", ""),
+                             "")
+            self.assertEqual(_getfile("temp.txt"), """\
 10 REM ^16^00^00""" + CHAR87 + """^11^05""" + CHAR84 + """^11^03hello123^11^01\
 ^10^05^11^06
 15 PRINT ^10^00^11^07"80"
@@ -3171,6 +3185,10 @@ d$[2][2]={
 FOR...NEXT, c Value=11 Limit=10 Step=1 Loop back to line=65534, statement=6
 z$="testing"
 """)
+
+            # tidy up
+            os_remove("temp.txt")
+
         # 2to3 will complain but won't cause problems in real life
         self.assertEqual(self.runtest("basic -o -a basictest.dat", ""), """\
 10 REM ^16^00^00^87^11^05^84^11^03hello123^11^01^10^05^11^06
@@ -3403,9 +3421,6 @@ z$="testing"
 </basiclisting>
 """)
 
-        # tidy up
-        os_remove("temp.txt")
-
     def test_text(self):
         def _listtostring(b):
             return bytearray(b).decode('latin-1')
@@ -3413,18 +3428,23 @@ z$="testing"
         self.assertEqual(self.runtest(
             "text -i -o", '\x7F\x60\x5E\x01\x41\x80\xFF'),
             CHAR7F + CHAR60 + CHAR5E + '^01A' + CHAR80 + 'COPY ')
-        self.assertEqual(self.runtest("text -i temp.txt", _listtostring(
-            [0x7F, 0x60, 0x5E, 0x01, 0x41, 0x80, 0xFF])), "")
-        self.assertEqual(_getfile("temp.txt"),
-                         CHAR7F + CHAR60 + CHAR5E + '^01A' + CHAR80 + 'COPY ')
+        # unicode fails in python3 in windows console
+        if(WIN_CONSOLE_PYTHON3):
+            warnings.warn("Can't test function using unicode in python3 in \
+windows console")
+        else:
+            self.assertEqual(self.runtest("text -i temp.txt", _listtostring(
+                [0x7F, 0x60, 0x5E, 0x01, 0x41, 0x80, 0xFF])), "")
+            self.assertEqual(_getfile("temp.txt"), CHAR7F + CHAR60 + CHAR5E +
+                             '^01A' + CHAR80 + 'COPY ')
+            # tidy up
+            os_remove("temp.txt")
+
         self.assertEqual(self.runtest("text -i -o -a", _listtostring(
             [0x7F, 0x60, 0x5E, 0x01, 0x41, 0x80, 0xFF])),
                          '^7F^60^5E^01A^80^FF')
         self.assertEqual(self.runtest("text -o -a -k 0x1F -l 4 \
 arraytest_char.tap", ""), 'test')
-
-        # tidy up
-        os_remove("temp.txt")
 
     def test_array(self):
         self.assertEqual(self.runtest("array -t 0x98 arraytest_number.dat \

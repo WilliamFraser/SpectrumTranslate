@@ -8060,7 +8060,7 @@ source descriptor for special instructions.")
             try:
                 fo = open(commandsourcefile, "r")
                 specialInstructions = [DisassembleInstruction(
-                    line.rstrip('\n')) for line in fo]
+                    line.rstrip('\r\n')) for line in fo]
                 fo.close()
             except:
                 raise SpectrumTranslateError('Failed to read instructions \

@@ -45,7 +45,9 @@
 from pip import main as pip_main
 from site import getsitepackages
 from shutil import copy as shutil_copy
+from sys import hexversion as sys_hexversion
 import os
+import tempfile
 
 if __name__ == "__main__":
     #set up getch to return keypress in windows or unix like system (linux/mac)
@@ -65,18 +67,34 @@ if __name__ == "__main__":
 
     #function to copy files
     def copyfile(src, dest):
-        shutil_copy(src,dest)
+        # python 3 needed to import module files localy
+        if(sys_hexversion >= 0x03000000):
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                with open(src) as src_file:
+                    for line in src_file:
+                        if(line.startswith("import spectrumtranslate")):
+                            line = "from . import spectrumtranslate\n"
+                        elif(line.startswith("import spectrumnumber")):
+                            line = "from . import spectrumnumber\n"
+                        temp_file.write(line.encode())
+                temp_file.close()
+                shutil_copy(temp_file.name, os.path.join(dest, src))
+                os.remove(temp_file.name)
+
+        # python 2 doesn't
+        else:
+            shutil_copy(src, dest)
 
     #set up PyQt5?
     print("Do You want to install PyQt5 (latest version of Qt needed to run \
 graphical interface to SpectrumTranslate)? (y/n/q)")
     while(True):
         c = getch()
-        if(c == b'n' or c == b'N'):
+        if(c == b'n' or c == b'N' or c == 'n' or c == 'N'):
             break
-        if(c == b'q' or c == b'Q'):
+        if(c == b'q' or c == b'Q' or c == 'q' or c == 'Q'):
             quit()
-        if(c == b'y' or c == b'Y'):
+        if(c == b'y' or c == b'Y' or c == 'y' or c == 'Y'):
             print()
             pip_main(['install', 'PyQt5'])
             break
@@ -86,11 +104,11 @@ graphical interface to SpectrumTranslate)? (y/n/q)")
 development tests)? (y/n/q)")
     while(True):
         c = getch()
-        if(c == b'n' or c == b'N'):
+        if(c == b'n' or c == b'N' or c == 'n' or c == 'N'):
             break
-        if(c == b'q' or c == b'Q'):
+        if(c == b'q' or c == b'Q' or c == 'q' or c == 'Q'):
             quit()
-        if(c == b'y' or c == b'Y'):
+        if(c == b'y' or c == b'Y' or c == 'y' or c == 'Y'):
             print()
             pip_main(['install', 'pep8'])
             pip_main(['install', 'pillow'])
@@ -111,11 +129,11 @@ development tests)? (y/n/q)")
 import from any project for this user? (y/n/q)")
     while(True):
         c = getch()
-        if(c == b'n' or c == b'N'):
+        if(c == b'n' or c == b'N' or c == 'n' or c == 'N'):
             break
-        if(c == b'q' or c == b'Q'):
+        if(c == b'q' or c == b'Q' or c == 'q' or c == 'Q'):
             quit()
-        if(c == b'y' or c == b'Y'):
+        if(c == b'y' or c == b'Y' or c == 'y' or c == 'Y'):
             #ensure module directory exists
             if(not os.path.exists(ST_dir)):
                 os.makedirs(ST_dir)

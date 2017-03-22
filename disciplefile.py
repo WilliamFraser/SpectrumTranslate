@@ -764,6 +764,220 @@ class DiscipleFile:
 
         return s
 
+    def checkforfaults(self, headderdata=None, fast=False):
+        """
+        This returns a list of strings detailing faults found with this file.
+        Not all faults may be returned as some might not become obvious
+        until you can get past another fault.  This returns None if
+        there are no obvious faults with this file.
+        fast indicates whether you want it to return as soon as it finds
+        which is faster, or false if you want it to find as many faults
+        as possible which may take longer.
+        headderdata is optional but saves resources.
+        """
+
+        # if no headder supplied, need to load it up
+        if(headderdata is None):
+            headderdata = self.getheadder()
+
+        faults = []
+
+        # is filetype (excluding flags) consistent with valid file?
+        filetype = headderdata[0] & 31
+        # is empty directory entries
+        if(filetype == 0):
+            return None
+
+        if(filetype > 11):
+            if(fast):
+                return ["Contains invalid filetype"]
+            faults += ["Contains invalid filetype"]
+
+        # get sectors used by other files
+        sectorMap = bytearray(195)
+
+        track = -1
+        sector = -1
+        # iterate through all headders
+        for entry in range(1, 81):
+            # skip if is this file
+            if(self.filenumber == entry):
+                continue
+
+            headderstart = ((entry - 1) & 1) * 256
+            # only load sector if needed
+            newtrack, newsector = GetDirectoryEntryPosition(entry)
+            if(track != newtrack or sector != newsector):
+                track = newtrack
+                sector = newsector
+                headder = self.image.getsector(track, sector)
+
+            for i in range(195):
+                # update sector map
+                sectorMap[i] |= headder[headderstart + 15 + i]
+
+        # check sector map
+        sectorcount = 0
+
+        for i in range(195):
+            if(sectorMap[i] & headderdata[15 + i] != 0):
+                # we have conflicting FAT entries
+                msg = ["File Allocation Table overlaps with other file(s)"]
+                if(fast):
+                    return msg
+                faults += msg
+                break
+
+            # work out number of sectors used
+            sectorcount += bin(headderdata[15 + i]).count("1")
+
+        # check number of sectors line up with FAT table
+        if(sectorcount != headderdata[12] + 256 * headderdata[11]):
+            msg = ["Number of sectors do not match number of sectors in FAT"]
+            if(fast):
+                return msg
+            faults += msg
+
+        # compare file length against sectors used in FAT table for
+        # length workoutable files
+        filelen = -1
+        if(filetype == 1 or filetype == 2 or filetype == 3 or
+           filetype == 4 or filetype == 7 or filetype == 13):
+            # 1=basic,2=number array,3=string array,4=code,7=screen$,
+            # 13=unidos create file
+            filelen = headderdata[212] + 256 * headderdata[213]
+        elif(filetype == 5):
+            # 48K snapshot
+            filelen = 49152  # 3 * 16K ram banks
+        elif(filetype == 9):
+            # 128K snapshot
+            # 1 byte page register value + 8 16K ram banks
+            filelen = 131073
+        elif(filetype == 10):
+            # opentype
+            filelen = headderdata[212] + 256 * headderdata[213] + \
+                      65536 * headderdata[210]
+        elif(filetype == 11):
+            # execute
+            filelen = 510
+
+        # BASIC, code, number array, string array, or screen have 1st
+        # 9 bytes of file as copy of headder data.
+        if((filetype > 0 and filetype < 5) or filetype == 7):
+            filelen += 9
+
+        # compare it to number of sectors used
+        if(filelen != -1):
+            # work out how many sectors should be used. round up
+            estimatedsectors = (filelen + 509) // 510
+            # now see if matches
+            if(sectorcount != estimatedsectors):
+                msg = ["Wrong length for number of sectors used"]
+                if(fast):
+                    return msg
+                faults += msg
+
+        # get map of sectors used
+        sm = headderdata[15:210]
+
+        # check start sector is in FAT
+        startsector = headderdata[14]
+        starttrack = headderdata[13]
+
+        # do we have valid sector?
+        if((starttrack & 127) > 79 or starttrack < 4 or
+           startsector < 1 or startsector > 10):
+            msg = ["Invalid first sector"]
+            if(fast):
+                return msg
+            # can't continue after this fault so return
+            return faults + msg
+
+        # calculate offset & bit of this track & sector in sectorMap
+        o, b = self.image.get_offset_and_bit_from_track_and_sector(starttrack,
+                                                                   startsector)
+        # check if is sector owned by this file
+        if((sm[o] & b) != b):
+            msg = ["Used sectors don't match FAT table entries"]
+            if(fast):
+                return msg
+            faults += msg
+
+        # go through file chain matching against sector map &
+        # ensure sector map is empty at the end
+
+        # if we don't know size of file then estimate it
+        if(filelen == -1):
+            filelen = sectorcount * 510
+
+        # get start track & sector
+        t = starttrack
+        s = startsector
+
+        # now move through file sectors
+        while(sectorcount > 0):
+            # have we reached early end of file?
+            if(t == 0 and s == 0):
+                msg = ["Sector chain terminates early"]
+                if(fast):
+                    return msg
+                # can't continue after this fault so return
+                return faults + msg
+
+            # do we have valid sector?
+            if((t & 127) > 79 or t < 4 or s < 1 or s > 10):
+                msg = ["Invalid sector reference in chain"]
+                if(fast):
+                    return msg
+                # can't continue after this fault so return
+                return faults + msg
+
+            # calculate offset & bit of this track & sector in
+            # sectorMap
+            o, b = self.image.get_offset_and_bit_from_track_and_sector(t, s)
+            # check if is sector owned by this file
+            if((sm[o] & b) != b):
+                msg = ["Using sector not owned by this file"]
+                if(fast):
+                    return msg
+                faults += msg
+
+            # remove from copy of sectorMap
+            sm[o] &= ~b
+
+            # load next sector in chain
+            sectordata = self.image.getsector(t, s)
+
+            # update track & sector
+            t = sectordata[510]
+            s = sectordata[511]
+            # update number of bytes left to copy
+            filelen -= min(510, filelen)
+            # decrement number of sectors left to fetch
+            sectorcount -= 1
+
+        # track & sector of last sector read should be 0
+        if(t != 0 and s != 0):
+            msg = ["Mismatch between details and sector chain"]
+            if(fast):
+                return msg
+            faults += msg
+
+        # sectorMap should now be blank, otherwise there are
+        # unused sectors.
+        # in theory this shouldn't happen as each sector in the
+        # chain is goine through, and we compare the number of
+        # sectors in the FAT table with the number stated in the
+        # directory entry that this file uses.
+        # Still just in case...
+        if(any(i != 0 for i in sm)):
+            msg = ["Incorect FAT table"]
+            if(fast):
+                return msg
+            faults += msg
+
+        return None if faults == [] else faults
+
 
 class DiscipleImage:
     """A class that holds a +D/Disciple disk image."""
@@ -830,6 +1044,11 @@ class DiscipleImage:
 
     def get_offset_and_bit_from_track_and_sector(self, track, sector):
         """calculate offset & bit of this track & sector in sectorMap"""
+        if(track < 4 or (track & 127) > 79 or sector < 1 or sector > 10):
+            raise spectrumtranslate.SpectrumTranslateError(
+                "Track {0}, Sector {1} not a valid sector to be referenced by \
+sector map.".format(track, sector))
+
         o = (track & 127) + (80 if track >= 128 else 0) - 4
         o *= 10
         o += sector - 1
@@ -993,9 +1212,9 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         N.B. this might return False for an image that works in real
         life (like hidden sectors in the FAT table that aren't in the
         file chain).
-        if deeptest is True, then will go through each track and sector
-        of a file ensureing that it matches the FAT. This will involve
-        loading lots of sectors and may take some time.
+        if deeptest is True, then will go through each entry looking for as
+        many errors as possible. If False it will return as soon as it finds
+        a fault which may well be much faster.
         This returns True for a valid image, or False for an invalid one,
         and either None if valid, or a message detailing the problem with
         the image.
@@ -1022,167 +1241,19 @@ per track, 512 byte sector image."
             if(self.ImageFormat == "Unknown"):
                 return False, "Can't work out image format"
 
-        # create empty sector map
-        sectorMap = bytearray(195)
-
-        track = -1
-        sector = -1
-        # iterate through all headders
+        faults = []
+        # iterate through all files
         for entry in range(1, 81):
-            headderstart = ((entry - 1) & 1) * 256
-            # only load sector if needed
-            newtrack, newsector = GetDirectoryEntryPosition(entry)
-            if(track != newtrack or sector != newsector):
-                track = newtrack
-                sector = newsector
-                headder = self.getsector(track, sector)
+            df = DiscipleFile(self, entry)
+            filefaults = df.checkforfaults(fast=not deeptest)
+            if(filefaults):
+                msg = "Contains file (number {0}) with the error{1}: {2}.\
+".format(entry, ("s" if len(filefaults) > 1 else ""), ". ".join(filefaults))
+                if(not deeptest):
+                    return False, msg
+                faults += [msg]
 
-            # is filetype (excluding flags) consistent with valid file?
-            filetype = headder[headderstart] & 31
-            # ignore empty directory entries
-            if(filetype == 0):
-                continue
-
-            if(filetype > 11):
-                return False, "Contains invalid filetype in directory \
-entry number %d" % entry
-
-            # check sector map
-            sectorcount = 0
-
-            for i in range(195):
-                if(sectorMap[i] & headder[headderstart + 15 + i] != 0):
-                    # we have conflicting FAT entries
-                    return False, "File Allocation Tables overlap"
-
-                # update sector map
-                sectorMap[i] |= headder[headderstart + 15 + i]
-                # work out number of sectors used
-                sectorcount += bin(headder[headderstart + 15 + i]).count("1")
-
-            # check number of sectors line up with FAT table
-            if(sectorcount != headder[headderstart + 12] + 256 *
-                    headder[headderstart + 11]):
-                return False, "Contains file (number %d) where number of \
-sectors do not match number of sectors in FAT" % entry
-
-            # compare file length against sectors used in FAT table for
-            # length workoutable files
-            filelen = -1
-            if(filetype == 1 or filetype == 2 or filetype == 3 or
-               filetype == 4 or filetype == 7 or filetype == 13):
-                # 1=basic,2=number array,3=string array,4=code,7=screen$,
-                # 13=unidos create file
-                filelen = headder[headderstart + 212] + \
-                          256 * headder[headderstart + 213]
-            elif(filetype == 5):
-                # 48K snapshot
-                filelen = 49152  # 3 * 16K ram banks
-            elif(filetype == 9):
-                # 128K snapshot
-                # 1 byte page register value + 8 16K ram banks
-                filelen = 131073
-            elif(filetype == 10):
-                # opentype
-                filelen = headder[headderstart + 212] + \
-                          256 * headder[headderstart + 213] + \
-                          65536 * headder[headderstart + 210]
-            elif(filetype == 11):
-                # execute
-                filelen = 510
-
-            # BASIC, code, number array, string array, or screen have 1st
-            # 9 bytes of file as copy of headder data.
-            if((filetype > 0 and filetype < 5) or filetype == 7):
-                filelen += 9
-
-            # compare it to number of sectors used
-            if(filelen != -1):
-                # work out how many sectors should be used. round up
-                estimatedsectors = (filelen + 509) // 510
-                # now see if matches
-                if(sectorcount != estimatedsectors):
-                    return False, "Contains file (number %d) that is the wrong \
-length for number of sectors used" % entry
-
-            # check start sector is in FAT
-            startsector = headder[headderstart + 14]
-            starttrack = headder[headderstart + 13]
-
-            # calculate offset & bit of this track & sector in sectorMap
-            o, b = self.get_offset_and_bit_from_track_and_sector(starttrack,
-                                                                 startsector)
-            # check if is sector owned by this file
-            if((sectorMap[o] & b) != b):
-                return False, "Contains file (number %d) where used sector \
-doesn't match FAT table entries" % entry
-
-            if(deeptest):
-                # go through file chain matching against sector map &
-                # ensure sector map is empty at the end
-
-                # get map of sectors used
-                sm = headder[headderstart + 15:headderstart + 210]
-
-                # if we don't know size of file then estimate it
-                if(filelen == -1):
-                    filelen = sectorcount * 510
-
-                # get start track & sector
-                t = starttrack
-                s = startsector
-
-                # now move through file sectors
-                while(sectorcount > 0):
-                    # have we reached early end of file?
-                    if(t == 0 and s == 0):
-                        return False, "Contains file (number %d) where sector \
-chain terminates early" % entry
-
-                    # do we have valid sector?
-                    if((t & 127) > 79 or t < 4 or s < 1 or s > 10):
-                        return False, "Contains file (number %d) with invalid \
-sector reference in chain" % entry
-
-                    # calculate offset & bit of this track & sector in
-                    # sectorMap
-                    o, b = self.get_offset_and_bit_from_track_and_sector(t, s)
-                    # check if is sector owned by this file
-                    if((sm[o] & b) != b):
-                        return False, "Contains file (number %d) using sector \
-not owned by that file" % entry
-
-                    # remove from copy of sectorMap
-                    sm[o] -= b
-
-                    # load next sector in chain
-                    sectordata = self.getsector(t, s)
-
-                    # update track & sector
-                    t = sectordata[510]
-                    s = sectordata[511]
-                    # update number of bytes left to copy
-                    filelen -= min(510, filelen)
-                    # decrement number of sectors left to fetch
-                    sectorcount -= 1
-
-                # track & sector of last sector read should be 0
-                if(t != 0 and s != 0):
-                    return False, "Contains file (number %d) with mismatch \
-between details and sector chain" % entry
-
-                # sectorMap should now be blank, otherwise there are
-                # unused sectors.
-                # in theory this shouldn't happen as each sector in the
-                # chain is goine through, and we compare the number of
-                # sectors in the FAT table with the number stated in the
-                # directory entry that this file uses.
-                # Still just in case...
-                if(any(i != 0 for i in sm)):
-                    return False, "Contains file (number %d) with incorect FAT \
-table" % entry
-
-        return True, None
+        return faults == [], None if faults == [] else "\n".join(faults)
 
     def writefile(self, headder, filedata, position=-1):
         """This method will write the supplied filedata to the disk

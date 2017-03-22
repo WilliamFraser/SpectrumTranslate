@@ -55,10 +55,13 @@ import pep8
 # imported io/StringIO later so get python version specific one
 # import modules from parent directory
 pathtemp = sys.path
-sys.path += [os.path.dirname(os.getcwd())]
+sys.path += [os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]
 import spectrumnumber
 # restore system path
 sys.path = pathtemp
+
+# change to current directory in cae being run from elsewhere
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # 2to3 will complain about these lines but is 2 & 3 compatible
 if(sys.hexversion > 0x03000000):
