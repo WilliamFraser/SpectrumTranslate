@@ -1205,19 +1205,15 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
 
         self.writesector(sectordata, track, sector)
 
-    def isimagevalid(self, deeptest=False):
+    def couldbeimage(self):
         """
-        This method will go through all the file entries in an image and
-        ensure they have proper values, and that sectors don't overlap.
-        N.B. this might return False for an image that works in real
-        life (like hidden sectors in the FAT table that aren't in the
-        file chain).
-        if deeptest is True, then will go through each entry looking for as
-        many errors as possible. If False it will return as soon as it finds
-        a fault which may well be much faster.
-        This returns True for a valid image, or False for an invalid one,
-        and either None if valid, or a message detailing the problem with
-        the image.
+        This method will tell whether this image could be a 2 sided, 80 track,
+        10 sector per track, 512 bytes per sector image.  It does not check if
+        any of the files in the disk image are valid and thus if the data in
+        the image would fit with an image of a disciple/+D disk.
+        This returns a tupple. The first value in the tupple is True if this
+        could be an image, or False if not. The second value is None if it
+        looks like an image, otherwise a string listing the reason why not.
         """
 
         # check image source
@@ -1235,6 +1231,28 @@ per track, 512 byte sector image."
            fstat(self.filehandle.fileno()).st_size != 819200):
             return False, "Image wrong size for 2 sided, 80 track, 10 sector \
 per track, 512 byte sector image."
+
+        return True, None
+
+    def isimagevalid(self, deeptest=False):
+        """
+        This method will go through all the file entries in an image and
+        ensure they have proper values, and that sectors don't overlap.
+        N.B. this might return False for an image that works in real
+        life (like hidden sectors in the FAT table that aren't in the
+        file chain).
+        if deeptest is True, then will go through each entry looking for as
+        many errors as possible. If False it will return as soon as it finds
+        a fault which may well be much faster.
+        This returns a tupple. The first value is True for a valid image, or
+        False for an invalid one. The second value is either None if valid, or
+        a message detailing the problem with the image.
+        """
+
+        # check source could be an image
+        valid, problem = self.couldbeimage()
+        if(not valid):
+            return False, problem
 
         if(self.ImageFormat == "Unknown"):
             self.guessimageformat()

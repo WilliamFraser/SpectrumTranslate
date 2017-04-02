@@ -714,18 +714,28 @@ class TestDiscipleImage(unittest.TestCase):
         self.assertNotEqual(diff[0][3][0], diff[0][2][0])
         self.assertEqual(diff[0][2][0], 0)
 
-    def test_isimagevalid(self):
+    def test_couldbeimage(self):
         di = disciplefile.DiscipleImage()
         # ensure fails with undefined source
-        self.assertEqual(di.isimagevalid(), (False, "No image source defined"))
+        self.assertEqual(di.couldbeimage(), (False, "No image source defined"))
+        # ensure fails with wrong byte image size
+        di.setbytes([1])
+        self.assertEqual(di.couldbeimage(), (False, "Image wrong size for 2 \
+sided, 80 track, 10 sector per track, 512 byte sector image."))
+        # ensure fails with wrong file image size
+        di = disciplefile.DiscipleImage("code.dat")
+        self.assertEqual(di.couldbeimage(), (False, "Image wrong size for 2 \
+sided, 80 track, 10 sector per track, 512 byte sector image."))
+        # ensure valid image works
+        di = disciplefile.DiscipleImage("diskimagetest.mgt")
+        self.assertEqual(di.couldbeimage(), (True, None))
+
+    def test_isimagevalid(self):
+        di = disciplefile.DiscipleImage()
         # ensure fails with unknown format
         di.setbytes([1] * 819200)
         self.assertEqual(di.isimagevalid(), (False, "Can't work out image \
 format"))
-        # ensure fails with wrong byte size
-        di.setbytes([1])
-        self.assertEqual(di.isimagevalid(), (False, "Image wrong size for 2 \
-sided, 80 track, 10 sector per track, 512 byte sector image."))
 
         # create memory copy to play with
         fi = open("diskimagetest.mgt", "rb")
