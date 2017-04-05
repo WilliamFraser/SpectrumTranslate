@@ -56,14 +56,15 @@ try:
         from PyQt5.QtWebKitWidgets import QWebView
     from PyQt5 import QtCore
     from PyQt5.QtGui import (QColor, QStandardItemModel, QStandardItem,
-                             QPainter, QFont, QPen)
+                             QPainter, QFont, QPen, QCursor, QMovie)
     from PyQt5.QtCore import QItemSelectionModel
     import PyQt5.QtWidgets as QtGui
 except ImportError:
     from PyQt4.QtWebKit import QWebView
     from PyQt4 import QtGui, QtCore
     from PyQt4.QtGui import (QColor, QStandardItemModel, QStandardItem,
-                             QPainter, QFont, QPen, QItemSelectionModel)
+                             QPainter, QFont, QPen, QItemSelectionModel,
+                             QCursor, QMovie)
 from operator import itemgetter, attrgetter
 
 
@@ -417,6 +418,8 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                                "+DPos": 1,
                                "FilePosition": 0,
                                "ContainerType": 2}
+
+        self.ImageFormatFallback = "Unknown"
 
         self.initUI(defaultFile)
 
@@ -3043,7 +3046,7 @@ into.\nValid options are 1 to 80 inclusive.")
 
             # display waiting cursor while do translation
             QtGui.QApplication.setOverrideCursor(
-                QtGui.QCursor(QtCore.Qt.WaitCursor))
+                QCursor(QtCore.Qt.WaitCursor))
             data = spectrumtranslate.getgiffromscreen(data, delay)
             QtGui.QApplication.restoreOverrideCursor()
 
@@ -3133,12 +3136,15 @@ into.\nValid options are 1 to 80 inclusive.")
 
             # get registers etc
             di = disciplefile.DiscipleImage(self.leFileNameIn.text())
+            di.guessimageformat()
+            if(di.ImageFormat == "Unknown"):
+                di.ImageFormat = self.ImageFormatFallback
             df = disciplefile.DiscipleFile(di, self.getNumber(self.leDataFile))
             registers = df.getsnapshotregisters()
 
             # display waiting cursor while do translation
             QtGui.QApplication.setOverrideCursor(
-                QtGui.QCursor(QtCore.Qt.WaitCursor))
+                QCursor(QtCore.Qt.WaitCursor))
             # get image that's being displayed in snapshot
             # work out where in data image is
             if(len(data) == 49152):
@@ -3208,7 +3214,7 @@ snapshot. Error:\n{0}'.format(ste.value))
                     di.guessimageformat()
 
                     # if it's a valid +D file then use this format
-                    if(di.isimagevalid(True)):
+                    if(di.isimagevalid(True)[0]):
                         containertype = 1
 
                 except:
@@ -3421,7 +3427,7 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
             buf.write(imagedata)
 
         buf.seek(0)
-        movie = QtGui.QMovie(buf, QtCore.QByteArray())
+        movie = QMovie(buf, QtCore.QByteArray())
         pic.setMovie(movie)
         movie.start()
 
@@ -3726,6 +3732,9 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
             try:
                 # get disciple file object
                 di = disciplefile.DiscipleImage(self.leFileNameIn.text())
+                di.guessimageformat()
+                if(di.ImageFormat == "Unknown"):
+                    di.ImageFormat = self.ImageFormatFallback
                 df = disciplefile.DiscipleFile(di, i)
                 # return it's data, ignoreing any offset
                 return (df.getfiledata(True))[o:]
@@ -3832,6 +3841,9 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         Dmodel = QStandardItemModel()
 
         di = disciplefile.DiscipleImage(self.leFileNameIn.text())
+        di.guessimageformat()
+        if(di.ImageFormat == "Unknown"):
+            di.ImageFormat = self.ImageFormatFallback
 
         for df in di.iteratedisciplefiles():
             # do we have a valid entry?
@@ -3842,6 +3854,10 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
                 line = QStandardItem(txt)
                 line.Ddata = df
                 line.setEditable(False)
+                faults = df.checkforfaults()
+                if(faults):
+                    line.setBackground(QColor(255,128,128))
+                    line.setToolTip("\n".join(faults))
                 Dmodel.appendRow(line)
 
         Dview.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
@@ -3889,6 +3905,18 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         # retrieve references to what we need
         Dview = self.Dview
         Ddialog = self.Ddialog
+
+        # check to see if faulty entry selected
+        if(len(Dview.selectedIndexes()) > 0):
+            # retrieve Ddata
+            index = Dview.selectedIndexes()[0]
+            df = index.model().itemFromIndex(index).Ddata
+            # check
+            if(df.checkforfaults()):
+                QtGui.QMessageBox.warning(self, "Error",
+                    "Selected file is faulty and can't be extracted")
+                return
+
         # tidy up self
         del self.Ddialog
         del self.Dview
@@ -3899,10 +3927,6 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         # if nothing selected then exit
         if(len(Dview.selectedIndexes()) < 1):
             return
-
-        # retrieve Ddata
-        index = Dview.selectedIndexes()[0]
-        df = index.model().itemFromIndex(index).Ddata
 
         headder = df.getheadder()
         t = df.getfiletype(headder)
@@ -4269,20 +4293,61 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
             except:
                 tbs = []
 
+            # display waiting cursor while do translation
+            QtGui.QApplication.setOverrideCursor(
+                QCursor(QtCore.Qt.WaitCursor))
+
             # try from disciple/+D image file
             try:
                 di = disciplefile.DiscipleImage(self.leFileNameIn.text())
                 di.guessimageformat()
+                self.ImageFormatFallback = di.ImageFormat
 
-                if(di.isimagevalid(True)):
+                # handle definately valid disciple/+D image
+                if(di.isimagevalid(True)[0]):
+                    QtGui.QApplication.restoreOverrideCursor()
                     self.bBrowseContainer.setText("Browse disk image")
                     self.bBrowseContainer.setEnabled(True)
                     return
 
+                # check if could possibly be image file
+                if(di.couldbeimage):
+                    di.ImageFormat = "MGT"
+                    mgtErrors = di.isimagevalid(True)[1]
+                    di.ImageFormat = "IMG"
+                    imgErrors = di.isimagevalid(True)[1]
+                    QtGui.QApplication.restoreOverrideCursor()
+
+                    qb = QtGui.QMessageBox()
+                    qb.setIcon(QtGui.QMessageBox.Question)
+                    qb.setText("Cannot determine +D/Disciple image format")
+                    qb.setInformativeText("There are errors with each format.\
+<br>Please choose image format or HEX to view raw file:")
+                    qb.setWindowTitle("Indeterminate image file")
+                    qb.setDetailedText("""In MGT format, the errors were:
+""" + mgtErrors + "\n\nIn IMG format, the errors were:\n" + imgErrors)
+                    qb.addButton('MGT', QtGui.QMessageBox.AcceptRole)
+                    qb.addButton('IMG', QtGui.QMessageBox.NoRole)
+                    qb.addButton('HEX', QtGui.QMessageBox.RejectRole)
+    	
+                    i = qb.exec_()
+                    if(i == QtGui.QMessageBox.AcceptRole):
+                        self.ImageFormatFallback = "MGT"
+                        self.bBrowseContainer.setText("Browse disk image")
+                        self.bBrowseContainer.setEnabled(True)
+                        return
+                    if(i == QtGui.QMessageBox.RejectRole):
+                        self.ImageFormatFallback = "IMG"
+                        self.bBrowseContainer.setText("Browse disk image")
+                        self.bBrowseContainer.setEnabled(True)
+                        return
+                else:
+                    QtGui.QApplication.restoreOverrideCursor()
+
             except:
                 # ignore errors, and fall through into further browsing
                 # options
-                pass
+                QtGui.QApplication.restoreOverrideCursor()
 
         else:
             self.bBrowseHex.setEnabled(False)
