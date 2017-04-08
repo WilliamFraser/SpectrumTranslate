@@ -4324,11 +4324,18 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
                     qb.setInformativeText("There are errors with each format.\
 <br>Please choose image format or HEX to view raw file:")
                     qb.setWindowTitle("Indeterminate image file")
-                    qb.setDetailedText("""In MGT format, the errors were:
-""" + mgtErrors + "\n\nIn IMG format, the errors were:\n" + imgErrors)
-                    qb.addButton('MGT', QtGui.QMessageBox.AcceptRole)
-                    qb.addButton('IMG', QtGui.QMessageBox.NoRole)
+                    mgtbutton = qb.addButton('MGT',
+                                             QtGui.QMessageBox.AcceptRole)
+                    imgbutton = qb.addButton('IMG', QtGui.QMessageBox.NoRole)
                     qb.addButton('HEX', QtGui.QMessageBox.RejectRole)
+                    if(imgErrors.count('\n') > mgtErrors.count('\n')):
+                        qb.setDefaultButton(mgtbutton)
+                        qb.setDetailedText("""In MGT format, the errors were:
+""" + mgtErrors + "\n\nIn IMG format, the errors were:\n" + imgErrors)
+                    else:
+                        qb.setDefaultButton(imgbutton)
+                        qb.setDetailedText("""In IMG format, the errors were:
+""" + imgErrors + "\n\nIn MGT format, the errors were:\n" + mgtErrors)
     	
                     i = qb.exec_()
                     if(i == QtGui.QMessageBox.AcceptRole):
