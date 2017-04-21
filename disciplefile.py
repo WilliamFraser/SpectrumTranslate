@@ -51,6 +51,8 @@ from numbers import Integral as _INT_OR_LONG
 
 
 if(sys.hexversion > 0x03000000):
+    _unistr = str
+
     def _validateandpreparebytes(x, m):
         if(isinstance(x, (bytes, bytearray)) or
            (isinstance(x, (list, tuple)) and
@@ -61,6 +63,9 @@ if(sys.hexversion > 0x03000000):
 list or tuple of ints, or of type 'bytes' or 'bytearray'".format(m))
 
 else:
+    # 2to3 will complain but this code is python 2 & 3 compatible
+    _unistr = unicode
+
     def _validateandpreparebytes(x, m):
         # function to convert any valid source to a list of ints and
         # except if not
@@ -450,7 +455,7 @@ class DiscipleFile:
         if(headderdata is None):
             headderdata = self.getheadder()
 
-        s = "   {0:2}   {1}{2:4}      {3}".format(
+        s = _unistr("   {0:2}   {1}{2:4}      {3}").format(
             self.filenumber, self.getfilename(headderdata),
             self.getsectorsused(headderdata),
             self.getfiletypecatstring(headderdata))
@@ -700,9 +705,9 @@ class DiscipleFile:
 
         t = self.getfiletype(headderdata)
 
-        s = 'filenumber: {0}\nFile name: "{1}"\n'.format(
+        s = _unistr('filenumber: {0}\nFile name: "{1}"\n').format(
             self.filenumber, self.getfilename(headderdata))
-        s += "File type: {0} = {1}\n".format(
+        s += _unistr("File type: {0} = {1}\n").format(
             t, self.getfiletypestring(headderdata))
         s += "File length: {0}({0:X})\n".format(
             self.getfilelength(headderdata))
@@ -713,7 +718,7 @@ class DiscipleFile:
                 self.getvariableoffset(headderdata))
 
         elif(t == 2 or t == 3):  # number array, or string array
-            s += "variable name: {0}\n".format(
+            s += _unistr("variable name: {0}\n").format(
                 self.getvariablename(headderdata))
 
         elif(t == 4 or t == 7):  # code or screen$
@@ -1716,9 +1721,9 @@ def usage():
     a copy of the input with the specified file(s) deleted.  'extract'
     extracts the data from an image file entry to wherever you want.
     'copy' copies the specified file(s) from one image to another.
-    'create' creates a new file in outfile useing the supplied file
-    data.  With copy, create, and delete a new disk image will be
-    created if outfile is not an image file.
+    'create' creates a new file in outfile using the supplied file data.
+    With copy, create, and delete a new disk image will be created if
+    outfile is not an image file.
 
     infile and outfile are required unless reading from the standard
     input or outputting to the standard output.  Usually arguments are
@@ -1738,7 +1743,7 @@ def usage():
     If using the create instruction, you must specify what you are
     creating imediatly after the create instruction.  Valid options are
     'basic', 'code', 'array', and 'screen'.  You must also specify the
-    filnename for the file with the --filename flag.  If creating an
+    filename for the file with the --filename flag.  If creating an
     array, you must also specify the name and type of array with the
     --arraytype and --arrayname flags.
 
@@ -1760,6 +1765,17 @@ def usage():
        This flag can be used in the list and delete commands.
     --specifyfiles same as -s.
     --specificfiles same as -s.
+    --forceinputformat specifies that the input file is forced to the
+       format following this flag. IMG and MGT are the only valid image
+       formats.  Normally disciplefile will work out what image format
+       the input file is in.  This might fail if the image file contains
+       corruption even if the file you want or the directory listing
+       might work.
+    --forceoutputformat same as -forceoutputformat but for the output
+       image format.
+    -f forces both input and output formats.  Same as both
+       --forceinputformat and --forceoutputformat.
+    --forceformat same as -f.
 
     list flags:
     -d specifies that we want all information about each file entry
@@ -1889,6 +1905,8 @@ def _commandline(args):
     creatingorigin = 0
     creatingarraytype = None
     creatingarrayname = None
+    formatinput = None
+    formatoutput = "Unknown"
 
     # handle no arguments
     if(len(args) == 1):
@@ -2007,6 +2025,34 @@ valid array type (must be character, number or string).'.format(args[i]))
         if(arg == '-o' or arg == '--tostandardoutput'):
             tostandardoutput = True
             continue
+
+        if(arg == '--forceinputformat'):
+            i += 1
+            if(args[i] == 'IMG' or args[i] == 'MGT'):
+                formatinput = args[i]
+                continue
+            raise spectrumtranslate.SpectrumTranslateError(
+                '{0} is not a valid format type.'.format(args[i]))
+            break
+
+        if(arg == '--forceoutputformat'):
+            i += 1
+            if(args[i] == 'IMG' or args[i] == 'MGT'):
+                formatoutput = args[i]
+                continue
+            raise spectrumtranslate.SpectrumTranslateError(
+                '{0} is not a valid format type.'.format(args[i]))
+            break
+
+        if(arg == '-f' or arg == '--forceformat'):
+            i += 1
+            if(args[i] == 'IMG' or args[i] == 'MGT'):
+                formatinput = args[i]
+                formatoutput = args[i]
+                continue
+            raise spectrumtranslate.SpectrumTranslateError(
+                '{0} is not a valid format type.'.format(args[i]))
+            break
 
         if(arg == '-d' or arg == '--details'):
             wantdetails = True
@@ -2164,6 +2210,10 @@ be 1 to 80).")
             else:
                 di.setbytes(sys.stdin.read())
 
+    # set format if specified
+    if(formatinput):
+        di.setimageformat(formatinput)
+
     # now do command
     if(mode == 'list'):
         retdata = '' if wantdetails else "  pos   filename  sectors   type\n"
@@ -2179,8 +2229,8 @@ be 1 to 80).")
             if(wantdetails):
                 d = df.getfiledetails()
 
-                retdata += "{filenumber}\t{filename}\t{filetype}\t{\
-filetypelong}\t{sectors}\t{filelength}".format(**d)
+                retdata += _unistr("{filenumber}\t{filename}\t{filetype}\t{\
+filetypelong}\t{sectors}\t{filelength}").format(**d)
 
                 if(d["filetype"] == 1):
                     retdata += "\t{autostartline}\t{variableoffset}".\
@@ -2229,9 +2279,9 @@ filetypelong}\t{sectors}\t{filelength}".format(**d)
         # image
         if(not tostandardoutput and _isfile(outputfile)):
             with open(outputfile, 'rb') as outfile:
-                diout.setbytes(outfile.read())
+                diout.setbytes(outfile.read(), form=formatoutput)
         else:
-            diout.setbytes([0] * 819200)
+            diout.setbytes([0] * 819200, form=formatoutput)
 
         copypositionindex = 0
 
@@ -2259,9 +2309,9 @@ filetypelong}\t{sectors}\t{filelength}".format(**d)
         # image
         if(not tostandardoutput and _isfile(outputfile)):
             with open(outputfile, 'rb') as outfile:
-                diout.setbytes(outfile.read())
+                diout.setbytes(outfile.read(), form=formatoutput)
         else:
-            diout.setbytes([0] * 819200)
+            diout.setbytes([0] * 819200, form=formatoutput)
 
         # get where to save to or go for //first available slot
         copyposition = -1 if len(copyposition) == 0 else copyposition[0]
@@ -2299,7 +2349,7 @@ filetypelong}\t{sectors}\t{filelength}".format(**d)
     if(not tostandardoutput):
         if(mode == "list"):
             if(sys.hexversion > 0x03000000):
-                fo = open(outputfile, "w")
+                fo = open(outputfile, "w", encoding='utf-8')
                 fo.write(retdata)
             else:
                 fo = open(outputfile, "wb")

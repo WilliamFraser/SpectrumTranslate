@@ -67,21 +67,42 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 if(sys.hexversion > 0x03000000):
     from io import StringIO
 
+    def _u(x):
+        return x
+
+    def _getfile(name):
+        with open(name, 'r') as f:
+            return f.read()
+
+    # 2to3 will complain but this code is python 2 & 3 compatible
+    CHAR80 = '\u2003'.encode('utf-8')
+    CHAR81 = '\u259D'.encode('utf-8')
+    CHAR82 = '\u2598'.encode('utf-8')
+    CHAR83 = '\u2580'.encode('utf-8')
+
 else:
     # 2to3 will complain but won't cause problems in real life
     from StringIO import StringIO
+    from codecs import unicode_escape_decode as _UED
 
+    def _u(x):
+        return _UED(x)[0]
+
+    def _getfile(name):
+        with open(name, 'r') as f:
+            return f.read()
+
+    # 2to3 will complain but this code is python 2 & 3 compatible
+    CHAR80 = _u('\u2003').encode('utf-8')
+    CHAR81 = _u('\u259D').encode('utf-8')
+    CHAR82 = _u('\u2598').encode('utf-8')
+    CHAR83 = _u('\u2580').encode('utf-8')
 
 if(os.name == 'posix'):
     cmd2to3 = ["/usr/bin/2to3"]
 elif(os.name == 'nt'):
     cmd2to3 = [sys.executable,
                os.path.dirname(sys.executable) + "\\Tools\\Scripts\\2to3.py"]
-
-
-def _getfile(name):
-    with open(name, 'r') as f:
-        return f.read()
 
 
 def _getfileasbytes(name):
@@ -1201,6 +1222,11 @@ class Testcommandline(unittest.TestCase):
             pass
 
         try:
+            os.remove("temp.mgt")
+        except:
+            pass
+
+        try:
             os.remove("temp.txt")
         except:
             pass
@@ -1232,6 +1258,15 @@ class Testcommandline(unittest.TestCase):
     3   Array X      2      D.ARRAY
     4   Screen      14      SCREEN$
 786420 bytes free.
+""")
+
+        self.assertEqual(self.runtest("list -o diskimagetest.img", ""),
+                         """\
+  pos   filename  sectors   type
+    1   BASIC test   1      BAS
+    2   Array C      1      $.ARRAY
+    3   Array X      2      D.ARRAY
+    4   Screen      14      SCREEN$
 """)
 
         self.assertEqual(self.runtest("list --details --listempty \
@@ -1320,6 +1355,63 @@ diskimagetest.img temp.txt", ""), "")
 """)
         # tidy up
         os.remove("temp.txt")
+
+    def test_forceformat(self):
+        self.assertEqual(self.runtest("list --forceinputformat IMG -o \
+diskimagetest.img", ""),
+                         """\
+  pos   filename  sectors   type
+    1   BASIC test   1      BAS
+    2   Array C      1      $.ARRAY
+    3   Array X      2      D.ARRAY
+    4   Screen      14      SCREEN$
+""")
+
+        self.assertEqual(self.runtest("list --forceinputformat MGT \
+diskimagetest.img temp.txt", ""), "")
+        self.assertEqual(_getfileasbytes("temp.txt").replace(b'\r', b''),
+                         bytearray(b"""\
+  pos   filename  sectors   type
+    1   BASIC test   1      BAS
+    2   Array C      1      $.ARRAY
+    3   Array X      2      D.ARRAY
+    4   Screen      14      SCREEN$
+   43   ^1F^00DEF FN \\NOT COPY COPY COPY ^03^02   3      D.ARRAY
+   45   GO SUB ^03DEF FN \\^98COPY COPY COPY ^02^14  10      BAS
+   46   COPY COPY """ + CHAR83 + b"""^1FCOPY COPY COPY """ + CHAR80 +
+                                   b"""^19^9939321      None
+   47   COPY COPY COPY """ + CHAR81 + b"""^0CTO TO TO """ + CHAR82 +
+                                   b"""^0C52428      None
+   48   TO TO """ + CHAR82 + b"""LTO TO TO """ + CHAR83 +
+                                   b"""^19^9939321      None
+   49   ^00^1B^00@COPY COPY COPY COPY ^00^00   0      $.ARRAY
+   51   BBBBBBBBBB16962      D.ARRAY
+   52   BBBBBBBBBB16962      D.ARRAY
+   53   ~~~~~~~~~~32382      None
+   54   BBBBBBBBBB16962      D.ARRAY
+   55   BBBBBBBBBB16962      D.ARRAY
+   56   BBBBBBBBBB16962      D.ARRAY
+   59   ||||||||||31868      None
+   60   BBBBBBBBBB16962      D.ARRAY
+"""))
+
+        self.assertEqual(self.runtest("create code --forceoutputformat IMG \
+--filename TEST --origin 0x8000 screentest.dat temp.img", ""), "")
+        di = disciplefile.DiscipleImage("temp.img")
+        di.guessimageformat()
+        self.assertEqual(di.ImageFormat, "IMG")
+
+        self.assertEqual(self.runtest("create code --forceoutputformat MGT \
+--filename TEST --origin 0x8000 screentest.dat temp.mgt", ""), "")
+        di = disciplefile.DiscipleImage("temp.mgt")
+        di.guessimageformat()
+        self.assertEqual(di.ImageFormat, "MGT")
+
+        # tidy up
+        di = None
+        os.remove("temp.txt")
+        os.remove("temp.img")
+        os.remove("temp.mgt")
 
     def test_delete(self):
         self.assertEqual(self.runtest("delete 1 diskimagetest.img temp.img",
@@ -1512,6 +1604,9 @@ entry number (should be 1 to 80).")
         # invalid multiple flag
         self.checkinvalidcommand("list -xyz in out", "-x is not a recognised \
 flag.")
+        # invalid forceformat flag
+        self.checkinvalidcommand("list -f WRONG in out", "WRONG is not a valid \
+format type.")
 
 
 if __name__ == "__main__":
