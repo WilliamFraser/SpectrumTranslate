@@ -1716,12 +1716,14 @@ def usage():
     file data and outputs it to outfile.
 
     instruction is required and specifies what you want to do.  It must
-    be 'list', 'delete', 'copy', 'extract', or 'create'.  'list' will
-    list the contents of the specified image file.  'delete' will output
-    a copy of the input with the specified file(s) deleted.  'extract'
-    extracts the data from an image file entry to wherever you want.
+    be 'list', 'delete', 'copy', 'extract', 'create', or 'test'.  'list'
+    will list the contents of the specified image file.  'delete' will
+    output a copy of the input with the specified file(s) deleted.
+    'extract' extracts the data from an image file entry to wherever you
+    want.
     'copy' copies the specified file(s) from one image to another.
     'create' creates a new file in outfile using the supplied file data.
+    'test' tests the image and return any faults.
     With copy, create, and delete a new disk image will be created if
     outfile is not an image file.
 
@@ -1857,6 +1859,13 @@ def usage():
        is saved.
     --pos same as -p.
     --position same as -p.
+
+    test flags:
+    --brief This specifies that you don't want the full list of faults
+            or a message saying that the image is valid. Instead you
+            will get nothing if the image is valid, and a one line
+            message if there is a fault with the image.
+    -b same as --brief.
 """
 
 
@@ -1907,6 +1916,7 @@ def _commandline(args):
     creatingarrayname = None
     formatinput = None
     formatoutput = "Unknown"
+    verbosetestoutput = True
 
     # handle no arguments
     if(len(args) == 1):
@@ -1918,7 +1928,8 @@ def _commandline(args):
 
         arg = args[i]
         if(arg == 'help' or arg == 'extract' or arg == 'list' or
-           arg == 'delete' or arg == 'copy' or arg == 'create'):
+           arg == 'delete' or arg == 'copy' or arg == 'create' or
+           arg == 'test'):
             if(mode is not None):
                 raise spectrumtranslate.SpectrumTranslateError(
                     "Can't have multiple commands.")
@@ -1928,7 +1939,7 @@ def _commandline(args):
 
         if(mode is None):
             raise spectrumtranslate.SpectrumTranslateError('No command (list, \
-extract, delete, copy, create, or help) specified as first argument.')
+extract, delete, copy, create, test, or help) specified as first argument.')
 
         if(mode == 'create' and creating is None):
             if(arg != 'basic' and arg != 'code' and arg != 'array' and
@@ -2091,6 +2102,10 @@ valid array type (must be character, number or string).'.format(args[i]))
             if(not copyposition):
                 raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
 valid index for the output file.'.format(args[i]))
+            continue
+
+        if(arg == '-b' or arg == '--brief'):
+            verbosetestoutput = False
             continue
 
         # have unrecognised argument.
@@ -2345,6 +2360,32 @@ filetypelong}\t{sectors}\t{filelength}").format(**d)
         # now set disk image as output
         retdata = diout.bytedata
 
+    if(mode == 'test'):
+        testresults = di.isimagevalid(deeptest=verbosetestoutput)
+
+        if(testresults[0]):
+            # image is valid
+            retdata = 'Valid Image file.\n' if verbosetestoutput else ''
+        else:
+            # image file has problems
+            if verbosetestoutput:
+                # safe format before working out what errors there are
+                imageformat = di.ImageFormat
+                # now work out what errors there are
+                di.ImageFormat = "MGT"
+                mgtErrors = di.isimagevalid(True)[1]
+                di.ImageFormat = "IMG"
+                imgErrors = di.isimagevalid(True)[1]
+                # restore format
+                di.ImageFormat = imageformat
+
+                retdata = """In MGT format, the errors were:\n""" + \
+                          mgtErrors + \
+                          "\n\nIn IMG format, the errors were:\n" + \
+                          imgErrors + "\n"
+            else:
+                retdata = 'Invalid Image file.\n'
+
     # output data
     if(not tostandardoutput):
         if(mode == "list"):
@@ -2360,7 +2401,7 @@ filetypelong}\t{sectors}\t{filelength}").format(**d)
         fo.close()
 
     else:
-        if(mode == "list"):
+        if(mode == "list" or mode == 'test'):
             if(sys.hexversion > 0x03000000):
                 sys.stdout.write(retdata)
             else:

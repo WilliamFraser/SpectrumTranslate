@@ -1528,6 +1528,93 @@ screentest.dat temp.img", ""), "")
         # tidy up
         os.remove("temp.img")
 
+    def test_test(self):
+        self.assertEqual(self.runtest("test -o diskimagetest.img", ""),
+                         "Valid Image file.\n")
+        self.assertEqual(self.runtest("test -o -b diskimagetest.img", ""),
+                         "")
+        self.assertEqual(self.runtest("test -o --brief diskimagetest.img", ""),
+                         "")
+
+        # create copy
+        with open("temp.img", "wb") as f:
+            f.write(_getfileasbytes("diskimagetest.img"))
+        di = disciplefile.DiscipleImage("temp.img", accessmode="rb+")
+
+        # now break image and test
+        # have incorrect file type
+        sector = di.getsector(0, 1)
+        di.writesector(bytearray([12]) + sector[1:], 0, 1)
+        # track & sector of last sector in file not 0, 0
+        di.writesector([0] * 510 + [4, 6], 4, 5)
+        di.writesector([0] * 510 + [5, 9], 5, 8)
+
+        self.assertEqual(self.runtest("test -o -b temp.img", ""),
+                         'Invalid Image file.\n')
+        self.assertEqual(self.runtest("test -o temp.img", ""),
+                         """In MGT format, the errors were:
+Contains file (number 1) with the errors: Contains invalid filetype. File \
+Allocation Table overlaps with other file(s). Number of sectors do not match \
+number of sectors in FAT. Mismatch between details and sector chain. Incorect \
+FAT table.
+Contains file (number 2) with the errors: File Allocation Table overlaps with \
+other file(s). Number of sectors do not match number of sectors in FAT. Wrong \
+length for number of sectors used. Mismatch between details and sector chain. \
+Incorect FAT table.
+Contains file (number 3) with the errors: File Allocation Table overlaps with \
+other file(s). Number of sectors do not match number of sectors in FAT. Wrong \
+length for number of sectors used. Mismatch between details and sector chain. \
+Incorect FAT table.
+Contains file (number 4) with the errors: File Allocation Table overlaps with \
+other file(s). Number of sectors do not match number of sectors in FAT. Wrong \
+length for number of sectors used. Mismatch between details and sector chain. \
+Incorect FAT table.
+Contains file (number 43) with the errors: File Allocation Table overlaps \
+with other file(s). Number of sectors do not match number of sectors in FAT. \
+Wrong length for number of sectors used. Invalid first sector.
+Contains file (number 45) with the errors: File Allocation Table overlaps \
+with other file(s). Number of sectors do not match number of sectors in FAT. \
+Wrong length for number of sectors used. Invalid first sector.
+Contains file (number 46) with the errors: Contains invalid filetype. File \
+Allocation Table overlaps with other file(s). Number of sectors do not match \
+number of sectors in FAT. Invalid first sector.
+Contains file (number 47) with the errors: Contains invalid filetype. File \
+Allocation Table overlaps with other file(s). Number of sectors do not match \
+number of sectors in FAT. Invalid first sector.
+Contains file (number 48) with the errors: Contains invalid filetype. File \
+Allocation Table overlaps with other file(s). Number of sectors do not match \
+number of sectors in FAT. Invalid first sector.
+Contains file (number 51) with the errors: File Allocation Table overlaps \
+with other file(s). Number of sectors do not match number of sectors in FAT. \
+Wrong length for number of sectors used. Invalid first sector.
+Contains file (number 52) with the errors: File Allocation Table overlaps \
+with other file(s). Number of sectors do not match number of sectors in FAT. \
+Wrong length for number of sectors used. Invalid first sector.
+Contains file (number 53) with the errors: Contains invalid filetype. File \
+Allocation Table overlaps with other file(s). Number of sectors do not match \
+number of sectors in FAT. Invalid first sector.
+Contains file (number 54) with the errors: File Allocation Table overlaps \
+with other file(s). Number of sectors do not match number of sectors in FAT. \
+Wrong length for number of sectors used. Invalid first sector.
+Contains file (number 55) with the errors: File Allocation Table overlaps \
+with other file(s). Number of sectors do not match number of sectors in FAT. \
+Wrong length for number of sectors used. Invalid first sector.
+Contains file (number 56) with the errors: Number of sectors do not match \
+number of sectors in FAT. Wrong length for number of sectors used. Invalid \
+first sector.
+Contains file (number 59) with the errors: Contains invalid filetype. File \
+Allocation Table overlaps with other file(s). Number of sectors do not match \
+number of sectors in FAT. Invalid first sector.
+Contains file (number 60) with the errors: File Allocation Table overlaps \
+with other file(s). Number of sectors do not match number of sectors in FAT. \
+Wrong length for number of sectors used. Invalid first sector.
+
+In IMG format, the errors were:
+Contains file (number 1) with the error: Contains invalid filetype.
+""")
+        # tidy up
+        os.remove("temp.img")
+
     def checkinvalidcommand(self, command, message):
         try:
             disciplefile._commandline(["disciplefile.py"] + command.split())
@@ -1541,7 +1628,7 @@ screentest.dat temp.img", ""), "")
     def test_invalidcommands(self):
         # incorrect action
         self.checkinvalidcommand("hello", "No command (list, extract, \
-delete, copy, create, or help) specified as first argument.")
+delete, copy, create, test, or help) specified as first argument.")
         # multiple actions
         self.checkinvalidcommand("create list",
                                  "Can't have multiple commands.")
