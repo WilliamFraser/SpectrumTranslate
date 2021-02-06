@@ -159,7 +159,7 @@ class SpectrumNumber:
             return
 
         # if is tuple, then recast it so can be worked with
-        if(data is ()):
+        if(data == ()):
             data = list(data)
 
         if(isinstance(data, list)):
@@ -175,13 +175,13 @@ class SpectrumNumber:
 
             # check and correct if bytes supplied in list
             if(listContainsSignedBytes):
-                if(all(val >= -128 and val <= 127 for val in data) is False):
+                if(all(val >= -128 and val <= 127 for val in data) == False):
                     raise SpectrumNumberError("List or Tuple argument must \
 contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
                 # convert byte to unsigned int
                 data = [(byte + 256) & 255 for byte in data]
 
-            if(all(val >= 0 and val <= 255 for val in data) is False):
+            if(all(val >= 0 and val <= 255 for val in data) == False):
                 raise SpectrumNumberError("List or Tuple argument must contain\
  numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
 
@@ -1192,7 +1192,7 @@ def Multiply(sn1, sn2):
     ncRet = SpectrumNumberComponents()
 
     # calculate sign: positive if same, negative if different
-    ncRet.negative = (nc1.negative is not nc2.negative)
+    ncRet.negative = (nc1.negative != nc2.negative)
 
     # multiply mantissas
     ncRet.mantissa = nc1.mantissa * nc2.mantissa
@@ -1284,7 +1284,7 @@ def Divide(sn1, sn2):
         nc1.mantissa &= _longint(0x1FFFFFFFF)
 
     # calculate sign: positive if same, negative if different
-    ncRet.negative = (nc1.negative is not nc2.negative)
+    ncRet.negative = (nc1.negative != nc2.negative)
 
     # calculate exponent
     ncRet.exponent = nc1.exponent - nc2.exponent

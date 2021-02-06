@@ -1511,7 +1511,7 @@ per track, 512 byte sector image."
 
         # outputfile
         # first work out if we're overwriting existing filename
-        if(overwritename and position is -1):
+        if(overwritename and position == -1):
             # if so get index or -1
             hits = self.fileindexfromname(headder[1:11])
             position = -1 if len(hits) == 0 else hits[0]
@@ -1573,7 +1573,7 @@ per track, 512 byte sector image."
 
         # outputfile
         # first work out if we're overwriting existing filename
-        if(overwritename and position is -1):
+        if(overwritename and position == -1):
             # if so get index or -1
             hits = self.fileindexfromname(headder[1:11])
             position = -1 if len(hits) == 0 else hits[0]
@@ -1628,7 +1628,7 @@ per track, 512 byte sector image."
 
         # outputfile
         # first work out if we're overwriting existing filename
-        if(overwritename and position is -1):
+        if(overwritename and position == -1):
             # if so get index or -1
             hits = self.fileindexfromname(headder[1:11])
             position = -1 if len(hits) == 0 else hits[0]
@@ -1681,7 +1681,7 @@ per track, 512 byte sector image."
 
         # outputfile
         # first work out if we're overwriting existing filename
-        if(overwritename and position is -1):
+        if(overwritename and position == -1):
             # if so get index or -1
             hits = self.fileindexfromname(headder[1:11])
             position = -1 if len(hits) == 0 else hits[0]

@@ -3692,7 +3692,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
         # check is comment
         if(di is not None and di.instruction & 0xFFFF00 == 0x030000 and
-           di.data is not None and di.data is not ""):
+           di.data is not None and di.data != ""):
             # handle commenmts before this line first
             if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
                     "Comment Before"]):
@@ -3702,11 +3702,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 continue
             # otherwise comnment end of this line or after
             if(di.instruction == 0x030002):
-                if(CommentAfter is not ""):
+                if(CommentAfter != ""):
                     CommentAfter += "\n"
                 CommentAfter += di.data
             else:
-                if(CommentEnd is not ""):
+                if(CommentEnd != ""):
                     CommentEnd += ". "
                 CommentEnd += di.data
 
@@ -3839,11 +3839,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                                 XMLOutput).split("\n")
                     # otherwise comnment end of this line or after
                     elif(CommentDisplacementsX[i][0][2] == 2):
-                        if(CommentAfter is not ""):
+                        if(CommentAfter != ""):
                             CommentAfter += "\n"
                         CommentAfter += CommentDisplacementsX[i][0][0]
                     else:
-                        if(CommentEnd is not ""):
+                        if(CommentEnd != ""):
                             CommentEnd += ". "
                         CommentEnd += CommentDisplacementsX[i][0][0]
                 if('IY' in s and CommentDisplacementsY[i][0][0] and
@@ -3856,11 +3856,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                                 XMLOutput).split("\n")
                     # otherwise comnment end of this line or after
                     elif(CommentDisplacementsY[i][0][2] == 2):
-                        if(CommentAfter is not ""):
+                        if(CommentAfter != ""):
                             CommentAfter += "\n"
                         CommentAfter += CommentDisplacementsY[i][0][0]
                     else:
-                        if(CommentEnd is not ""):
+                        if(CommentEnd != ""):
                             CommentEnd += ". "
                         CommentEnd += CommentDisplacementsY[i][0][0]
 
@@ -3891,11 +3891,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                                                          XMLOutput).split("\n")
                         # otherwise comnment end of this line or after
                         elif(di.instruction & 3 == 2):
-                            if(CommentAfter is not ""):
+                            if(CommentAfter != ""):
                                 CommentAfter += "\n"
                             CommentAfter += di.comment
                         else:
-                            if(CommentEnd is not ""):
+                            if(CommentEnd != ""):
                                 CommentEnd += ". "
                             CommentEnd += di.comment
 
@@ -3929,11 +3929,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                                                          XMLOutput).split("\n")
                         # otherwise comnment end of this line or after
                         elif(di.instruction & 3 == 2):
-                            if(CommentAfter is not ""):
+                            if(CommentAfter != ""):
                                 CommentAfter += "\n"
                             CommentAfter += di.comment
                         else:
-                            if(CommentEnd is not ""):
+                            if(CommentEnd != ""):
                                 CommentEnd += ". "
                             CommentEnd += di.comment
 
@@ -3965,11 +3965,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                                                          XMLOutput).split("\n")
                         # otherwise comnment end of this line or after
                         elif(di.instruction & 3 == 2):
-                            if(CommentAfter is not ""):
+                            if(CommentAfter != ""):
                                 CommentAfter += "\n"
                             CommentAfter += di.comment
                         else:
-                            if(CommentEnd is not ""):
+                            if(CommentEnd != ""):
                                 CommentEnd += ". "
                             CommentEnd += di.comment
 
@@ -4078,7 +4078,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         # undocumented commands)
         if(XMLOutput == 1):
             # do comment
-            if(DisplayComments == 0 and CommentEnd is not ""):
+            if(DisplayComments == 0 and CommentEnd != ""):
                 currentline += "<comment>" + CommentEnd + "</comment>"
 
             # do flags
@@ -4139,7 +4139,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             bNeedSpace = False
 
             # do comment
-            if(CommentEnd is not ""):
+            if(CommentEnd != ""):
                 # output pre comment text
                 currentline += precomment
                 # note has been output
@@ -4151,7 +4151,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 else:
                     comments = CommentEnd.split("\n")
                     currentline += comments[0]
-                    if(CommentAfter is not ""):
+                    if(CommentAfter != ""):
                         CommentAfter = "\n" + CommentAfter
                     CommentAfter = "\n".join(comments[1:]) + CommentAfter
 
@@ -4240,7 +4240,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         soutput += [currentline]
 
         # handle comments after line
-        if(DisplayComments == 0 and CommentAfter is not ""):
+        if(DisplayComments == 0 and CommentAfter != ""):
             soutput += CommentOutput(CommentAfter, XMLOutput).split('\n')
 
         # clear comments
@@ -4364,7 +4364,7 @@ def PredefinedStartLine(Settings, Vars, datatitle):
         while(dis and Vars[0x0A] >= dis[i].start):
             # if is comment instruction process it
             if(dis[i].instruction & 0xFFFF00 == 0x030000 and
-               dis[i].data is not None and dis[i].data is not ""):
+               dis[i].data is not None and dis[i].data != ""):
                 di = dis.pop(i)
                 if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
                    "Comment Before"]):
@@ -4374,11 +4374,11 @@ def PredefinedStartLine(Settings, Vars, datatitle):
 
                 # otherwise comnment end of this line or after
                 elif(di.instruction == 0x030002):
-                    if(Settings["COMMENTCONTROL"][3] is not ""):
+                    if(Settings["COMMENTCONTROL"][3] != ""):
                         Settings["COMMENTCONTROL"][3] += "\n"
                     Settings["COMMENTCONTROL"][3] += di.data
                 else:
-                    if(Settings["COMMENTCONTROL"][2] is not ""):
+                    if(Settings["COMMENTCONTROL"][2] != ""):
                         Settings["COMMENTCONTROL"][2] += ". "
                     Settings["COMMENTCONTROL"][2] += di.data
             else:
@@ -4419,7 +4419,7 @@ def PredefinedEndLine(Settings, Vars):
     # do comment
     if("COMMENTCONTROL" in Settings and
        Settings["COMMENTCONTROL"][1] == 0 and
-       Settings["COMMENTCONTROL"][2] is not ""):
+       Settings["COMMENTCONTROL"][2] != ""):
         # XML comments
         if(Settings["XMLOutput"] == 1):
             soutput += "<comment>{0}</comment>".format(
@@ -4449,7 +4449,7 @@ def PredefinedEndLine(Settings, Vars):
     # handle comments after line
     if("COMMENTCONTROL" in Settings):
         if(Settings["COMMENTCONTROL"][1] == 0 and
-           Settings["COMMENTCONTROL"][3] is not ""):
+           Settings["COMMENTCONTROL"][3] != ""):
             soutput += Settings["COMMENTCONTROL"][4](
                 Settings["COMMENTCONTROL"][3],
                 Settings["XMLOutput"]) + "\n"
@@ -5923,7 +5923,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
                 if(dis and
                    Vars[0x0A] >= dis[0].start and
                    dis[0].instruction & 0xFFFF00 == 0x030000 and
-                   dis[0].data is not None and dis[0].data is not ""):
+                   dis[0].data is not None and dis[0].data != ""):
                     di = dis.pop(0)
                     if(di.instruction == self.DISASSEMBLE_CODES[
                        "Comment Before"]):
@@ -5934,11 +5934,11 @@ DEFB               %#output instuction (DEFB or Define Byte)
                         continue
                     # otherwise comnment end of this line or after
                     if(di.instruction == 0x030002):
-                        if(Settings["COMMENTCONTROL"][3] is not ""):
+                        if(Settings["COMMENTCONTROL"][3] != ""):
                             Settings["COMMENTCONTROL"][3] += "\n"
                         Settings["COMMENTCONTROL"][3] += di.data
                     else:
-                        if(Settings["COMMENTCONTROL"][2] is not ""):
+                        if(Settings["COMMENTCONTROL"][2] != ""):
                             Settings["COMMENTCONTROL"][2] += ". "
                         Settings["COMMENTCONTROL"][2] += di.data
 
@@ -5996,7 +5996,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
             # do comment
             if("COMMENTCONTROL" in Settings and
                Settings["COMMENTCONTROL"][1] == 0 and
-               Settings["COMMENTCONTROL"][2] is not ""):
+               Settings["COMMENTCONTROL"][2] != ""):
                 # XML comments
                 if(Settings["XMLOutput"] == 1):
                     soutput += "<comment>{0}</comment>".format(
@@ -6012,7 +6012,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
                     else:
                         comments = Settings["COMMENTCONTROL"][2].split("\n")
                         soutput += comments[0]
-                        if(Settings["COMMENTCONTROL"][3] is not ""):
+                        if(Settings["COMMENTCONTROL"][3] != ""):
                             Settings["COMMENTCONTROL"][3] = "\n" +\
                                 Settings["COMMENTCONTROL"][3]
                         Settings["COMMENTCONTROL"][3] = "\n".join(
@@ -6029,7 +6029,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
             # handle comments after line
             if("COMMENTCONTROL" in Settings):
                 if(Settings["COMMENTCONTROL"][1] == 0 and
-                   Settings["COMMENTCONTROL"][3] is not ""):
+                   Settings["COMMENTCONTROL"][3] != ""):
                     soutput += Settings["COMMENTCONTROL"][4](
                         Settings["COMMENTCONTROL"][3],
                         Settings["XMLOutput"]) + "\n"
