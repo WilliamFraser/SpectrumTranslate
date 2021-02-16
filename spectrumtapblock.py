@@ -752,7 +752,7 @@ def _commandline(args):
 
             return specifiedfiles
 
-        except:
+        except ValueError:
             return None
 
     i = 0
@@ -823,7 +823,7 @@ and block.')
                 creatingautostart = getint(args[i])
                 continue
 
-            except:
+            except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError(
                     '{0} is not a valid autostart number.'.format(args[i]))
 
@@ -833,7 +833,7 @@ and block.')
                 creatingvariableoffset = getint(args[i])
                 continue
 
-            except:
+            except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError(
                     '{0} is not a valid variable offset.'.format(args[i]))
 
@@ -841,7 +841,7 @@ and block.')
             i += 1
             try:
                 creatingorigin = getint(args[i])
-            except:
+            except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError(
                     '{0} is not a valid code origin.'.format(args[i]))
 
@@ -855,7 +855,7 @@ and block.')
             i += 1
             try:
                 creatingblockflag = getint(args[i])
-            except:
+            except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError(
                     '{0} is not a valid flag value.'.format(args[i]))
 
@@ -923,7 +923,7 @@ valid array type (must be character, number or string).'.format(args[i]))
             try:
                 copyposition = getint(args[i])
 
-            except:
+            except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
 valid index for the output file.'.format(args[i]))
 
@@ -939,7 +939,7 @@ recognised flag.'.format(arg))
             try:
                 entrywanted = getint(arg)
 
-            except:
+            except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
 valid index in the input file.'.format(arg))
 

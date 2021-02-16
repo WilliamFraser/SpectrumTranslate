@@ -736,15 +736,15 @@ class DiscipleFile:
         s += "Sectors in FAT:"
         for i in range(0, 195):
             if(headderdata[i + 15]):
-                l = i * 8
+                m = i * 8
                 b = headderdata[i + 15]
                 while(b & 0xFF):
                     if(b & 1):
                         s += " {0};{1}".format(
-                            (l // 10) + (52 if (l >= 760) else 4),
-                            (l % 10) + 1)
+                            (m // 10) + (52 if (m >= 760) else 4),
+                            (m % 10) + 1)
                     b >>= 1
-                    l += 1
+                    m += 1
 
         track = headderdata[13]
         sector = headderdata[14]
@@ -1011,7 +1011,7 @@ class DiscipleImage:
         """
         try:
             self.filehandle = open(filename, accessmode)
-        except:
+        except (OSError, IOError):
             raise spectrumtranslate.SpectrumTranslateError(
                 'can not open "{0}" for reading'.format(filename))
             return
@@ -1320,17 +1320,17 @@ per track, 512 byte sector image."
                 # if used then make note of sectors used if we're not
                 # overwriting
                 elif(position != i):
-                    for l in range(195):
-                        if(sectorMap[l] & sector[headderoffset + 15 + l] != 0):
+                    for m in range(195):
+                        if(sectorMap[m] & sector[headderoffset + 15 + m] != 0):
                             # we have conflicting FAT entries
                             raise spectrumtranslate.SpectrumTranslateError(
                                 "Corrupt FAT table in destination image.")
 
                         # update sector map
-                        sectorMap[l] |= sector[headderoffset + 15 + l]
+                        sectorMap[m] |= sector[headderoffset + 15 + m]
                         # work out number of sectors used
                         sectorcount += bin(
-                            sector[headderoffset + 15 + l]).count("1")
+                            sector[headderoffset + 15 + m]).count("1")
 
                 i += 1
 
@@ -1382,19 +1382,19 @@ per track, 512 byte sector image."
         headder[11] = sectorsused // 0x100
 
         # now save file
-        l = 0
-        while(l < len(filedata)):
+        m = 0
+        while(m < len(filedata)):
             # mark sector as being used in disk FAT & file FAT
             o, b = self.get_offset_and_bit_from_track_and_sector(t, s)
             sectorMap[o] |= b
             headder[15 + o] |= b
 
             # work out how much to save in this sector
-            chunklength = min(len(filedata) - l, 510)
+            chunklength = min(len(filedata) - m, 510)
 
             # work out what next track & sector will be
             # will be 0,0 if last sector in chain
-            if(len(filedata) - l <= 510):
+            if(len(filedata) - m <= 510):
                 nextsector = [0, 0]
 
             else:
@@ -1402,13 +1402,13 @@ per track, 512 byte sector image."
 
             # create sector padding with 0 and finishing off with next
             # sector
-            sectordata = filedata[l:l + chunklength] + bytearray(
+            sectordata = filedata[m:m + chunklength] + bytearray(
                 510 - chunklength) + bytearray(nextsector)
             self.writesector(sectordata, t, s)
 
             # update counters and next sectors
             t, s = nextsector
-            l += chunklength
+            m += chunklength
 
         # now save headder
         # work out track, sector, and offset for headder for file
@@ -1890,7 +1890,7 @@ def _commandline(args):
 
             return specifiedfiles
 
-        except:
+        except ValueError:
             return None
 
     i = 0
@@ -1967,7 +1967,7 @@ screen.')
                 creatingautostart = getint(args[i])
                 continue
 
-            except:
+            except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError(
                     '{0} is not a valid autostart number.'.format(args[i]))
 
@@ -1977,7 +1977,7 @@ screen.')
                 creatingvariableoffset = getint(args[i])
                 continue
 
-            except:
+            except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError(
                     '{0} is not a valid variable offset.'.format(args[i]))
 
@@ -1995,7 +1995,7 @@ screen.')
 
                 continue
 
-            except:
+            except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError(
                     '{0} is not a valid code origin.'.format(args[i]))
                 break
@@ -2119,7 +2119,7 @@ recognised flag.'.format(arg))
                 entrywanted = getint(arg)
                 continue
 
-            except:
+            except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
 valid index in the input file.'.format(arg))
 
@@ -2411,6 +2411,7 @@ filetypelong}\t{sectors}\t{filelength}").format(**d)
                 sys.stdout.buffer.write(retdata)
             else:
                 sys.stdout.write("".join([chr(x) for x in retdata]))
+
 
 if __name__ == "__main__":
     try:

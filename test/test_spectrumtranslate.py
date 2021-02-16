@@ -52,7 +52,7 @@ import subprocess
 import re
 import sys
 import os
-import pep8
+import pycodestyle
 from PIL import Image
 from sys import hexversion as _PYTHON_VERSION_HEX
 from codecs import unicode_escape_decode as _UED
@@ -2970,13 +2970,13 @@ class Testformating(unittest.TestCase):
             StringIO.__init__(self)
             self.buffer = Testformating.Mystdout.bufferemulator()
 
-    def runpep8(self, py_file, stdoutignore):
+    def runpycodestyle(self, py_file, stdoutignore):
         saved_output = sys.stdout
         output = Testformating.Mystdout()
         sys.stdout = output
         try:
-            c = pep8.Checker(py_file)
-            c.check_all()
+            style = pycodestyle.StyleGuide()
+            result = style.check_files([py_file])
 
         finally:
             sys.stdout = saved_output
@@ -2992,11 +2992,13 @@ class Testformating(unittest.TestCase):
         return "\n".join(output)
 
     def test_pep8(self):
-        output = self.runpep8("../spectrumtranslate.py", [])
+        """
+        output = self.runpycodestyle("../spectrumtranslate.py", [])
         self.assertEqual(output, "", "../spectrumtranslate.py pep8 formatting \
 errors:\n" + output)
+        """
 
-        output = self.runpep8("test_spectrumtranslate.py", [
+        output = self.runpycodestyle("test_spectrumtranslate.py", [
             "test_spectrumtranslate.py:64:1: E402 module level import not at \
 top of file",
             "test_spectrumtranslate.py:65:1: E402 module level import not at \
@@ -3022,16 +3024,17 @@ class Test2_3compatibility(unittest.TestCase):
         output = "\n".join([x for x in output if x not in refactorignore])
         # split into diffs
         chunks = re.compile(
-            "^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
+            r"^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
             re.MULTILINE).split(output)
         chunks = [x for x in chunks if len(x) > 0]
-        # prepare matcher if is problem commented to ignore
-        commentmatcher = re.compile("^([^\-\+].*?\n)*(\s*# 2to3 will complain \
-but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
+        # prepare matchers
+        m1 = re.compile(r"(^[^\-\+].*\n){1}[\-\+].*?\n", re.MULTILINE)
+        m2 = re.compile(r"^\s*# 2to3 will complain but.*?\n")
         # filter out stuff want to ignore
         output = []
         for x in range(0, len(chunks), 2):
-            if(commentmatcher.match(chunks[x + 1])):
+            if(False in
+               [not m2.match(xx) for xx in m1.findall(chunks[x + 1])]):
                 continue
             if(chunks[x + 1] not in stdoutignore):
                 output += [chunks[x], chunks[x + 1]]
@@ -3140,17 +3143,17 @@ class Testcommandline(unittest.TestCase):
         # tidy up
         try:
             os_remove("temp.txt")
-        except:
+        except FileNotFoundError:
             pass
 
         try:
             os_remove("temp.gif")
-        except:
+        except FileNotFoundError:
             pass
 
         try:
             os_remove("temp.bin")
-        except:
+        except FileNotFoundError:
             pass
 
     def test_help(self):

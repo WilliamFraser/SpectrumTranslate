@@ -1200,7 +1200,7 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                             try:
                                 if(sn != sNumber):
                                     text += "({0!s})".format(sn)
-                            except:
+                            except (e):
                                 text += "(real value unclear)"
 
                         sNumber = ''

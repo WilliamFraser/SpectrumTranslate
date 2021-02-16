@@ -100,8 +100,8 @@ graphical interface to SpectrumTranslate)? (y/n/q)")
             break
 
     #set up packages needed for development?
-    print("\nDo You want to install pep8 and pillow (Only required if running \
-development tests)? (y/n/q)")
+    print("\nDo You want to install pycodestyle and pillow (Only required if \
+running development tests)? (y/n/q)")
     while(True):
         c = getch()
         if(c == b'n' or c == b'N' or c == 'n' or c == 'N'):
@@ -110,7 +110,7 @@ development tests)? (y/n/q)")
             quit()
         if(c == b'y' or c == b'Y' or c == 'y' or c == 'Y'):
             print()
-            pip_main(['install', 'pep8'])
+            pip_main(['install', 'pycodestyle'])
             pip_main(['install', 'pillow'])
             break
 

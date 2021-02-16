@@ -69,6 +69,7 @@ class SpectrumNumberError(Exception):
     def __str__(self):
         return repr(self.value)
 
+
 """
 SpectrumNumberComparisonPrecission determines how precicely the equals
 compares two numbers.  It is essentially the number of least significant
@@ -175,13 +176,13 @@ class SpectrumNumber:
 
             # check and correct if bytes supplied in list
             if(listContainsSignedBytes):
-                if(all(val >= -128 and val <= 127 for val in data) == False):
+                if(not all(val >= -128 and val <= 127 for val in data)):
                     raise SpectrumNumberError("List or Tuple argument must \
 contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
                 # convert byte to unsigned int
                 data = [(byte + 256) & 255 for byte in data]
 
-            if(all(val >= 0 and val <= 255 for val in data) == False):
+            if(not all(val >= 0 and val <= 255 for val in data)):
                 raise SpectrumNumberError("List or Tuple argument must contain\
  numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
 
@@ -918,6 +919,8 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
             f *= -1
         s = '{0} {1}'.format(f, self.data)
         return s
+
+
 """
 These are Module functions
 """
@@ -1842,6 +1845,7 @@ class SpectrumNumberComponents:
         return '{0} ({1:08X}e{2}{3})'.format(f, self.mantissa,
                                              self.negative and '-' or '+',
                                              str(self.exponent))
+
 
 if __name__ == "__main__":
     pass

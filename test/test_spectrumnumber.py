@@ -51,7 +51,7 @@ import sys
 import os
 import subprocess
 import re
-import pep8
+import pycodestyle
 # imported io/StringIO later so get python version specific one
 # import modules from parent directory
 pathtemp = sys.path
@@ -217,6 +217,8 @@ class TestSpectrumNumberComponentsMethods(unittest.TestCase):
         snc.negative = False
         snc.exponent = 127
         self.assertEqual('0.25 (80000000e+127)', str(snc))
+
+
 """
 Test SpectrumNumber
 """
@@ -395,13 +397,13 @@ class Testformating(unittest.TestCase):
             StringIO.__init__(self)
             self.buffer = Testformating.Mystdout.bufferemulator()
 
-    def runpep8(self, py_file, stdoutignore):
+    def runpycodestyle(self, py_file, stdoutignore):
         saved_output = sys.stdout
         output = Testformating.Mystdout()
         sys.stdout = output
         try:
-            c = pep8.Checker(py_file)
-            c.check_all()
+            style = pycodestyle.StyleGuide()
+            result = style.check_files([py_file])
 
         finally:
             sys.stdout = saved_output
@@ -417,11 +419,11 @@ class Testformating(unittest.TestCase):
         return "\n".join(output)
 
     def test_pep8(self):
-        output = self.runpep8("../spectrumnumber.py", [])
+        output = self.runpycodestyle("../spectrumnumber.py", [])
         self.assertEqual(output, "", "../spectrumnumber.py pep8 formatting \
 errors:\n" + output)
 
-        output = self.runpep8("test_spectrumnumber.py", [
+        output = self.runpycodestyle("test_spectrumnumber.py", [
             "test_spectrumnumber.py:59:1: E402 module level import not at top \
 of file"])
         self.assertEqual(output, "", "test_spectrumnumber.py pep8 formatting \
@@ -445,16 +447,17 @@ class Test2_3compatibility(unittest.TestCase):
         output = "\n".join([x for x in output if x not in refactorignore])
         # split into diffs
         chunks = re.compile(
-            "^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
+            r"^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
             re.MULTILINE).split(output)
         chunks = [x for x in chunks if len(x) > 0]
-        # prepare matcher if is problem commented to ignore
-        commentmatcher = re.compile("^([^\-\+].*?\n)*(\s*# 2to3 will complain \
-but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
+        # prepare matchers
+        m1 = re.compile(r"(^[^\-\+].*\n){1}[\-\+].*?\n", re.MULTILINE)
+        m2 = re.compile(r"^\s*# 2to3 will complain but.*?\n")
         # filter out stuff want to ignore
         output = []
         for x in range(0, len(chunks), 2):
-            if(commentmatcher.match(chunks[x + 1])):
+            if(False in
+               [not m2.match(xx) for xx in m1.findall(chunks[x + 1])]):
                 continue
             if(chunks[x + 1] not in stdoutignore):
                 output += [chunks[x], chunks[x + 1]]

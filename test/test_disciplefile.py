@@ -51,7 +51,7 @@ import sys
 import subprocess
 import re
 import os
-import pep8
+import pycodestyle
 # imported io/StringIO later so get python version specific one
 # import modules from parent directory
 pathtemp = sys.path
@@ -169,8 +169,8 @@ class Testutilityfunctions(unittest.TestCase):
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           disciplefile._validateandconvertfilename, 0.1)
         if(sys.hexversion < 0x03000000):
-            # 2to3 will complain but is ok as won't run in python 3
             self.assertEqual(disciplefile._validateandconvertfilename(
+                # 2to3 will complain but is ok as won't run in python 3
                              [long(65), long(66), long(67)]),
                              bytearray(b'ABC       '))
 
@@ -498,8 +498,8 @@ Sector chain: 4;5(A800) 4;6(AA00) 4;7(AC00) 4;8(AE00) 4;9(B000) 4;10(B200) \
                       df.checkforfaults())
         # sector map not matching number of sectors used
         di.writesector(sector[:12] + bytearray([2]) + sector[13:], 0, 1)
-        self.assertEqual(df.checkforfaults(), ["Number of sectors do not match \
-number of sectors in FAT"])
+        self.assertEqual(df.checkforfaults(), ["Number of sectors do not \
+match number of sectors in FAT"])
         # number of sectors not matching file size
         di.writesector(sector[:212] + bytearray([10, 10]) + sector[214:], 0, 1)
         self.assertEqual(df.checkforfaults(),
@@ -511,8 +511,8 @@ number of sectors in FAT"])
         # test multiple results
         self.assertEqual(df.checkforfaults(),
                          ['File Allocation Table overlaps with other file(s)',
-                          'Number of sectors do not match number of sectors in \
-FAT',
+                          'Number of sectors do not match number of sectors \
+in FAT',
                           'Wrong length for number of sectors used',
                           "Used sectors don't match FAT table entries",
                           'Mismatch between details and sector chain',
@@ -777,12 +777,12 @@ with the error: Contains invalid filetype."))
         # track & sector of last sector in file not 0, 0
         di.writesector([0] * 510 + [4, 6], 4, 5)
         di.writesector([0] * 510 + [5, 9], 5, 8)
-        self.assertEqual(di.isimagevalid(True), (False, 'Contains file (number \
-1) with the error: Contains invalid filetype.\nContains file (number 4) with \
-the error: Mismatch between details and sector chain.'))
+        self.assertEqual(di.isimagevalid(True), (False, 'Contains file \
+(number 1) with the error: Contains invalid filetype.\nContains file (number \
+4) with the error: Mismatch between details and sector chain.'))
         # test shallow (faster) test
-        self.assertEqual(di.isimagevalid(False), (False, 'Contains file (number \
-1) with the error: Contains invalid filetype.'))
+        self.assertEqual(di.isimagevalid(False), (False, 'Contains file \
+(number 1) with the error: Contains invalid filetype.'))
 
     def test_writefile(self):
         di = disciplefile.DiscipleImage()
@@ -1048,13 +1048,13 @@ class Testformating(unittest.TestCase):
             StringIO.__init__(self)
             self.buffer = Testformating.Mystdout.bufferemulator()
 
-    def runpep8(self, py_file, stdoutignore):
+    def runpycodestyle(self, py_file, stdoutignore):
         saved_output = sys.stdout
         output = Testformating.Mystdout()
         sys.stdout = output
         try:
-            c = pep8.Checker(py_file)
-            c.check_all()
+            style = pycodestyle.StyleGuide()
+            result = style.check_files([py_file])
 
         finally:
             sys.stdout = saved_output
@@ -1070,12 +1070,12 @@ class Testformating(unittest.TestCase):
         return "\n".join(output)
 
     def test_pep8(self):
-        output = self.runpep8("../disciplefile.py", [])
+        output = self.runpycodestyle("../disciplefile.py", [])
         self.assertEqual(output, "",
                          "../disciplefile.py pep8 formatting errors:\n" +
                          output)
 
-        output = self.runpep8("test_disciplefile.py", [
+        output = self.runpycodestyle("test_disciplefile.py", [
             "test_disciplefile.py:59:1: E402 module level import not at top \
 of file",
             "test_disciplefile.py:60:1: E402 module level import not at top \
@@ -1102,16 +1102,17 @@ class Test2_3compatibility(unittest.TestCase):
         output = "\n".join([x for x in output if x not in refactorignore])
         # split into diffs
         chunks = re.compile(
-            "^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
+            r"^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
             re.MULTILINE).split(output)
         chunks = [x for x in chunks if len(x) > 0]
-        # prepare matcher if is problem commented to ignore
-        commentmatcher = re.compile("^([^\-\+].*?\n)*(\s*# 2to3 will complain \
-but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
+        # prepare matchers
+        m1 = re.compile(r"(^[^\-\+].*\n){1}[\-\+].*?\n", re.MULTILINE)
+        m2 = re.compile(r"^\s*# 2to3 will complain but.*?\n")
         # filter out stuff want to ignore
         output = []
         for x in range(0, len(chunks), 2):
-            if(commentmatcher.match(chunks[x + 1])):
+            if(False in
+               [not m2.match(xx) for xx in m1.findall(chunks[x + 1])]):
                 continue
             if(chunks[x + 1] not in stdoutignore):
                 output += [chunks[x], chunks[x + 1]]
@@ -1218,22 +1219,22 @@ class Testcommandline(unittest.TestCase):
         # tidy up
         try:
             os.remove("temp.img")
-        except:
+        except FileNotFoundError:
             pass
 
         try:
             os.remove("temp.mgt")
-        except:
+        except FileNotFoundError:
             pass
 
         try:
             os.remove("temp.txt")
-        except:
+        except FileNotFoundError:
             pass
 
         try:
             os.remove("temp.bin")
-        except:
+        except FileNotFoundError:
             pass
 
     def test_help(self):
@@ -1646,7 +1647,7 @@ delete, copy, create, test, or help) specified as first argument.")
         self.checkinvalidcommand("create code --origin notnumber",
                                  "notnumber is not a valid code origin.")
         self.checkinvalidcommand("create code --origin 65537",
-                                 "65537 is not a valid code origin.")
+                                 "code origin must be 0-65535 inclusive.")
         # invalid arrayname
         self.checkinvalidcommand("create array --arrayname wrong",
                                  "wrong is not a valid variable name.")
@@ -1692,8 +1693,8 @@ entry number (should be 1 to 80).")
         self.checkinvalidcommand("list -xyz in out", "-x is not a recognised \
 flag.")
         # invalid forceformat flag
-        self.checkinvalidcommand("list -f WRONG in out", "WRONG is not a valid \
-format type.")
+        self.checkinvalidcommand("list -f WRONG in out", "WRONG is not a \
+valid format type.")
 
 
 if __name__ == "__main__":

@@ -51,7 +51,7 @@ import unittest
 import re
 import sys
 import os
-import pep8
+import pycodestyle
 # imported elsewhere for memory reasons are:
 # unicode_escape_decode in the codecs module
 # imported io/StringIO later so get python version specific one
@@ -158,8 +158,8 @@ class Testutilityfunctions(unittest.TestCase):
                           spectrumtapblock._validateandconvertfilename,
                           0.1)
         if(sys.hexversion < 0x03000000):
-            # 2to3 will complain but is ok as won't run in python 3
             self.assertEqual(spectrumtapblock._validateandconvertfilename(
+                # 2to3 will complain but is ok as won't run in python 3
                              [long(65), long(66), long(67)]),
                              bytearray(b'ABC       '))
 
@@ -431,13 +431,13 @@ class Testformating(unittest.TestCase):
             StringIO.__init__(self)
             self.buffer = Testformating.Mystdout.bufferemulator()
 
-    def runpep8(self, py_file, stdoutignore):
+    def runpycodestyle(self, py_file, stdoutignore):
         saved_output = sys.stdout
         output = Testformating.Mystdout()
         sys.stdout = output
         try:
-            c = pep8.Checker(py_file)
-            c.check_all()
+            style = pycodestyle.StyleGuide()
+            result = style.check_files([py_file])
 
         finally:
             sys.stdout = saved_output
@@ -453,11 +453,11 @@ class Testformating(unittest.TestCase):
         return "\n".join(output)
 
     def test_pep8(self):
-        output = self.runpep8("../spectrumtapblock.py", [])
+        output = self.runpycodestyle("../spectrumtapblock.py", [])
         self.assertEqual(output, "", "../spectrumtapblock.py pep8 formatting \
 errors:\n" + output)
 
-        output = self.runpep8("test_spectrumtapblock.py", [
+        output = self.runpycodestyle("test_spectrumtapblock.py", [
             "test_spectrumtapblock.py:61:1: E402 module level import not at \
 top of file",
             "test_spectrumtapblock.py:62:1: E402 module level import not at \
@@ -483,16 +483,17 @@ class Test2_3compatibility(unittest.TestCase):
         output = "\n".join([x for x in output if x not in refactorignore])
         # split into diffs
         chunks = re.compile(
-            "^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
+            r"^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
             re.MULTILINE).split(output)
         chunks = [x for x in chunks if len(x) > 0]
-        # prepare matcher if is problem commented to ignore
-        commentmatcher = re.compile("^([^\-\+].*?\n)*(\s*# 2to3 will complain \
-but.*?\n)([\-\+].*?\n)*([^\-\+].*?\n?)*$")
+        # prepare matchers
+        m1 = re.compile(r"(^[^\-\+].*\n){1}[\-\+].*?\n", re.MULTILINE)
+        m2 = re.compile(r"^\s*# 2to3 will complain but.*?\n")
         # filter out stuff want to ignore
         output = []
         for x in range(0, len(chunks), 2):
-            if(commentmatcher.match(chunks[x + 1])):
+            if(False in
+               [not m2.match(xx) for xx in m1.findall(chunks[x + 1])]):
                 continue
             if(chunks[x + 1] not in stdoutignore):
                 output += [chunks[x], chunks[x + 1]]
@@ -600,17 +601,17 @@ class Testcommandline(unittest.TestCase):
         # tidy up
         try:
             os.remove("temp.tap")
-        except:
+        except FileNotFoundError:
             pass
 
         try:
             os.remove("temp.txt")
-        except:
+        except FileNotFoundError:
             pass
 
         try:
             os.remove("temp.bin")
-        except:
+        except FileNotFoundError:
             pass
 
     def test_help(self):
