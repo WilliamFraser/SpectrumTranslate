@@ -87,7 +87,7 @@ if __name__ == "__main__":
 
     #set up PyQt5?
     print("Do You want to install PyQt5 (latest version of Qt needed to run \
-graphical interface to SpectrumTranslate)? (y/n/q)")
+graphical interface to SpectrumTranslate) and PyQtWebEngine? (y/n/q)")
     while(True):
         c = getch()
         if(c == b'n' or c == b'N' or c == 'n' or c == 'N'):
@@ -97,6 +97,7 @@ graphical interface to SpectrumTranslate)? (y/n/q)")
         if(c == b'y' or c == b'Y' or c == 'y' or c == 'Y'):
             print()
             pip_main(['install', 'PyQt5'])
+            pip_main(['install', 'PyQtWebEngine'])
             break
 
     #set up packages needed for development?
