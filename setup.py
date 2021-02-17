@@ -43,7 +43,7 @@
 # Date: 12th March 2017
 
 from pip import main as pip_main
-from site import getsitepackages
+from site import getusersitepackages
 from shutil import copy as shutil_copy
 from sys import hexversion as sys_hexversion
 import os
@@ -116,15 +116,7 @@ running development tests)? (y/n/q)")
             break
 
     #work out where to copy files to
-    packagedirs = [p for p in getsitepackages() if p.endswith('-packages')]
-    #if no site-packages or dist-packages directory, get all module directories
-    if(not packagedirs):
-        packagedirs = getsitepackages()
-    #may be more than one.
-    #Choose last as first in list more likely to be python root directories
-    packagedir = packagedirs[-1]
-    ST_dir = os.path.join(packagedir, "SpectrumTranslate")
-
+    ST_dir = os.path.join(getusersitepackages(), "SpectrumTranslate")
     #install as module?
     print("\nDo You want to install SpectrumTranslate as a module that you can \
 import from any project for this user? (y/n/q)")
