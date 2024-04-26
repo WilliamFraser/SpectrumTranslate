@@ -52,32 +52,14 @@ import os
 import subprocess
 import re
 import pycodestyle
-# imported io/StringIO later so get python version specific one
+from io import StringIO
 # import modules from parent directory
-pathtemp = sys.path
-sys.path += [os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]
+import addparentmodules
 import spectrumnumber
-# restore system path
-sys.path = pathtemp
+
 
 # change to current directory in cae being run from elsewhere
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-# 2to3 will complain about these lines but is 2 & 3 compatible
-if(sys.hexversion > 0x03000000):
-    from io import StringIO
-    _longint = int
-else:
-    # 2to3 will complain but won't cause problems in real life
-    from StringIO import StringIO
-    _longint = long
-
-
-if(os.name == 'posix'):
-    cmd2to3 = ["/usr/bin/2to3"]
-elif(os.name == 'nt'):
-    cmd2to3 = [sys.executable,
-               os.path.dirname(sys.executable) + "\\Tools\\Scripts\\2to3.py"]
 
 
 """
@@ -107,13 +89,13 @@ class TestSpectrumNumberComponentsCreate(unittest.TestCase):
         # Check spectrumnumber creation
         snc = spectrumnumber.SpectrumNumberComponents(
             spectrumnumber.SpectrumNumber(1))
-        self.assertEqual(_longint(0x80000000), snc.mantissa)
+        self.assertEqual(0x80000000, snc.mantissa)
         self.assertFalse(snc.negative)
         self.assertEqual(129, snc.exponent)
 
         snc = spectrumnumber.SpectrumNumberComponents(
             spectrumnumber.SpectrumNumber(-0.25))
-        self.assertEqual(_longint(0xFFFFFFFF), snc.mantissa)
+        self.assertEqual(0xFFFFFFFF, snc.mantissa)
         self.assertTrue(snc.negative)
         self.assertEqual(126, snc.exponent)
 
@@ -129,78 +111,78 @@ class TestSpectrumNumberComponentsCreate(unittest.TestCase):
 class TestSpectrumNumberComponentsMethods(unittest.TestCase):
     def testShiftMantissa(self):
         snc = spectrumnumber.SpectrumNumberComponents()
-        snc.mantissa = _longint(0xFFFFFFFF)
+        snc.mantissa = 0xFFFFFFFF
         snc.negative = False
         snc.exponent = 0
 
         snc.shift_mantissa(33, 0)
-        self.assertEqual(_longint(0), snc.mantissa)
+        self.assertEqual(0, snc.mantissa)
         self.assertFalse(snc.negative)
         self.assertEqual(0, snc.exponent)
 
-        snc.mantissa = _longint(0xFFFFFFFF)
+        snc.mantissa = 0xFFFFFFFF
         snc.shift_mantissa(2, 1)
-        self.assertEqual(_longint(0x80000000), snc.mantissa)
+        self.assertEqual(0x80000000, snc.mantissa)
 
     def testTwosComplementMantissa(self):
         snc = spectrumnumber.SpectrumNumberComponents()
-        snc.mantissa = _longint(0xFFFFFFFF)
+        snc.mantissa = 0xFFFFFFFF
         snc.twos_complement_mantissa()
-        self.assertEqual(_longint(1), snc.mantissa)
-        snc.mantissa = _longint(2)
+        self.assertEqual(1, snc.mantissa)
+        snc.mantissa = 2
         snc.twos_complement_mantissa()
-        self.assertEqual(_longint(0xFFFFFFFE), snc.mantissa)
+        self.assertEqual(0xFFFFFFFE, snc.mantissa)
 
     def testNormalise(self):
         snc = spectrumnumber.SpectrumNumberComponents()
-        snc.mantissa = _longint(0xFF)
+        snc.mantissa = 0xFF
         snc.negative = False
         snc.exponent = 128
 
         snc.normalise(0xE)
-        self.assertEqual(_longint(0xFF0E0000), snc.mantissa)
+        self.assertEqual(0xFF0E0000, snc.mantissa)
         self.assertEqual(104, snc.exponent)
 
-        snc.mantissa = _longint(0)
+        snc.mantissa = 0
         snc.normalise(0)
-        self.assertEqual(_longint(0), snc.mantissa)
+        self.assertEqual(0, snc.mantissa)
         self.assertEqual(0, snc.exponent)
 
-        snc.mantissa = _longint(0xFF)
+        snc.mantissa = 0xFF
         snc.exponent = 2
         snc.normalise(0)
-        self.assertEqual(_longint(0), snc.mantissa)
+        self.assertEqual(0, snc.mantissa)
         self.assertEqual(0, snc.exponent)
-        snc.mantissa = _longint(0x40000000)
+        snc.mantissa = 0x40000000
         snc.exponent = 1
         snc.normalise(1)
-        self.assertEqual(_longint(0x80000000), snc.mantissa)
+        self.assertEqual(0x80000000, snc.mantissa)
         self.assertEqual(1, snc.exponent)
 
-        snc.mantissa = _longint(0x7FFFFFFF)
+        snc.mantissa = 0x7FFFFFFF
         snc.exponent = 128
         snc.normalise(0xFF)
-        self.assertEqual(_longint(0x80000000), snc.mantissa)
+        self.assertEqual(0x80000000, snc.mantissa)
         self.assertEqual(128, snc.exponent)
-        snc.mantissa = _longint(0x7FFFFFFF)
+        snc.mantissa = 0x7FFFFFFF
         snc.exponent = 128
         snc.normalise(0)
-        self.assertEqual(_longint(0xFFFFFFFE), snc.mantissa)
+        self.assertEqual(0xFFFFFFFE, snc.mantissa)
         self.assertEqual(127, snc.exponent)
-        snc.mantissa = _longint(0xFFFFFFFF)
+        snc.mantissa = 0xFFFFFFFF
         snc.exponent = 255
         self.assertRaises(spectrumnumber.SpectrumNumberError, snc.normalise,
                           0xFF)
 
     def testGetSpectrumNumber(self):
         snc = spectrumnumber.SpectrumNumberComponents()
-        snc.mantissa = _longint(0x80000000)
+        snc.mantissa = 0x80000000
         snc.negative = False
         snc.exponent = 128
         self.assertEqual("0.5", str(snc.get_SpectrumNumber()))
         snc.negative = True
         self.assertEqual("-0.5", str(snc.get_SpectrumNumber()))
-        snc.mantissa = _longint(0xC0000000)
+        snc.mantissa = 0xC0000000
         self.assertEqual("-0.75", str(snc.get_SpectrumNumber()))
         snc.exponent = 127
         self.assertEqual("-0.375", str(snc.get_SpectrumNumber()))
@@ -247,7 +229,7 @@ class TestSpectrumNumberCreate(unittest.TestCase):
         result = spectrumnumber.SpectrumNumber([0, 0, 1, 0, 0])
         self.assertEqual([0, 0, 1, 0, 0], result.data)
         # check different valid data types, and length of argument
-        result = spectrumnumber.SpectrumNumber([float(0), 0, int(2)])
+        result = spectrumnumber.SpectrumNumber([float(0), 0, 2])
         self.assertEqual([0, 0, 2, 0, 0], result.data)
         # check byte handling
         self.assertRaises(spectrumnumber.SpectrumNumberError,
@@ -411,9 +393,9 @@ class Testformating(unittest.TestCase):
         output = output.getvalue()
 
         output = output.splitlines()
-        if(len(output) > 0 and isinstance(output[0], bytes)):
+        if len(output) > 0 and isinstance(output[0], bytes):
             output = [x.decode("utf-8") for x in output]
-        if(stdoutignore):
+        if stdoutignore:
             output = [x for x in output if x not in stdoutignore]
 
         return "\n".join(output)
@@ -423,84 +405,9 @@ class Testformating(unittest.TestCase):
         self.assertEqual(output, "", "../spectrumnumber.py pep8 formatting \
 errors:\n" + output)
 
-        output = self.runpycodestyle("test_spectrumnumber.py", [
-            "test_spectrumnumber.py:59:1: E402 module level import not at top \
-of file"])
+        output = self.runpycodestyle("test_spectrumnumber.py", [])
         self.assertEqual(output, "", "test_spectrumnumber.py pep8 formatting \
 errors:\n" + output)
-
-
-class Test2_3compatibility(unittest.TestCase):
-    def run2to3(self, py_file, errignore, stdoutignore):
-        p = subprocess.Popen(cmd2to3 + [py_file],
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output, error = p.communicate()
-
-        # remove refactoring info
-        output = output.splitlines()
-        if(len(output) > 0 and isinstance(output[0], bytes)):
-            output = [x.decode("utf-8") for x in output]
-        refactorignore = ["--- " + py_file + " (original)",
-                          "+++ " + py_file + " (refactored)",
-                          "--- " + py_file + "\t(original)",
-                          "+++ " + py_file + "\t(refactored)"]
-        output = "\n".join([x for x in output if x not in refactorignore])
-        # split into diffs
-        chunks = re.compile(
-            r"^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
-            re.MULTILINE).split(output)
-        chunks = [x for x in chunks if len(x) > 0]
-        # prepare matchers
-        m1 = re.compile(r"(^[^\-\+].*\n){1}[\-\+].*?\n", re.MULTILINE)
-        m2 = re.compile(r"^\s*# 2to3 will complain but.*?\n")
-        # filter out stuff want to ignore
-        output = []
-        for x in range(0, len(chunks), 2):
-            if(False in
-               [not m2.match(xx) for xx in m1.findall(chunks[x + 1])]):
-                continue
-            if(chunks[x + 1] not in stdoutignore):
-                output += [chunks[x], chunks[x + 1]]
-
-        error = error.splitlines()
-        if(len(error) > 0 and isinstance(error[0], bytes)):
-            error = [x.decode("utf-8") for x in error]
-        if(not errignore):
-            errignore = []
-        errignore += [
-            "AssertionError: {0} 2to3 check had errors:".format(py_file),
-            "RefactoringTool: Skipping implicit fixer: buffer",
-            "RefactoringTool: Skipping optional fixer: buffer",
-            "RefactoringTool: Skipping implicit fixer: idioms",
-            "RefactoringTool: Skipping optional fixer: idioms",
-            "RefactoringTool: Skipping implicit fixer: set_literal",
-            "RefactoringTool: Skipping optional fixer: set_literal",
-            "RefactoringTool: Skipping implicit fixer: ws_comma",
-            "RefactoringTool: Skipping optional fixer: ws_comma",
-            "RefactoringTool: Refactored {0}".format(py_file),
-            "RefactoringTool: Files that need to be modified:",
-            "RefactoringTool: {0}".format(py_file),
-            "RefactoringTool: No changes to {0}".format(py_file)]
-
-        error = [x for x in error if x not in errignore]
-        error = [x for x in error if x.find(
-            ": Generating grammar tables from ") == -1]
-
-        return output, "".join(error)
-
-    def test_2to3(self):
-        output, error = self.run2to3("../spectrumnumber.py", [], [])
-        self.assertEqual(output, [], "../spectrumnumber.py 2to3 errors:\n" +
-                         "".join(output))
-        self.assertEqual(error, "",
-                         "../spectrumnumber.py 2to3 check had errors:\n" +
-                         error)
-
-        output, error = self.run2to3("test_spectrumnumber.py", [], [])
-        self.assertEqual(output, [], "test_spectrumnumber.py 2to3 errors:\n" +
-                         "".join(output))
-        self.assertEqual(error, "", "test_spectrumnumber.py 2to3 check had \
-errors:\n" + error)
 
 
 if __name__ == "__main__":

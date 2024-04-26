@@ -45,7 +45,7 @@
 import sys
 import re
 import os.path
-import spectrumtapblock
+import spectrumtape
 import disciplefile
 import spectrumtranslate
 # Manage moveing of functions and renameing modules from PyQt4 to PyQt5
@@ -68,37 +68,20 @@ except ImportError:
 from operator import itemgetter, attrgetter
 
 
-if(sys.hexversion >= 0x03000000):
-    def _validbytestointlist(x):
-        # function to convert any valid source to a list of ints
-        if(isinstance(x, (bytes, bytearray))):
-            return [b for b in x]
+def _validbytestointlist(x):
+    # function to convert any valid source to a list of ints
+    if isinstance(x, (bytes, bytearray)):
+        return [b for b in x]
 
-        return x[:]
+    return x[:]
 
-    # open file modes
-    MODE_WB = 'wb'
-    MODE_RB = 'rb'
-    MODE_AB = 'ab'
-    MODE_WT = 'w'
-    MODE_RT = 'r'
-    MODE_AT = 'a'
-
-else:
-    def _validbytestointlist(x):
-        # function to convert any valid source to a list of ints
-        if(isinstance(x, str)):
-            return [ord(b) for b in x]
-
-        return x[:]
-
-    # open file modes
-    MODE_WB = 'wb'
-    MODE_RB = 'rb'
-    MODE_AB = 'ab'
-    MODE_WT = 'wt'
-    MODE_RT = 'rt'
-    MODE_AT = 'at'
+# open file modes
+MODE_WB = 'wb'
+MODE_RB = 'rb'
+MODE_AB = 'ab'
+MODE_WT = 'w'
+MODE_RT = 'r'
+MODE_AT = 'a'
 
 
 def _setcombo(combo, text):
@@ -134,7 +117,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             scroll.valueChanged.connect(self.scrollChanged)
 
         def scrollChanged(self, pos):
-            if(self.topleftaddress != -1):
+            if self.topleftaddress != -1:
                 self.topleftaddress = pos * self.columns
 
             # repaint display
@@ -145,7 +128,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             qp.begin(self)
 
             # if topleft not set do so now
-            if(self.topleftaddress == -1):
+            if self.topleftaddress == -1:
                 self.topleftaddress = (self.selectStart // self.columns) *\
                                         self.columns
                 # update scrollbar
@@ -161,10 +144,9 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             # Are we doing selection?
             # if so, is there selected area in screen? If so then
             # highlight it in grey
-            if(self.radiobutton is not None and
-               self.selectStart < self.topleftaddress + self.rows *
-               self.columns and
-               self.selectEnd > self.topleftaddress):
+            if (self.radiobutton is not None and
+                self.selectStart < self.topleftaddress + self.rows *
+                self.columns and self.selectEnd > self.topleftaddress):
                 # selection background to grey
                 qp.setBrush(QColor(128, 128, 128))
 
@@ -191,7 +173,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 # do part first line
                 i = (self.selectStart - self.topleftaddress) % self.columns
                 # if any bytes before whole line, highlight them
-                if(i != 0):
+                if i != 0:
                     qp.drawRect(x + (i * 3 * self.cWidth),
                                 (rstart - 1) * self.cHeight,
                                 (((self.columns - i) * 3) - 1) * self.cWidth,
@@ -203,8 +185,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
                 # blank any unused blocks on last line if not needed
                 i = (self.selectEnd - self.topleftaddress) % self.columns
-                if(i != 0 and
-                   self.selectEnd < self.topleftaddress +
+                if (i != 0 and self.selectEnd < self.topleftaddress +
                    (self.rows * self.columns)):
                     qp.setBrush(QColor(255, 255, 255))
                     qp.drawRect(x + (((i * 3) - 1) * self.cWidth),
@@ -225,12 +206,12 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             a = self.topleftaddress
             row = 0
             # draw each row of values
-            while(row < self.rows):
+            while row < self.rows:
                 # start off half a character in
                 x = self.cWidth >> 1
 
                 # print address
-                qp.drawText(QtCore.QPointF(x, y), "{0:08X}".format(a))
+                qp.drawText(QtCore.QPointF(x, y), "{:08X}".format(a))
 
                 # move past address
                 x += self.cWidth * 10
@@ -239,10 +220,10 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                 txt = ""
                 # print each value and remember the character
                 # representation
-                while(i < self.columns and a + i < len(self.data)):
+                while i < self.columns and a + i < len(self.data):
                     # print value at address
                     qp.drawText(QtCore.QPointF(x, y),
-                                "{0:02X}".format(self.data[a + i]))
+                                "{:02X}".format(self.data[a + i]))
                     x += self.cWidth * 3
                     # add character
                     d = self.data[a + i]
@@ -292,12 +273,12 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
             self.rows = i
 
             # if topleft not set do so now
-            if(self.topleftaddress == -1):
+            if self.topleftaddress == -1:
                 self.topleftaddress = (self.selectStart // self.columns) * \
                                       self.columns
 
             # if has changed then update ascociated scrollbar
-            if(bChanged or event is None or not event):
+            if bChanged or event is None or not event:
                 self.scroll.setValue(max(self.topleftaddress,
                                          0) // self.columns)
                 self.scroll.setPageStep(self.rows)
@@ -307,56 +288,56 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
         def mouseReleaseEvent(self, event):
             # Are we selecting or just displaying. If just Displaying
             # can ignore mouse events
-            if(self.radiobutton is None):
+            if self.radiobutton is None:
                 return
 
             row = event.y() // self.cHeight
             # if to below last row of bytes then invalid place to click
-            if(row >= self.rows):
+            if row >= self.rows:
                 return
 
             x = event.x() - ((self.cWidth * 10) + (self.cWidth >> 1))
             col = -1
             # if to left of bytes then invalid place to click
-            if(x < 0):
+            if x < 0:
                 return
 
             # see if not to right of bytes then should be valid click
-            if(x < self.cWidth * (3 * self.columns - 1)):
+            if x < self.cWidth * (3 * self.columns - 1):
                 col = (x + (self.cWidth >> 1)) // self.cWidth
                 col //= 3
 
             # move to start of character display
             x -= self.cWidth * (3 * self.columns + 1)
-            if(x >= 0 and x < self.columns * self.cWidth):
+            if x >= 0 and x < self.columns * self.cWidth:
                 col = x // self.cWidth
 
             # if not clicked on valid area, end
-            if(col == -1):
+            if col == -1:
                 return
 
             # calculate position clicked (end position is position after
             # last selected byte)
             pos = self.topleftaddress + (row * self.columns) + col
-            if(not self.radiobutton.isChecked()):
+            if not self.radiobutton.isChecked():
                 pos += 1
 
             # if beyond end of data then return
-            if(pos >= len(self.data) + (0 if self.radiobutton.isChecked() else
-                                        1)):
+            if pos >= len(self.data) + (0 if self.radiobutton.isChecked() else
+                                        1):
                 return
 
             # now have valid position clicked
             # if start radiobutton selected then set start
-            if(self.radiobutton.isChecked()):
+            if self.radiobutton.isChecked():
                 self.selectStart = pos
             # else set select end
             else:
                 self.selectEnd = pos
 
             # ensure start not after end, or end before start
-            if(self.selectStart >= self.selectEnd):
-                if(self.radiobutton.isChecked()):
+            if self.selectStart >= self.selectEnd:
+                if self.radiobutton.isChecked():
                     self.selectEnd = self.selectStart + 1
                 else:
                     self.selectStart = self.selectEnd - 1
@@ -413,11 +394,12 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
 
         self.ExportSettings = {"Filename": "Export",
                                "AppendOrOver": 1,
-                               "SaveWithHeadder": 1,
+                               "SaveWithHeader": 1,
                                "Flag": 0xFF,
                                "+DPos": 1,
                                "FilePosition": 0,
-                               "ContainerType": 2}
+                               "ContainerType": 3,
+                               "MakeTZXHeader": True}
 
         self.ImageFormatFallback = "Unknown"
 
@@ -969,7 +951,7 @@ display flashing colours, or simple GIF file.")
         self.adjustSize()
         self.show()
 
-        if(defaultFile is not None):
+        if defaultFile is not None:
             leFileNameIn.setText(defaultFile)
 
         self.CheckIfKnownContainerFile()
@@ -977,31 +959,31 @@ display flashing colours, or simple GIF file.")
     def buttonPressed(self):
         button = self.sender()
         # browse to find input file
-        if(button == self.bBrowse):
+        if button == self.bBrowse:
             filein = self.leFileNameIn.text()
             # create open file dialog with current file if exists as
             # selected file
             qfd = QtGui.QFileDialog(self, "Select source file",
                                     filein if os.path.isfile(filein) else "")
-            if(os.path.isfile(filein)):
+            if os.path.isfile(filein):
                 qfd.selectFile(filein)
 
             qfd.setFileMode(QtGui.QFileDialog.AnyFile)
             qfd.setAcceptMode(QtGui.QFileDialog.AcceptOpen)
 
             # run dialog and if open is clicked then act on this
-            if(qfd.exec_() == QtGui.QDialog.Accepted):
+            if qfd.exec_() == QtGui.QDialog.Accepted:
                 newfile = qfd.selectedFiles()[0]
                 self.leFileNameIn.setText(newfile)
                 self.CheckIfKnownContainerFile()
                 # set start and finish translate to start & end of file
                 # if changed
-                if(filein != newfile):
+                if filein != newfile:
                     self.leDataOffset.setText("")
                     self.leDataEnd.setText("")
                     self.leDataFile.setText("")
                     self.leDataFileOffset.setText("")
-                    if(os.path.isfile(newfile)):
+                    if os.path.isfile(newfile):
                         self.leDataOffset.setText("0")
                         self.leDataEnd.setText(
                             self.FormatNumber(os.path.getsize(newfile) - 1))
@@ -1009,7 +991,7 @@ display flashing colours, or simple GIF file.")
             return
 
         # browse to find output file
-        if(button == self.bBrowseOut):
+        if button == self.bBrowseOut:
             fileout = self.leFileNameOut.text()
             # create save file dialog with current file if exists as
             # selected file
@@ -1020,34 +1002,34 @@ display flashing colours, or simple GIF file.")
             qfd.selectFile(fileout)
 
             # run dialog and if save is clicked then act on this
-            if(qfd.exec_() == QtGui.QDialog.Accepted):
+            if qfd.exec_() == QtGui.QDialog.Accepted:
                 newfile = qfd.selectedFiles()[0]
                 self.leFileNameOut.setText(newfile)
 
             return
 
         # browse container file
-        if(button == self.bBrowseContainer):
-            if(self.bBrowseContainer.text() == "Browse TAP"):
-                self.BrowseTapFile()
+        if button == self.bBrowseContainer:
+            if self.bBrowseContainer.text() in ["Browse TAP", "Browse TZX"]:
+                self.BrowseTapeFile()
 
-            if(self.bBrowseContainer.text() == "Browse disk image"):
+            if self.bBrowseContainer.text() == "Browse disk image":
                 self.BrowseDiscipleImageFile()
 
             return
 
         # browse container file
-        if(button == self.bBrowseHex):
+        if button == self.bBrowseHex:
             self.BrowseFileHex()
             return
 
         # Do Translation
-        if(button == self.bTranslate):
+        if button == self.bTranslate:
             self.Translate()
             return
 
         # handle machine code Custom Instructions
-        if(button == self.bCustomInstructions):
+        if button == self.bCustomInstructions:
             self.EditCustomDisassembleCommands()
             return
 
@@ -1118,7 +1100,7 @@ be processed.")
 (Data Offset, Data End etc).")
         _setcombo(cbNumberFormat, "Hexadecimal")
         dContainer.cbNumberFormat = cbNumberFormat
-        dContainer.Format = '{0:X}'
+        dContainer.Format = '{:X}'
         dContainer.FormatBase = 16
         grid.addWidget(cbNumberFormat, 6, 0, 1, 2)
 
@@ -1175,7 +1157,7 @@ be processed.")
         lwInstructions.setToolTip(
             "List of Disassemble instructions to carry out on the code.")
         # only list instructions if have more than basic format setter
-        if(len(self.diInstructions) > 1):
+        if len(self.diInstructions) > 1:
             for di in self.diInstructions[1:]:
                 item = QtGui.QListWidgetItem("\n")
                 lwInstructions.addItem(item)
@@ -1192,7 +1174,7 @@ be processed.")
         lwInstructions.currentItemChanged.connect(
             self.instructionselectionchanged)
         dContainer.lwInstructions = lwInstructions
-        if(len(self.diInstructions) > 1):
+        if len(self.diInstructions) > 1:
             lwInstructions.setCurrentRow(0)
             self.SetDisassembleDialogButtons()
 
@@ -1226,7 +1208,7 @@ be processed.")
         self.SetDisassembleDialogButtons()
 
         # run dialog, and if ok selected get start & stop points
-        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+        if dContainer.exec_() == QtGui.QDialog.Accepted:
             self.diInstructions = [None] + [lwInstructions.item(i).di for i in
                                             range(lwInstructions.count())]
 
@@ -1235,7 +1217,7 @@ be processed.")
     def CustomDisassembleSort(self):
         lwInstructions = self.Ddialog.lwInstructions
         # can't sort if no instructions
-        if(lwInstructions.count() == 0):
+        if lwInstructions.count() == 0:
             return
 
         # get current instructions
@@ -1254,7 +1236,7 @@ be processed.")
 
         # find selected index
         for i in range(len(diInstructions)):
-            if(diInstructions[i].Selected):
+            if diInstructions[i].Selected:
                 selected = i
 
         # clear listwidget
@@ -1284,9 +1266,8 @@ be processed.")
 
         view = QWebView(self)
         lay.addWidget(view)
-        fi = open("DisassembleInstructionHelp.html", MODE_RT)
-        html = fi.read()
-        fi.close()
+        with open("DisassembleInstructionHelp.html", MODE_RT) as fi:
+            html = fi.read()
         view.setHtml(html)
 
         lay2 = QtGui.QHBoxLayout()
@@ -1316,42 +1297,32 @@ be processed.")
         lwInstructions = self.Ddialog.lwInstructions
         di = lwInstructions.currentItem().di
 
-        if(di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Line Number Every X"]):
+        if di.instruction == spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Line Number Every X"]:
             self.EditUnreferencedLineNumberFrequency(di)
 
-        if(di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Custom Format"]):
+        if di.instruction == spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Custom Format"]:
             self.EditCustomFormatDialog(di)
             # don't need to set label text
             return
 
-        if(di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Data Block"]):
+        if di.instruction == spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Data Block"]:
             self.EditDataBlock(di)
 
-        if(di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Pattern Data Block"]):
+        if di.instruction == spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Pattern Data Block"]:
             self.EditPatternDataBlock(di)
 
-        if(di.instruction == spectrumtranslate.DisassembleInstruction.
-           DISASSEMBLE_CODES["Comment"] or
-           di.instruction == spectrumtranslate.DisassembleInstruction.
-           DISASSEMBLE_CODES["Comment Before"] or
-           di.instruction == spectrumtranslate.DisassembleInstruction.
-           DISASSEMBLE_CODES["Comment After"]):
+        if di.instruction in [spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Comment"],
+           spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Comment Before"],
+           spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Comment After"]]:
             self.EditComment(di)
 
-        if(di.instruction & 0xFFFF00 == spectrumtranslate.
-           DisassembleInstruction.DISASSEMBLE_CODES["Comment Reference"]):
+        if di.instruction & 0xFFFF00 == spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Comment Reference"]:
             self.EditCommentReference(di)
 
-        if(di.instruction & 0xFFFF00 == spectrumtranslate.
-           DisassembleInstruction.DISASSEMBLE_CODES["Comment Displacement"]):
+        if di.instruction & 0xFFFF00 == spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Comment Displacement"]:
             self.EditCommentDisplacement(di)
 
-        if(di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Comment Pattern"]):
+        if di.instruction == spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Comment Pattern"]:
             self.EditCommentPattern(di)
 
         # ensure any data change is represented in list details
@@ -1368,7 +1339,7 @@ be processed.")
         lay.addWidget(QtGui.QLabel("Comment Text:"))
 
         leCommentText = QtGui.QLineEdit()
-        if(di.data):
+        if di.data:
             leCommentText.setText(di.data)
         leCommentText.setToolTip("The text to be added as the comment.")
         leCommentText.sizePolicy().setHorizontalPolicy(
@@ -1404,7 +1375,7 @@ be processed.")
 
         dContainer.setLayout(lay)
 
-        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+        if dContainer.exec_() == QtGui.QDialog.Accepted:
             di.data = str(leCommentText.text())
             di.instruction = int(cbPosition.itemData(
                                  cbPosition.currentIndex()).toInt()[0])
@@ -1424,7 +1395,7 @@ be processed.")
         lay.addWidget(QtGui.QLabel("Comment Text:"))
 
         leCommentText = QtGui.QLineEdit()
-        if(c):
+        if c:
             leCommentText.setText(c)
         leCommentText.setToolTip("The text to be added as the comment.")
         leCommentText.sizePolicy().setHorizontalPolicy(
@@ -1452,7 +1423,7 @@ be processed.")
         leAddress = QtGui.QLineEdit()
         leAddress.setText(self.Ddialog.Format.format(0 if d is None else d))
         leAddress.setToolTip("The index to be searched for and commented on \
-when found.\nShould be {0}.".format(
+when found.\nShould be {}.".format(
             self.Ddialog.cbNumberFormat.currentText()))
         lay.addWidget(leAddress)
         dContainer.leAddress = leAddress
@@ -1482,7 +1453,7 @@ commented.")
 
         self.Ddialog.dCommentDisplacement = dContainer
 
-        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+        if dContainer.exec_() == QtGui.QDialog.Accepted:
             d = self.CheckInstructionAddress(leAddress)
             f = int(cbRegister.itemData(cbRegister.currentIndex()).toInt()[0])
             di.data = spectrumtranslate.get_comment_displacement_string(
@@ -1496,12 +1467,12 @@ commented.")
 
     def CommentDisplacementOk(self):
         d = self.Ddialog.dCommentDisplacement
-        if(self.CheckInstructionAddress(d.leAddress) == -1):
+        if self.CheckInstructionAddress(d.leAddress) == -1:
             message = "Displacement must be between 0 and " + self.Ddialog.Format +\
                 " {1}."
             QtGui.QMessageBox.warning(self, "Error!", message.format(
                 255, self.Ddialog.cbNumberFormat.currentText()))
-        elif(d.leCommentText.text() == ""):
+        elif d.leCommentText.text() == "":
             QtGui.QMessageBox.warning(self, "Error!", "No comment")
         else:
             d.accept()
@@ -1520,7 +1491,7 @@ commented.")
         lay.addWidget(QtGui.QLabel("Comment Text:"))
 
         leCommentText = QtGui.QLineEdit()
-        if(comment):
+        if comment:
             leCommentText.setText(comment)
         leCommentText.setToolTip("The text to be added as the comment.")
         leCommentText.sizePolicy().setHorizontalPolicy(
@@ -1548,7 +1519,7 @@ commented.")
         leAddress = QtGui.QLineEdit()
         leAddress.setText(self.Ddialog.Format.format(ref if ref else 0))
         leAddress.setToolTip("The address/value to be searched for and \
-commented on when found.\nShould be {0}.".format(
+commented on when found.\nShould be {}.".format(
             self.Ddialog.cbNumberFormat.currentText()))
         lay.addWidget(leAddress)
         dContainer.leAddress = leAddress
@@ -1558,7 +1529,7 @@ commented on when found.\nShould be {0}.".format(
         cb1.setToolTip("Comment the address if it's used to access the memory \
 contents: LD A,(0x8000), or LD (0x4000),HL.")
         cb1.toggle()
-        if((flag & 1) == 0):
+        if (flag & 1) == 0:
             cb1.setCheckState(False)
         lay.addWidget(cb1)
 
@@ -1566,28 +1537,28 @@ contents: LD A,(0x8000), or LD (0x4000),HL.")
         cb2.setToolTip("Comment the address/value if it's loaded into a \
 register: LD BC,0x9000.")
         cb2.toggle()
-        if((flag & 2) == 0):
+        if (flag & 2) == 0:
             cb2.setCheckState(False)
         lay.addWidget(cb2)
 
         cb3 = QtGui.QCheckBox("Call to this address")
         cb3.setToolTip("Comment the address if it's called: CALL NZ,0x8000.")
         cb3.toggle()
-        if((flag & 4) == 0):
+        if (flag & 4) == 0:
             cb3.setCheckState(False)
         lay.addWidget(cb3)
 
         cb4 = QtGui.QCheckBox("Jump absolute to this address")
         cb4.setToolTip("Comment the address if it's jumped absolutly to: JP 0x8000.")
         cb4.toggle()
-        if((flag & 8) == 0):
+        if (flag & 8) == 0:
             cb4.setCheckState(False)
         lay.addWidget(cb4)
 
         cb5 = QtGui.QCheckBox("Jump relative to this address")
         cb5.setToolTip("Comment the address if it's jumped relative to: JR 0x8000.")
         cb5.toggle()
-        if((flag & 16) == 0):
+        if (flag & 16) == 0:
             cb5.setCheckState(False)
         lay.addWidget(cb5)
 
@@ -1607,7 +1578,7 @@ register: LD BC,0x9000.")
 
         self.Ddialog.dCommentReference = dContainer
 
-        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+        if dContainer.exec_() == QtGui.QDialog.Accepted:
             a = self.CheckInstructionAddress(leAddress)
             f = (1 if cb1.isChecked() else 0) + \
                 (2 if cb2.isChecked() else 0) + \
@@ -1625,12 +1596,12 @@ register: LD BC,0x9000.")
 
     def CommentReferenceOk(self):
         d = self.Ddialog.dCommentReference
-        if(self.CheckInstructionAddress(d.leAddress) == -1):
+        if self.CheckInstructionAddress(d.leAddress) == -1:
             message = "Address must be between 0 and " + self.Ddialog.Format +\
                 " {1}."
             QtGui.QMessageBox.warning(self, "Error!", message.format(
                 65535, self.Ddialog.cbNumberFormat.currentText()))
-        elif(d.leCommentText.text() == ""):
+        elif d.leCommentText.text() == "":
             QtGui.QMessageBox.warning(self, "Error!", "No comment")
         else:
             d.accept()
@@ -1649,11 +1620,11 @@ register: LD BC,0x9000.")
 
         leCommentText = QtGui.QTextEdit()
         leCommentText.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-        if(parts and parts[0]):
+        if parts and parts[0]:
             leCommentText.setPlainText(
                 spectrumtranslate.instructiontexttostring(parts[1]))
         leCommentText.myfont = QFont(
-            'monospace', leCommentText.fontPointSize())
+            'monospace', int(round(leCommentText.fontPointSize())))
         leCommentText.setFont(leCommentText.myfont)
         leCommentText.setToolTip("The text to be added as the comment.")
         lay.addWidget(leCommentText)
@@ -1685,10 +1656,10 @@ Reference command unless you want to do anything non-standard.")
 
         teCommentPatternSearch = QtGui.QTextEdit()
         teCommentPatternSearch.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-        if(parts and parts[0]):
+        if parts and parts[0]:
             teCommentPatternSearch.setPlainText(parts[0])
         teCommentPatternSearch.myfont = QFont(
-            'monospace', teCommentPatternSearch.fontPointSize())
+            'monospace', int(round(teCommentPatternSearch.fontPointSize())))
         teCommentPatternSearch.setFont(teCommentPatternSearch.myfont)
         teCommentPatternSearch.setToolTip(
             "Code to find where if this line should be commented.")
@@ -1710,7 +1681,7 @@ Reference command unless you want to do anything non-standard.")
 
         self.Ddialog.teCommentPatternSearch = teCommentPatternSearch
 
-        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+        if dContainer.exec_() == QtGui.QDialog.Accepted:
             di.data = spectrumtranslate.createfindandcomment(
                 str(teCommentPatternSearch.toPlainText()),
                 spectrumtranslate.stringtoinstructiontext(
@@ -1739,7 +1710,7 @@ Reference command unless you want to do anything non-standard.")
 
         leAddress = QtGui.QLineEdit()
         leAddress.setToolTip("The address which the call/jump to is being \
-searched for.\nShould be {0}.".format(
+searched for.\nShould be {}.".format(
             self.Ddialog.cbNumberFormat.currentText()))
         lay.addWidget(leAddress)
         dContainer.leAddress = leAddress
@@ -1767,7 +1738,7 @@ searched for.\nShould be {0}.".format(
 
         self.Ddialog.CommentPatternSearchDialog = dContainer
 
-        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+        if dContainer.exec_() == QtGui.QDialog.Accepted:
             i = cbCommand.currentIndex() + 1
             a = self.CheckInstructionAddress(leAddress)
             c = cbConditional.isChecked()
@@ -1775,29 +1746,29 @@ searched for.\nShould be {0}.".format(
             d2 = "" if i == 3 else "  "
 
             searchcommand = "%(                     %#start test block\n"
-            if(i == 3):
+            if i == 3:
                 searchcommand += "  %(\n"
-            if(c):
-                searchcommand += "{0}  %X0700%MV0F00C7    {1}%#filter out \
-variable bits for conditional {2}{3}{4}\n".format(d1, d2,
-                                                  "Call" if i & 1 == 1 else "",
-                                                  "/" if i == 3 else "",
-                                                  "Jump" if i & 2 == 2 else "")
-            if(i & 1 == 1):
-                searchcommand += "{{0}}  %?EQ0000C4         {{1}}%#do the bits\
- C7 at current address==0xC4 (CALL)\n" if c else "{{0}}  %?EQ%MV0F00CD      {{1}}\
+            if c:
+                searchcommand += "{}  %X0700%MV0F00C7    {}%#filter out \
+variable bits for conditional {}{}{}\n".format(d1, d2,
+                                               "Call" if i & 1 == 1 else "",
+                                               "/" if i == 3 else "",
+                                               "Jump" if i & 2 == 2 else "")
+            if (i & 1) == 1:
+                searchcommand += "{{}}  %?EQ0000C4         {{}}%#do the bits\
+ C7 at current address==0xC4 (CALL)\n" if c else "{{}}  %?EQ%MV0F00CD      {{}}\
 %#does the byte at current address==0xCD (CALL)\n"
-            if(i == 3):
+            if i == 3:
                 searchcommand += "    %?BO               %#or\n"
-            if(i & 2 == 2):
-                searchcommand += "{{0}}  %?EQ0000C2         {{1}}%#do the bits\
- C7 at current address==0xC2 (JP)\n" if c else "{{0}}  %?EQ%MV0F00C3      \
-{{1}}%#does the byte at current address==0xC3 (JP)\n"
-            if(i == 3):
+            if (i & 2) == 2:
+                searchcommand += "{{}}  %?EQ0000C2         {{}}%#do the bits\
+ C7 at current address==0xC2 (JP)\n" if c else "{{}}  %?EQ%MV0F00C3      \
+{{}}%#does the byte at current address==0xC3 (JP)\n"
+            if i == 3:
                 searchcommand += "  %)\n"
             searchcommand += """  %X0200%V0F0001       %#var0=current address+1
   %?BA                 %#and mode
-  %?EQ%MWV00{0:04X}       %#is address right?
+  %?EQ%MWV00{:04X}       %#is address right?
 %)                     %#end of test block""".format(a)
             self.Ddialog.teCommentPatternSearch.setPlainText(
                 searchcommand.format().format(d1, d2))
@@ -1806,7 +1777,7 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
 
     def CreateCommentPatternSearchCommandAddress(self):
         i = self.Ddialog.CommentPatternSearchDialog.leAddress
-        if(self.CheckInstructionAddress(i) == -1):
+        if self.CheckInstructionAddress(i) == -1:
             message = "Address must be between 0 and " + self.Ddialog.Format +\
                 " {1}."
             QtGui.QMessageBox.warning(self, "Error!", message.format(
@@ -1833,8 +1804,7 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
             "Select instructions for Pattern Data block")
         for key in spectrumtranslate.DisassembleInstruction.\
                 DISASSEMBLE_PATTERNBLOCK_CODES_ORDERED:
-            if(spectrumtranslate.DisassembleInstruction.
-                    DISASSEMBLE_PATTERNBLOCK_CODES[key] == di.data):
+            if spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES[key] == di.data:
                 break
 
         _setcombo(cbEditPatternDataBlock, key)
@@ -1854,10 +1824,10 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
 
         tePatternDataBlockSearch = QtGui.QTextEdit()
         tePatternDataBlockSearch.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-        if(testblock):
+        if testblock:
             tePatternDataBlockSearch.setPlainText(testblock)
         tePatternDataBlockSearch.myfont = QFont(
-            'monospace', tePatternDataBlockSearch.fontPointSize())
+            'monospace', int(round(tePatternDataBlockSearch.fontPointSize())))
         tePatternDataBlockSearch.setFont(tePatternDataBlockSearch.myfont)
         tePatternDataBlockSearch.setToolTip(
             "Code to find where block ought to be.")
@@ -1871,10 +1841,10 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
 
         tePatternDataBlockSetup = QtGui.QTextEdit()
         tePatternDataBlockSetup.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-        if(prepblock):
+        if prepblock:
             tePatternDataBlockSetup.setPlainText(prepblock)
         tePatternDataBlockSetup.myfont = QFont(
-            'monospace', tePatternDataBlockSetup.fontPointSize())
+            'monospace', int(round(tePatternDataBlockSetup.fontPointSize())))
         tePatternDataBlockSetup.setFont(tePatternDataBlockSetup.myfont)
         tePatternDataBlockSetup.setToolTip(
             "Code to define start & end of Action DataBlock.")
@@ -1887,10 +1857,10 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
 
         tePatternDataBlockAction = QtGui.QTextEdit()
         tePatternDataBlockAction.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-        if(actionblock):
+        if actionblock:
             tePatternDataBlockAction.setPlainText(actionblock)
         tePatternDataBlockAction.myfont = QFont(
-            'monospace', tePatternDataBlockAction.fontPointSize())
+            'monospace', int(round(tePatternDataBlockAction.fontPointSize())))
         tePatternDataBlockAction.setFont(tePatternDataBlockAction.myfont)
         tePatternDataBlockAction.setToolTip(
             "Code to be executed on specified block.")
@@ -1916,9 +1886,9 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
         # set to same size as parent
         dContainer.setGeometry(self.geometry())
 
-        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+        if dContainer.exec_() == QtGui.QDialog.Accepted:
             pattern = str(cbEditPatternDataBlock.currentText())
-            if(pattern == "Custom"):
+            if pattern == "Custom":
                 di.data = str(self.tePatternDataBlockSearch.toPlainText() +
                               "\n" +
                               self.tePatternDataBlockSetup.toPlainText() +
@@ -1939,8 +1909,7 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
             spectrumtranslate.DisassembleInstruction.
             DISASSEMBLE_PATTERNBLOCK_CODES[str(txt)])
 
-        if(blocks[0] is not None and blocks[1] is not None and
-           blocks[2] is not None):
+        if all(blocks[0] is not None, blocks[1] is not None, blocks[2] is not None):
             self.tePatternDataBlockSearch.textChanged.disconnect(
                 self.ChangePatternDataBlock)
             self.tePatternDataBlockSetup.textChanged.disconnect(
@@ -1962,8 +1931,7 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
             str(self.tePatternDataBlockSearch.toPlainText() +
                 self.tePatternDataBlockSetup.toPlainText() +
                 self.tePatternDataBlockAction.toPlainText()))
-        if(blocks[0] is not None and blocks[1] is not None and
-           blocks[2] is not None):
+        if all(blocks[0] is not None, blocks[1] is not None, blocks[2] is not None):
             blocks = [block.strip() for block in blocks]
 
         for key in spectrumtranslate.DisassembleInstruction.\
@@ -1971,12 +1939,11 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
             testblocks = spectrumtranslate.getpartsofpatterndatablock(
                 spectrumtranslate.DisassembleInstruction.
                 DISASSEMBLE_PATTERNBLOCK_CODES[key])
-            if(testblocks[0] is None or testblocks[1] is None or
-               testblocks[2] is None):
+            if any(testblocks[0] is None, testblocks[1] is None, testblocks[2] is None):
                 continue
 
             testblocks = [block.strip() for block in testblocks]
-            if(testblocks == blocks):
+            if testblocks == blocks:
                 break
 
         self.cbEditPatternDataBlock.currentIndexChanged[str].disconnect(
@@ -2007,22 +1974,16 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
             cbEditDataBlock.addItem(key)
 
         cbEditDataBlock.setToolTip("Select instructions for Data block")
-        for key in spectrumtranslate.DisassembleInstruction.\
-                DISASSEMBLE_DATABLOCK_CODES_ORDERED:
-            if(spectrumtranslate.DisassembleInstruction.
-                    DISASSEMBLE_DATABLOCK_CODES[key] == di.data):
+        for key in spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES_ORDERED:
+            if spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES[key] == di.data:
                 break
-        match = re.match("^\s*%!([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$", di.data,
+        match = re.match(r"^\s*%!([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$", di.data,
                          re.DOTALL)
-        if(match and
-           match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
-               PredefinedRoutines.keys()):
+        if match and match.groups()[0] in spectrumtranslate.DisassembleInstruction.PredefinedRoutines.keys():
             key = "PredefinedRoutine: " + match.groups()[0]
-        match = re.match("^\s*%P([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$", di.data,
+        match = re.match(r"^\s*%P([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$", di.data,
                          re.DOTALL)
-        if(match and
-           match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
-               PredefinedFunctions.keys()):
+        if match and match.groups()[0] in spectrumtranslate.DisassembleInstruction.PredefinedFunctions.keys():
             key = "PredefinedFunction: " + match.groups()[0]
 
         _setcombo(cbEditDataBlock, key)
@@ -2039,9 +2000,10 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
 
         teDataBlock = QtGui.QTextEdit()
         teDataBlock.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-        if(di.data):
+        if di.data:
             teDataBlock.setPlainText(di.data)
-        teDataBlock.myfont = QFont('monospace', teDataBlock.fontPointSize())
+        teDataBlock.myfont = QFont('monospace',
+                                   int(round(teDataBlock.fontPointSize())))
         teDataBlock.setFont(teDataBlock.myfont)
         teDataBlock.setToolTip("Code to be executed in the Data Block.")
         teDataBlock.textChanged.connect(self.ChangeDataBlock)
@@ -2065,7 +2027,7 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
         # set to same size as parent
         dContainer.setGeometry(self.geometry())
 
-        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+        if dContainer.exec_() == QtGui.QDialog.Accepted:
             di.data = str(teDataBlock.toPlainText())
 
         del self.cbEditDataBlock
@@ -2075,20 +2037,17 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
         blockText = self.teDataBlock.toPlainText()
         for key in spectrumtranslate.DisassembleInstruction.\
                 DISASSEMBLE_DATABLOCK_CODES_ORDERED:
-            if(spectrumtranslate.DisassembleInstruction.
-                    DISASSEMBLE_DATABLOCK_CODES[key] == blockText):
+            if spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES[key] == blockText:
                 break
-        match = re.match("^\s*%!([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$",
+        match = re.match(r"^\s*%!([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$",
                          blockText, re.DOTALL)
-        if(match and
-           match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
-               PredefinedRoutines.keys()):
+        if match and match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
+               PredefinedRoutines.keys():
             key = "PredefinedRoutine: " + match.groups()[0]
-        match = re.match("^\s*%P([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$",
+        match = re.match(r"^\s*%P([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$",
                          blockText, re.DOTALL)
-        if(match and
-           match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
-               PredefinedFunctions.keys()):
+        if match and match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
+               PredefinedFunctions.keys():
             key = "PredefinedFunction: " + match.groups()[0]
 
         self.cbEditDataBlock.currentIndexChanged[str].disconnect(
@@ -2100,21 +2059,21 @@ variable bits for conditional {2}{3}{4}\n".format(d1, d2,
     def ChangeEditDataBlock(self, txt):
         self.teDataBlock.textChanged.disconnect(self.ChangeDataBlock)
         txt = str(txt)
-        if(txt == "PredefinedFunction: DefineByte"):
+        if txt == "PredefinedFunction: DefineByte":
             txt = "%PDefineByte(Signed=False, Format=0, FormatIdentifyer=True, GapFrequency=1, Gap=',', MaxPerLine=1)"
-        elif(txt == "PredefinedFunction: DefineWord"):
+        elif txt == "PredefinedFunction: DefineWord":
             txt = "%PDefineWord(Signed=False, Format=0, FormatIdentifyer=True, GapFrequency=1, Gap=',', MaxPerLine=1, LittleEndian=True)"
-        elif(txt == "PredefinedFunction: DefineMessage"):
+        elif txt == "PredefinedFunction: DefineMessage":
             txt = "%PDefineMessage(DataType='DM', Noncharoutofquotes=False)"
-        elif(txt == "PredefinedRoutine: DefineByte"):
+        elif txt == "PredefinedRoutine: DefineByte":
             txt = "%!DefineByte(Signed=False, Format=0, FormatIdentifyer=True, GapFrequency=1, Gap=',', MaxPerLine=1)"
-        elif(txt == "PredefinedRoutine: DefineWord"):
+        elif txt == "PredefinedRoutine: DefineWord":
             txt = "%!DefineWord(Signed=False, Format=0, FormatIdentifyer=True, GapFrequency=1, Gap=',', MaxPerLine=1, LittleEndian=True)"
-        elif(txt == "PredefinedRoutine: DefineMessage"):
+        elif txt == "PredefinedRoutine: DefineMessage":
             txt = "%!DefineMessage(DataType='DM', Noncharoutofquotes=False)"
-        elif(txt == "PredefinedRoutine: FindPattern"):
+        elif txt == "PredefinedRoutine: FindPattern":
             txt = "%!FindPattern(0,1,2,3,4)"
-        elif(txt == "PredefinedRoutine: StartandEndbyOffset"):
+        elif txt == "PredefinedRoutine: StartandEndbyOffset":
             txt = "%!StartandEndbyOffset(startoffset=0, endoffset=0)"
         else:
             txt = spectrumtranslate.DisassembleInstruction.\
@@ -2162,13 +2121,13 @@ lines do you want adresses displayed? Use 0 for none.")
 
         dContainer.setLayout(lay)
 
-        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+        if dContainer.exec_() == QtGui.QDialog.Accepted:
             i = self.CheckInstructionAddress(leUnreferencedLineNumber)
             # if invalid number set to 0
-            if(i < 0 or i > 0xFF):
+            if i < 0 or i > 0xFF:
                 i = 0
 
-            instruction.data = "{0:X}".format(i)
+            instruction.data = "{:X}".format(i)
 
         del self.leUnreferencedLineNumber
 
@@ -2271,7 +2230,7 @@ lines do you want adresses displayed?")
         cbCustomFormatBreakAfterData.setToolTip(
             "Do you want an empty line after a data block for readability?")
         cbCustomFormatBreakAfterData.toggle()
-        if(settings["BreakAfterData"] == 1):
+        if settings["BreakAfterData"] == 1:
             cbCustomFormatBreakAfterData.setCheckState(False)
 
         grid.addWidget(cbCustomFormatBreakAfterData, 7, 0, 1, 2)
@@ -2281,7 +2240,7 @@ lines do you want adresses displayed?")
         cbCustomFormatReferenceNumbers.setToolTip("Do you want to use 16 bit \
 numbers in data to be used as line references?")
         cbCustomFormatReferenceNumbers.toggle()
-        if(settings["TreatDataNumbersAsLineReferences"] == 1):
+        if settings["TreatDataNumbersAsLineReferences"] == 1:
             cbCustomFormatReferenceNumbers.setCheckState(False)
 
         grid.addWidget(cbCustomFormatReferenceNumbers, 8, 0, 1, 2)
@@ -2291,7 +2250,7 @@ numbers in data to be used as line references?")
         cbCustomFormatDisplayCommandBytes.setToolTip(
             "Do you want to display the bytes of a command?")
         cbCustomFormatDisplayCommandBytes.toggle()
-        if(settings["DisplayCommandBytes"] == 1):
+        if settings["DisplayCommandBytes"] == 1:
             cbCustomFormatDisplayCommandBytes.setCheckState(False)
 
         grid.addWidget(cbCustomFormatDisplayCommandBytes, 9, 0, 1, 2)
@@ -2300,7 +2259,7 @@ numbers in data to be used as line references?")
         cbCustomFormatDisplayComments.setToolTip("Display comments? If not \
 then timing, flags, and undocumented commands won't be displayed.")
         cbCustomFormatDisplayComments.toggle()
-        if(settings["DisplayComments"] == 1):
+        if settings["DisplayComments"] == 1:
             cbCustomFormatDisplayComments.setCheckState(False)
 
         grid.addWidget(cbCustomFormatDisplayComments, 10, 0, 1, 2)
@@ -2313,9 +2272,9 @@ then timing, flags, and undocumented commands won't be displayed.")
         cbCustomFormatSeperatorFormat.setToolTip(
             "The type of seperator between parts of the output.")
 
-        if(settings["Seperator"] == "  "):
+        if settings["Seperator"] == "  ":
             sep = 0
-        elif(settings["Seperator"] == "\t"):
+        elif settings["Seperator"] == "\t":
             sep = 1
         else:
             sep = 2
@@ -2348,7 +2307,7 @@ then timing, flags, and undocumented commands won't be displayed.")
         cbCustomFormatCodeFlags.setToolTip(
             "List flags affected by machine instructions.")
         cbCustomFormatCodeFlags.toggle()
-        if(settings["ShowFlags"] == 0):
+        if settings["ShowFlags"] == 0:
             cbCustomFormatCodeFlags.setCheckState(False)
         grid.addWidget(cbCustomFormatCodeFlags, 12, 0, 1, 2)
 
@@ -2357,7 +2316,7 @@ then timing, flags, and undocumented commands won't be displayed.")
         cbCustomFormatCodeUndocumented.setToolTip(
             "Note undocumented machine instructions.")
         cbCustomFormatCodeUndocumented.toggle()
-        if(settings["MarkUndocumenedCommand"] == 0):
+        if settings["MarkUndocumenedCommand"] == 0:
             cbCustomFormatCodeUndocumented.setCheckState(False)
         grid.addWidget(cbCustomFormatCodeUndocumented, 13, 0, 1, 2)
 
@@ -2382,21 +2341,21 @@ then timing, flags, and undocumented commands won't be displayed.")
 
         dContainer.setLayout(grid)
 
-        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+        if dContainer.exec_() == QtGui.QDialog.Accepted:
             i = self.CheckInstructionAddress(leCustomFormatLineFrequency)
             sep = cbCustomFormatSeperatorFormat.currentIndex()
-            if(sep == 0):
+            if sep == 0:
                 septext = "  "
-            elif(sep == 1):
+            elif sep == 1:
                 septext = "\t"
             else:
                 septext = str(leCustomSeperator.text())
 
-            if(i < 0 or i > 0xFF):
+            if i < 0 or i > 0xFF:
                 QtGui.QMessageBox.warning(self, "Error!", "Unreferenced line \
 frequency must be between 0 and 255 decimal.")
 
-            elif(len(septext) == 0):
+            elif len(septext) == 0:
                 QtGui.QMessageBox.warning(self, "Error!",
                                           "Invalid custom seperator.")
 
@@ -2440,18 +2399,17 @@ frequency must be between 0 and 255 decimal.")
         qfd.setAcceptMode(QtGui.QFileDialog.AcceptSave)
 
         # run dialog and if save is clicked then act on this
-        if(qfd.exec_() == QtGui.QDialog.Accepted):
+        if qfd.exec_() == QtGui.QDialog.Accepted:
             lwInstructions = self.Ddialog.lwInstructions
             fOut = qfd.selectedFiles()[0]
             try:
-                fo = open(fOut, MODE_WT)
-                fo.write("\n".join([str(lwInstructions.item(i).di) for i in
-                                    range(lwInstructions.count())]))
-                fo.close()
+                with open(fOut, MODE_WT) as fo:
+                    fo.write("\n".join([str(lwInstructions.item(i).di) for i in
+                                        range(lwInstructions.count())]))
             except:
                 QtGui.QMessageBox.warning(
                     self, "Error!",
-                    'Failed to save data to "{0}"'.format(fOut))
+                    'Failed to save data to "{}"'.format(fOut))
 
     def CustomDisassembleLoad(self):
         qfd = QtGui.QFileDialog(self, "Select Instruction file")
@@ -2459,17 +2417,16 @@ frequency must be between 0 and 255 decimal.")
         qfd.setAcceptMode(QtGui.QFileDialog.AcceptOpen)
 
         # run dialog and if open is clicked then act on this
-        if(qfd.exec_() == QtGui.QDialog.Accepted):
+        if qfd.exec_() == QtGui.QDialog.Accepted:
             fIn = qfd.selectedFiles()[0]
             try:
-                fo = open(fIn, MODE_RT)
-                instructions = [spectrumtranslate.DisassembleInstruction(
-                    line.rstrip('\n')) for line in fo]
-                fo.close()
+                with open(fIn, MODE_RT) as fo:
+                    instructions = [spectrumtranslate.DisassembleInstruction(
+                        line.rstrip('\n')) for line in fo]
             except:
                 QtGui.QMessageBox.warning(
                     self, "Error!",
-                    'Unable to get data from "{0}"'.format(fIn))
+                    'Unable to get data from "{}"'.format(fIn))
                 return
 
             lwInstructions = self.Ddialog.lwInstructions
@@ -2485,7 +2442,7 @@ frequency must be between 0 and 255 decimal.")
                 self.setLabelText(item)
                 lwInstructions.setItemWidget(item, lab)
 
-            if(len(instructions) > 0):
+            if len(instructions) > 0:
                 lwInstructions.setCurrentRow(0)
             self.SetDisassembleDialogButtons()
 
@@ -2541,7 +2498,7 @@ frequency must be between 0 and 255 decimal.")
         lwInstructions = self.Ddialog.lwInstructions
         selectpos = lwInstructions.currentRow()
 
-        if(selectpos != -1):
+        if selectpos != -1:
             lwInstructions.takeItem(lwInstructions.currentRow())
             self.SetDisassembleDialogButtons()
 
@@ -2560,7 +2517,7 @@ frequency must be between 0 and 255 decimal.")
         lwInstructions.setItemWidget(item, lab)
 
         # set focus if new item added
-        if(len(self.diInstructions) == 1):
+        if len(self.diInstructions) == 1:
             lwInstructions.setCurrentRow(0)
             self.SetDisassembleDialogButtons()
 
@@ -2580,9 +2537,9 @@ frequency must be between 0 and 255 decimal.")
         di = instructionlist.currentItem().di
 
         i = self.CheckInstructionAddress(dialog.leStart)
-        dialog.leStart.setStyleSheet("QLineEdit {{\nbackground-color: {0}\n}}".
+        dialog.leStart.setStyleSheet("QLineEdit {{\nbackground-color: {}\n}}".
                                      format("#FF8080" if i == -1 else "white"))
-        if(i != -1):
+        if i != -1:
             di.start = i
             self.setLabelText(instructionlist.currentItem())
 
@@ -2592,16 +2549,16 @@ frequency must be between 0 and 255 decimal.")
         di = instructionlist.currentItem().di
 
         i = self.CheckInstructionAddress(dialog.leEnd)
-        dialog.leEnd.setStyleSheet("QLineEdit {{\nbackground-color: {0}\n}}".
+        dialog.leEnd.setStyleSheet("QLineEdit {{\nbackground-color: {}\n}}".
                                    format("#FF8080" if i == -1 else "white"))
-        if(i != -1):
+        if i != -1:
             di.end = i
             self.setLabelText(instructionlist.currentItem())
 
     def CheckInstructionAddress(self, le):
         try:
             l = int(str(le.text()), self.Ddialog.FormatBase)
-            if(l < 0 or l > 0x10000):
+            if l < 0 or l > 0x10000:
                 l = -1
             return l
         except:
@@ -2615,7 +2572,7 @@ frequency must be between 0 and 255 decimal.")
         instructionlist = dialog.lwInstructions
         selectpos = instructionlist.currentRow()
 
-        if(selectpos != -1):
+        if selectpos != -1:
             di = instructionlist.currentItem().di
             txt = str(txt)
             newinstruction = spectrumtranslate.DisassembleInstruction.\
@@ -2624,31 +2581,29 @@ frequency must be between 0 and 255 decimal.")
             di.instruction = newinstruction
 
             # handle change of format that needs data change
-            if(instructionchanged and txt == "Custom Format"):
+            if instructionchanged and txt == "Custom Format":
                 di.data = "0000100  "
 
-            elif(instructionchanged and txt == "Line Number Every X"):
+            elif instructionchanged and txt == "Line Number Every X":
                 di.data = "8"
 
-            elif(instructionchanged and txt == "Data Block"):
+            elif instructionchanged and txt == "Data Block":
                 di.data = spectrumtranslate.DisassembleInstruction.\
                     DISASSEMBLE_DATABLOCK_CODES["Define Byte Hex"]
 
-            elif(instructionchanged and txt == "Pattern Data Block"):
+            elif instructionchanged and txt == "Pattern Data Block":
                 di.data = spectrumtranslate.DisassembleInstruction.\
                     DISASSEMBLE_PATTERNBLOCK_CODES["RST#08 (Error)"]
 
-            elif(instructionchanged and
-                 txt.startswith("Comment Reference")):
+            elif instructionchanged and txt.startswith("Comment Reference"):
                 di.data = spectrumtranslate.get_comment_reference_string(
                     0, 0x1F, "Comment")
 
-            elif(instructionchanged and
-                 txt.startswith("Comment Displacement")):
+            elif instructionchanged and txt.startswith("Comment Displacement"):
                 di.data = spectrumtranslate.get_comment_displacement_string(
                     0, 3, "Comment")
 
-            elif(instructionchanged):
+            elif instructionchanged:
                 di.data = None
 
             self.setLabelText(instructionlist.currentItem())
@@ -2664,10 +2619,10 @@ frequency must be between 0 and 255 decimal.")
 
         di = None if selectpos == -1 else instructionlist.currentItem().di
 
-        if(di is not None):
+        if di is not None:
             key = spectrumtranslate.get_disassemblecodename_from_value(
                 di.instruction)
-            if(key is not None):
+            if key is not None:
                 _setcombo(dialog.cbDisassembleCommands, key)
 
             # could have used the textEdited signal to avoid
@@ -2686,34 +2641,34 @@ frequency must be between 0 and 255 decimal.")
         dialog.bdown.setEnabled(selectpos < number - 1 and di is not None)
         dialog.bedit.setEnabled(
             di is not None and
-            (di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Custom Format"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Line Number Every X"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Data Block"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Pattern Data Block"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Comment"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Comment Before"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Comment After"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Comment Reference"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Comment Reference Before"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Comment Reference After"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Comment Displacement"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Comment Displacement Before"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Comment Displacement After"] or
-             di.instruction == spectrumtranslate.DisassembleInstruction.
-                DISASSEMBLE_CODES["Comment Pattern"]))
+            (di.instruction in [spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Custom Format"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Line Number Every X"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Data Block"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Pattern Data Block"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Before"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment After"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Reference"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Reference Before"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Reference After"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Displacement"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Displacement Before"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Displacement After"],
+                spectrumtranslate.DisassembleInstruction.
+                DISASSEMBLE_CODES["Comment Pattern"]]))
         dialog.cbDisassembleCommands.setEnabled(di is not None)
         dialog.leStart.setEnabled(di is not None)
         dialog.leEnd.setEnabled(di is not None)
@@ -2723,88 +2678,74 @@ frequency must be between 0 and 255 decimal.")
         key = spectrumtranslate.get_disassemblecodename_from_value(
             lwInstruction.di.instruction)
 
-        s = "<strong>{0}</strong><br/>".format(key) + \
+        s = "<strong>{}</strong><br/>".format(key) + \
             self.Ddialog.Format.format(lwInstruction.di.start) + "->" + \
             self.Ddialog.Format.format(lwInstruction.di.end)
 
-        if(lwInstruction.di.instruction == spectrumtranslate.
-           DisassembleInstruction.DISASSEMBLE_CODES["Line Number Every X"]):
+        if lwInstruction.di.instruction == spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Line Number Every X"]:
             s += " address every " + self.Ddialog.Format.format(
                 int(lwInstruction.di.data, 16)) + " lines."
 
-        elif(lwInstruction.di.instruction == spectrumtranslate.
-             DisassembleInstruction.DISASSEMBLE_CODES["Data Block"]):
+        elif lwInstruction.di.instruction == spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Data Block"]:
             for key in spectrumtranslate.DisassembleInstruction.\
                     DISASSEMBLE_DATABLOCK_CODES_ORDERED:
-                if(spectrumtranslate.DisassembleInstruction.
-                   DISASSEMBLE_DATABLOCK_CODES[key] == lwInstruction.di.data):
+                if spectrumtranslate.DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES[key] == lwInstruction.di.data:
                     break
 
-            match = re.match("^\s*%!([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$",
+            match = re.match(r"^\s*%!([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$",
                              lwInstruction.di.data, re.DOTALL)
-            if(match and
-               match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
-                    PredefinedRoutines.keys()):
+            if match and match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
+                    PredefinedRoutines.keys():
                 key = "PredefinedRoutine: " + match.groups()[0]
-            match = re.match("^\s*%P([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$",
+            match = re.match(r"^\s*%P([a-zA-Z_][a-zA-Z_0-9]*)[(].*[)]\s*$",
                              lwInstruction.di.data, re.DOTALL)
-            if(match and
-               match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
-                   PredefinedFunctions.keys()):
+            if match and match.groups()[0] in spectrumtranslate.DisassembleInstruction.\
+                   PredefinedFunctions.keys():
                 key = "PredefinedFunction: " + match.groups()[0]
 
             s += " - " + key
 
-        elif(lwInstruction.di.instruction == spectrumtranslate.
-             DisassembleInstruction.DISASSEMBLE_CODES["Pattern Data Block"]):
-            for key in spectrumtranslate.DisassembleInstruction.\
-                    DISASSEMBLE_PATTERNBLOCK_CODES_ORDERED:
-                if(spectrumtranslate.DisassembleInstruction.
-                   DISASSEMBLE_PATTERNBLOCK_CODES[key] ==
-                   lwInstruction.di.data):
+        elif lwInstruction.di.instruction == spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Pattern Data Block"]:
+            for key in spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES_ORDERED:
+                if spectrumtranslate.DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES[key] == lwInstruction.di.data:
                     break
 
             s += " - " + key
 
-        elif(lwInstruction.di.instruction == spectrumtranslate.
-             DisassembleInstruction.DISASSEMBLE_CODES["Comment"] or
-             lwInstruction.di.instruction == spectrumtranslate.
-             DisassembleInstruction.DISASSEMBLE_CODES["Comment Before"] or
-             lwInstruction.di.instruction == spectrumtranslate.
-             DisassembleInstruction.DISASSEMBLE_CODES["Comment After"]):
-            s += ' comment: "{0}"'.format("" if not lwInstruction.di.data else
+        elif lwInstruction.di.instruction in [spectrumtranslate.
+             DisassembleInstruction.DISASSEMBLE_CODES["Comment"].
+             spectrumtranslate.DisassembleInstruction.
+             DISASSEMBLE_CODES["Comment Before"],
+             spectrumtranslate.DisassembleInstruction.
+             DISASSEMBLE_CODES["Comment After"]]:
+            s += ' comment: "{}"'.format("" if not lwInstruction.di.data else
                                           lwInstruction.di.data)
 
-        elif(lwInstruction.di.instruction == spectrumtranslate.
-             DisassembleInstruction.DISASSEMBLE_CODES["Comment Reference"] or
-             lwInstruction.di.instruction == spectrumtranslate.
-             DisassembleInstruction.DISASSEMBLE_CODES[
-                 "Comment Reference Before"] or
-             lwInstruction.di.instruction == spectrumtranslate.
-             DisassembleInstruction.DISASSEMBLE_CODES[
-                 "Comment Reference After"]):
+        elif lwInstruction.di.instruction in [spectrumtranslate.
+             DisassembleInstruction.DISASSEMBLE_CODES["Comment Reference"],
+             spectrumtranslate.DisassembleInstruction.
+             DISASSEMBLE_CODES["Comment Reference Before"],
+             spectrumtranslate.DisassembleInstruction.
+             DISASSEMBLE_CODES["Comment Reference After"]]:
             a, f, c = spectrumtranslate.get_comment_reference_values(
                 lwInstruction.di.data)
-            s += ' address: {0:04X} comment: "{1}"'.format(a, c)
+            s += ' address: {:04X} comment: "{}"'.format(a, c)
 
-        elif(lwInstruction.di.instruction == spectrumtranslate.
+        elif lwInstruction.di.instruction in [spectrumtranslate.
              DisassembleInstruction.DISASSEMBLE_CODES[
-                 "Comment Displacement"] or
-             lwInstruction.di.instruction == spectrumtranslate.
-             DisassembleInstruction.DISASSEMBLE_CODES[
-                 "Comment Displacement Before"] or
-             lwInstruction.di.instruction == spectrumtranslate.
-             DisassembleInstruction.DISASSEMBLE_CODES[
-                 "Comment Displacement After"]):
+             "Comment Displacement"],
+             spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES[
+             "Comment Displacement Before"],
+             spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES[
+             "Comment Displacement After"]]:
             d, f, c = spectrumtranslate.get_comment_displacement_values(
                 lwInstruction.di.data)
-            s += ' displacement: {0:02X} comment: "{1}"'.format(d, c)
+            s += ' displacement: {:02X} comment: "{}"'.format(d, c)
 
-        elif(lwInstruction.di.instruction == spectrumtranslate.
-             DisassembleInstruction.DISASSEMBLE_CODES["Comment Pattern"]):
+        elif lwInstruction.di.instruction == spectrumtranslate.DisassembleInstruction.DISASSEMBLE_CODES["Comment Pattern"]:
             parts = spectrumtranslate.detailsfromfindandcomment(
                 lwInstruction.di.data)
-            s += ' comment: "{0}"'.format("" if not parts else
+            s += ' comment: "{}"'.format("" if not parts else
                 spectrumtranslate.instructiontexttostring(parts[1]))
 
         lwInstruction.label.setText(s)
@@ -2817,9 +2758,10 @@ frequency must be between 0 and 255 decimal.")
 
         box = QtGui.QVBoxLayout()
         cbContainerType = QtGui.QComboBox(self)
-        cbContainerType.addItem("Tap file container", 0)
-        cbContainerType.addItem("+D/Disciple file container", 1)
-        cbContainerType.addItem("container format from destination file", 2)
+        cbContainerType.addItem("Tzx file container", 0)
+        cbContainerType.addItem("Tap file container", 1)
+        cbContainerType.addItem("+D/Disciple file container", 2)
+        cbContainerType.addItem("container format from destination file", 3)
         cbContainerType.setToolTip(
             "Select the type of containter file to export to.")
         cbContainerType.setCurrentIndex(self.ExportSettings["ContainerType"])
@@ -2837,15 +2779,15 @@ frequency must be between 0 and 255 decimal.")
         cbOverOrAppend.setCurrentIndex(self.ExportSettings["AppendOrOver"])
         vbox.addWidget(cbOverOrAppend)
 
-        cbSaveWithHeadder = QtGui.QComboBox(self)
-        cbSaveWithHeadder.addItem("Save as headderless block", 0)
-        cbSaveWithHeadder.addItem("Save with headder", 1)
-        cbSaveWithHeadder.setToolTip(
-            "Do you want to save as headderless block or file with headder?")
-        cbSaveWithHeadder.setCurrentIndex(
-            self.ExportSettings["SaveWithHeadder"])
-        cbSaveWithHeadder.activated.connect(self.ExportSettingsControlUpdate)
-        vbox.addWidget(cbSaveWithHeadder)
+        cbSaveWithHeader = QtGui.QComboBox(self)
+        cbSaveWithHeader.addItem("Save as headerless block", 0)
+        cbSaveWithHeader.addItem("Save with header", 1)
+        cbSaveWithHeader.setToolTip(
+            "Do you want to save as headerless block or file with header?")
+        cbSaveWithHeader.setCurrentIndex(
+            self.ExportSettings["SaveWithHeader"])
+        cbSaveWithHeader.activated.connect(self.ExportSettingsControlUpdate)
+        vbox.addWidget(cbSaveWithHeader)
 
         hbox = QtGui.QHBoxLayout()
         hbox.setSpacing(2)
@@ -2867,16 +2809,23 @@ frequency must be between 0 and 255 decimal.")
         hbox.addWidget(lFlag)
         leFlag = QtGui.QLineEdit(self)
         leFlag.setToolTip(
-            "Flag value for the data block.\nIgnored if saveing with headder.")
+            "Flag value for the data block.\nIgnored if saveing with header.")
         leFlag.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
         leFlag.sizePolicy().setHorizontalStretch(1)
         leFlag.setText(str(self.ExportSettings["Flag"]))
         hbox.addWidget(leFlag)
         vbox.addLayout(hbox)
 
+        cbMakeTxzHeaderIfNeeded = QtGui.QCheckBox("Make TZX Header Block if needed", self)
+        cbMakeTxzHeaderIfNeeded.toggle()
+        cbMakeTxzHeaderIfNeeded.setChecked(self.ExportSettings["MakeTZXHeader"])
+        cbMakeTxzHeaderIfNeeded.setToolTip(
+            "Select if you need to add a header block to the TZX file you're exporing to. This is not the header info for the data you're exporting, but an id block at the beginning of a TZX file. Leave it checked if you're not sure")
+        vbox.addWidget(cbMakeTxzHeaderIfNeeded)
+
         w = QtGui.QWidget()
         w.setLayout(vbox)
-        tab.addTab(w, "Tap options")
+        tab.addTab(w, "Tape options")
 
         vbox = QtGui.QVBoxLayout()
 
@@ -2908,7 +2857,7 @@ frequency must be between 0 and 255 decimal.")
         lSlot = QtGui.QLabel("Target Slot:")
         hbox.addWidget(lSlot)
         leSlot = QtGui.QLineEdit(self)
-        leSlot.setToolTip("Which headder slot do you want this file saved \
+        leSlot.setToolTip("Which header slot do you want this file saved \
 into.\nValid options are 1 to 80 inclusive.")
         leSlot.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
         leSlot.sizePolicy().setHorizontalStretch(1)
@@ -2936,7 +2885,7 @@ into.\nValid options are 1 to 80 inclusive.")
 
         dContainer.setLayout(box)
 
-        dContainer.cbSaveWithHeadder = cbSaveWithHeadder
+        dContainer.cbSaveWithHeader = cbSaveWithHeader
         dContainer.lFileName = lFileName
         dContainer.leFileName = leFileName
         dContainer.lFlag = lFlag
@@ -2949,16 +2898,17 @@ into.\nValid options are 1 to 80 inclusive.")
 
         self.ExportSettingsControlUpdate()
 
-        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+        if dContainer.exec_() == QtGui.QDialog.Accepted:
             self.ExportSettings["ContainerType"] = cbContainerType.\
                 currentIndex()
             self.ExportSettings["Flag"] = int(str(leFlag.text()))
             self.ExportSettings["Filename"] = str(leFileName.text())
             self.ExportSettings["AppendOrOver"] = cbOverOrAppend.currentIndex()
-            self.ExportSettings["SaveWithHeadder"] = cbSaveWithHeadder.\
+            self.ExportSettings["SaveWithHeader"] = cbSaveWithHeader.\
                 currentIndex()
             self.ExportSettings["+DPos"] = int(str(leSlot.text()))
             self.ExportSettings["FilePosition"] = cbFilePosition.currentIndex()
+            self.ExportSettings["MakeTZXHeader"] = cbMakeTxzHeaderIfNeeded.isChecked()
 
         del self.Ddialog
 
@@ -2969,7 +2919,7 @@ into.\nValid options are 1 to 80 inclusive.")
         self.Ddialog.leFileName.setText(text)
 
     def ExportSettingsControlUpdate(self):
-        i = self.Ddialog.cbSaveWithHeadder.currentIndex()
+        i = self.Ddialog.cbSaveWithHeader.currentIndex()
         self.Ddialog.lFileName.setEnabled(i == 1)
         self.Ddialog.leFileName.setEnabled(i == 1)
         self.Ddialog.lFlag.setEnabled(i == 0)
@@ -2983,7 +2933,7 @@ into.\nValid options are 1 to 80 inclusive.")
         try:
             s = spectrumtranslate.getspectrumstring(
                 str(self.Ddialog.leFileName.text()))
-            if(len(s) > 10):
+            if len(s) > 10:
                 QtGui.QMessageBox.warning(
                     self, "Error!",
                     "Specrum file names have to be 10 characters or less.")
@@ -2996,7 +2946,7 @@ into.\nValid options are 1 to 80 inclusive.")
 
         try:
             f = int(str(self.Ddialog.leFlag.text()))
-            if(f < 0 or f > 0xFF):
+            if f < 0 or f > 0xFF:
                 QtGui.QMessageBox.warning(
                     self, "Error!", "Flag must be from 0 to 255 inclusive.")
                 return
@@ -3009,7 +2959,7 @@ into.\nValid options are 1 to 80 inclusive.")
 
         try:
             p = int(str(self.Ddialog.leSlot.text()))
-            if(p < 1 or p > 80):
+            if p < 1 or p > 80:
                 QtGui.QMessageBox.warning(
                     self, "Error!", "Save position must be 1 to 80 inclusive.")
                 return
@@ -3027,21 +2977,21 @@ into.\nValid options are 1 to 80 inclusive.")
     def Translate(self):
         # get data and exit if error
         data = self.GetSelectedData()
-        if(data is None):
+        if data is None:
             return
 
         outputformat = self.cbDataType.currentText()
 
         # do exporting
-        if(self.cbExportToContainer.isChecked()):
+        if self.cbExportToContainer.isChecked():
             self.DoExport(data, outputformat)
             return
 
         # handle images
-        if(outputformat == "Screen"):
+        if outputformat == "Screen":
             # get image as gif
             delay = self.getNumber(self.leImageDelay)
-            if(not self.cbImageFlash.isChecked()):
+            if not self.cbImageFlash.isChecked():
                 delay = -1
 
             # display waiting cursor while do translation
@@ -3051,27 +3001,27 @@ into.\nValid options are 1 to 80 inclusive.")
             QtGui.QApplication.restoreOverrideCursor()
 
             # was there a problem?
-            if(data is None):
+            if data is None:
                 QtGui.QMessageBox.warning(
                     self, "Error!",
-                    'Unable to extract screen from "{0}"'.format(
+                    'Unable to extract screen from "{}"'.format(
                         self.leFileNameIn.text()))
                 return
 
             # preview image if needed
-            if(self.cbViewOutput.isChecked()):
+            if self.cbViewOutput.isChecked():
                 self.DisplayImageDialog("Translation results", data)
 
             # save image if required
-            if(self.cbSaveOutput.isChecked()):
+            if self.cbSaveOutput.isChecked():
                 self.PutFileData(data, True)
 
             return
 
         # handle raw data
-        if(outputformat == "Raw Data"):
+        if outputformat == "Raw Data":
             # display raw data if required
-            if(self.cbViewOutput.isChecked()):
+            if self.cbViewOutput.isChecked():
                 # create dialog
                 dContainer = QtGui.QDialog(self)
                 dContainer.setWindowTitle("View Raw Data")
@@ -3108,14 +3058,14 @@ into.\nValid options are 1 to 80 inclusive.")
                 dContainer.exec_()
 
             # save data if required
-            if(self.cbSaveOutput.isChecked()):
+            if self.cbSaveOutput.isChecked():
                 self.PutFileData(data, True)
 
             return
 
         # handle snapshot
-        if(outputformat == "Snapshot"):
-            if(len(data) != 131073 and len(data) != 49152):
+        if outputformat == "Snapshot":
+            if len(data) != 131073 and len(data) != 49152:
                 QtGui.QMessageBox.warning(
                     self, "Error!",
                     'Snapshot data wrong size for 48K or 128K snapshots.')
@@ -3124,20 +3074,20 @@ into.\nValid options are 1 to 80 inclusive.")
             # get requested format
             snapformat = self.cbSnapshotOutput.currentIndex()
 
-            if(snapformat == 1 and len(data) == 131073):
+            if snapformat == 1 and len(data) == 131073:
                 QtGui.QMessageBox.warning(
                     self, "Error!",
                     'Z80 version 1 can only handle 48K snapshots.')
                 return
 
             # if 128K get rid of page byte
-            if(len(data) == 131073):
+            if len(data) == 131073:
                 data = data[1:]
 
             # get registers etc
             di = disciplefile.DiscipleImage(self.leFileNameIn.text())
             di.guessimageformat()
-            if(di.ImageFormat == "Unknown"):
+            if di.ImageFormat == "Unknown":
                 di.ImageFormat = self.ImageFormatFallback
             df = disciplefile.DiscipleFile(di, self.getNumber(self.leDataFile))
             registers = df.getsnapshotregisters()
@@ -3147,9 +3097,9 @@ into.\nValid options are 1 to 80 inclusive.")
                 QCursor(QtCore.Qt.WaitCursor))
             # get image that's being displayed in snapshot
             # work out where in data image is
-            if(len(data) == 49152):
+            if len(data) == 49152:
                 picoffset = 0
-            elif(registers["Screen"] == 0):
+            elif registers["Screen"] == 0:
                 picoffset = 5 * 0x4000
             else:
                 picoffset = 7 * 0x4000
@@ -3158,7 +3108,7 @@ into.\nValid options are 1 to 80 inclusive.")
                 data[picoffset:picoffset + 6912], 320)
             # convert snapshot to requested format
             try:
-                if(snapformat == 0):
+                if snapformat == 0:
                     data = spectrumtranslate.snaptosna(data, registers)
 
                 else:
@@ -3168,37 +3118,37 @@ into.\nValid options are 1 to 80 inclusive.")
             # was there a problem?
             except spectrumtranslate.SpectrumTranslateError as ste:
                 QtGui.QMessageBox.warning(self, "Error!", 'Unable to convert \
-snapshot. Error:\n{0}'.format(ste.value))
+snapshot. Error:\n{}'.format(ste.value))
                 return
 
             # restore cursor
             QtGui.QApplication.restoreOverrideCursor()
 
             # preview image from snapshotif needed
-            if(self.cbViewOutput.isChecked()):
+            if self.cbViewOutput.isChecked():
                 self.DisplayImageDialog("Translation results", picdata)
 
             # save snapshot if required
-            if(self.cbSaveOutput.isChecked()):
+            if self.cbSaveOutput.isChecked():
                 self.PutFileData(data, True)
 
             return
 
         # otherwise translate into text
         s = self.DoTextTranslation(data, outputformat)
-        if(s is None):
+        if s is None:
             return
 
-        if(self.cbViewOutput.isChecked()):
+        if self.cbViewOutput.isChecked():
             self.DisplayTranslation(s)
 
-        if(self.cbSaveOutput.isChecked()):
+        if self.cbSaveOutput.isChecked():
             self.PutFileData(s)
 
     def DoExport(self, data, outputformat):
         # check we have output filename
         fileout = self.leFileNameOut.text()
-        if(not fileout or fileout == ""):
+        if not fileout or fileout == "":
             QtGui.QMessageBox.warning(self, "Error!",
                                       'No output file selected.')
             return
@@ -3206,16 +3156,16 @@ snapshot. Error:\n{0}'.format(ste.value))
         # work out what container format to use
         containertype = self.ExportSettings["ContainerType"]
         # handle working out container type
-        if(containertype == 2):
-            if(os.path.isfile(fileout)):
+        if containertype == 3:
+            if os.path.isfile(fileout):
                 # try to see if is disciple/+D image file
                 try:
                     di = disciplefile.DiscipleImage(fileout)
                     di.guessimageformat()
 
                     # if it's a valid +D file then use this format
-                    if(di.isimagevalid(True)[0]):
-                        containertype = 1
+                    if di.isimagevalid(True)[0]:
+                        containertype = 2
 
                 except:
                     # ignore errors, and fall through into tap check
@@ -3223,24 +3173,37 @@ snapshot. Error:\n{0}'.format(ste.value))
 
                 # try to see if is tap file
                 try:
-                    if(containertype == 2):
-                        tbs = spectrumtapblock.gettapblocks(fileout)
-                        if(len(tbs) > 0):
-                            containertype = 0
+                    if containertype == 3:
+                        with open(fileout, 'rb') as f:
+                            tbs = [*spectrumtape.gettapblocks(f)]
+                            if len(tbs) > 0:
+                                containertype = 1
+                except:
+                    # ignore errors, and fall through into next part of
+                    # routine
+                    pass
+
+                # try to see if is tzx file
+                try:
+                    if containertype == 3:
+                        with open(fileout, 'rb') as f:
+                            tbs = [*spectrumtape.gettzxblocks(f)]
+                            if len(tbs) > 0:
+                                containertype = 0
                 except:
                     # ignore errors, and fall through into next part of
                     # routine
                     pass
 
                 # see if we've not worked out the format and handle this
-                if(containertype == 2):
-                    QtGui.QMessageBox.warning(self, "Error!", '"{0}" is not \
-either a .tap file or a disciple/+D disk image.'.format(fileout))
+                if containertype == 2:
+                    QtGui.QMessageBox.warning(self, "Error!", '"{}" is not a \
+.tap file, .tzx file, or a disciple/+D disk image.'.format(fileout))
                     return
 
             # what to do if no container file existing to guess format
             else:
-                QtGui.QMessageBox.warning(self, "Error!", '"{0}" is not a \
+                QtGui.QMessageBox.warning(self, "Error!", '"{}" is not a \
 file, so cannot guess container format.'.format(fileout))
                 return
 
@@ -3251,77 +3214,79 @@ file, so cannot guess container format.'.format(fileout))
         # todo remove when have support for snap files, opentype files
         # etc that are bigger than 64K
         # check if file is greater than 0xFFFF: won't fit in file if is.
-        if(len(data) > 0xFFFF):
+        if len(data) > 0xFFFF:
             QtGui.QMessageBox.warning(
                 self, "Error!",
                 "Data is bigger than 65535 bytes and can't be saved.")
             return None
 
-        # handle tap file
-        if(containertype == 0):
+        # handle tape file
+        if containertype in [0, 1]:
+            fileformat = 'Tap' if containertype == 1 else 'Tzx'
             output = ''
-            if(self.ExportSettings["SaveWithHeadder"] == 1):
-                if(outputformat == "Basic Program"):
+            if self.ExportSettings["SaveWithHeader"] == 1:
+                if outputformat == "Basic Program":
                     auto = self.getNumber(self.leBasicAutoLine)
                     variableoffset = self.getNumber(self.leBasicVariableOffset)
-                    output = spectrumtapblock.createbasicheadder(
-                        filename, variableoffset, len(data),
-                        auto).getpackagedforfile()
+                    headerblock = spectrumtape.createbasicheader(
+                        filename, variableoffset, len(data), auto)
 
-                elif(outputformat == "Machine Code"):
+                elif outputformat == "Machine Code":
                     origin = self.getNumber(self.leCodeOrigin)
-                    if(origin < 0 or origin > 0xFFFF):
+                    if origin < 0 or origin > 0xFFFF:
                         QtGui.QMessageBox.warning(self, "Error!", "Code \
 Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
                         return None
 
-                    output = spectrumtapblock.createcodeheadder(
-                        filename, origin, len(data)).getpackagedforfile()
+                    headerblock = spectrumtape.createcodeheader(
+                        filename, origin, len(data))
 
-                elif(outputformat == "Variable Array"):
+                elif outputformat == "Variable Array":
                     idescriptor = self.cbArrayVarType.currentIndex()
                     idescriptor += 2
                     idescriptor -= (idescriptor >> 2) * 3
                     idescriptor *= 64
 
                     sVarName = str(self.leArrayVarName.text()).lower()
-                    if(len(sVarName) != 1 or ord(sVarName) < 97 or
-                       ord(sVarName) > 122):
+                    if len(sVarName) != 1 or ord(sVarName) < 97 or ord(sVarName) > 122:
                         QtGui.QMessageBox.warning(
                             self, "Error!",
                             "Variable Name must be single letter.")
                         return None
 
-                    output = spectrumtapblock.createarrayheadder(
+                    headerblock = spectrumtape.createarrayheader(
                         filename, idescriptor | (ord(sVarName) & 0x3F),
-                        len(data)).getpackagedforfile()
+                        len(data))
 
-                elif(outputformat == "Screen"):
-                    output = spectrumtapblock.createscreenheadder(
-                        filename).getpackagedforfile()
+                elif outputformat == "Screen":
+                    headerblock = spectrumtape.createscreenheader(filename)
 
-            output += spectrumtapblock.createdatablock(
+                output = spectrumtape.convertblockformat(
+                    headerblock, fileformat).getpackagedforfile()
+
+            output += spectrumtape.convertblockformat(
+                spectrumtape.createdatablock(
                 data,
-                0xFF if self.ExportSettings["SaveWithHeadder"] == 1 else
-                self.ExportSettings["Flag"]).getpackagedforfile()
+                0xFF if self.ExportSettings["SaveWithHeader"] == 1 else
+                self.ExportSettings["Flag"]), fileformat).getpackagedforfile()
+
+            # if tzx file ensure have header if new file
+            if containertype == 0 and (self.ExportSettings["AppendOrOver"] == 0 or (not os.path.isfile(fileout) or os.path.getsize(fileout) == 0)) and self.ExportSettings["MakeTZXHeader"]:
+                output = spectrumtape.SpectrumTZXHeaderBlock(1, 20).getpackagedforfile() + output
 
             # prepare data for output
-            if(sys.hexversion > 0x03000000):
-                output = bytes(output)
-            else:
-                output = ''.join([chr(x) for x in output])
+            output = bytes(output)
 
             try:
-                fo = open(
+                with open(
                     fileout,
                     MODE_AB if self.ExportSettings["AppendOrOver"] == 1 else
-                    MODE_WB)
-                fo.write(output)
-                fo.close()
+                    MODE_WB) as fo:
+                    fo.write(output)
             except:
                 QtGui.QMessageBox.warning(
                     self, "Error!",
-                    'Failed to save data to "{0}"'.format(fileout))
+                    'Failed to save data to "{}"'.format(fileout))
 
             return
 
@@ -3330,16 +3295,16 @@ Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
         # create output image to copy into
         diout = disciplefile.DiscipleImage()
         # if we're writing to an existing file then load it into image
-        if(os.path.isfile(fileout)):
+        if os.path.isfile(fileout):
             try:
                 with open(fileout, MODE_RB) as outfile:
                     diout.setbytes(outfile.read())
             except:
                 QtGui.QMessageBox.warning(
                     self, "Error!",
-                    'Failed to save data to "{0}"'.format(fileout))
+                    'Failed to save data to "{}"'.format(fileout))
         # otherwise create blank image
-        else:
+        elif containertype == 2:
             diout.setbytes([0] * 819200)
 
         # get where to save directory entry and whether to overwrite
@@ -3347,7 +3312,7 @@ Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
             "FilePosition"] == 1 else -1
         overwritename = self.ExportSettings["FilePosition"] == 0
 
-        if(outputformat == "Basic Program"):
+        if outputformat == "Basic Program":
             auto = self.getNumber(self.leBasicAutoLine)
             variableoffset = self.getNumber(self.leBasicVariableOffset)
             diout.writebasicfile(data, filename, position=copyposition,
@@ -3355,9 +3320,9 @@ Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
                                  varposition=variableoffset,
                                  overwritename=overwritename)
 
-        elif(outputformat == "Machine Code"):
+        elif outputformat == "Machine Code":
             origin = self.getNumber(self.leCodeOrigin)
-            if(origin < 0 or origin > 0xFFFF):
+            if origin < 0 or origin > 0xFFFF:
                 QtGui.QMessageBox.warning(self, "Error!", "Code Origin must \
 be between 0 and 65535 (0000 and FFFF hexadecimal).")
                 return None
@@ -3366,15 +3331,14 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                                 codestartaddress=origin,
                                 overwritename=overwritename)
 
-        elif(outputformat == "Variable Array"):
+        elif outputformat == "Variable Array":
             idescriptor = self.cbArrayVarType.currentIndex()
             idescriptor += 2
             idescriptor -= (idescriptor >> 2) * 3
             idescriptor *= 64
 
             sVarName = str(self.leArrayVarName.text()).lower()
-            if(len(sVarName) != 1 or ord(sVarName) < 97 or
-               ord(sVarName) > 122):
+            if len(sVarName) != 1 or ord(sVarName) < 97 or ord(sVarName) > 122:
                 QtGui.QMessageBox.warning(
                     self, "Error!", "Variable Name must be single letter.")
                 return None
@@ -3384,7 +3348,7 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                                  position=copyposition,
                                  overwritename=overwritename)
 
-        elif(outputformat == "Screen"):
+        elif outputformat == "Screen":
             diout.writescreenfile(data, filename, position=copyposition,
                                   overwritename=overwritename)
 
@@ -3395,20 +3359,16 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                                 overwritename=overwritename)
 
         # prepare data for output
-        if(sys.hexversion > 0x03000000):
-            output = bytes(diout.bytedata)
-        else:
-            output = ''.join([chr(x) for x in diout.bytedata])
+        output = bytes(diout.bytedata)
 
         # output data
         try:
-            fo = open(fileout, MODE_WB)
-            fo.write(output)
-            fo.close()
+            with open(fileout, MODE_WB) as fo:
+                fo.write(output)
         except:
             QtGui.QMessageBox.warning(
                 self, "Error!",
-                'Failed to save data to "{0}"'.format(fileout))
+                'Failed to save data to "{}"'.format(fileout))
 
     def DisplayImageDialog(self, title, imagedata):
         # create dialog to display image
@@ -3421,10 +3381,7 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
         buf = QtCore.QBuffer()
         buf.open(QtCore.QIODevice.ReadWrite)
 
-        if(sys.hexversion > 0x03000000):
-            buf.write(bytes(imagedata))
-        else:
-            buf.write(imagedata)
+        buf.write(bytes(imagedata))
 
         buf.seek(0)
         movie = QMovie(buf, QtCore.QByteArray())
@@ -3451,18 +3408,18 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
         dContainer.exec_()
 
     def DoTextTranslation(self, data, datatype):
-        if(datatype == "Basic Program"):
+        if datatype == "Basic Program":
             # get program variables
             auto = self.getNumber(self.leBasicAutoLine)
             variable = self.getNumber(self.leBasicVariableOffset)
             length = len(data)
-            if(variable < 0 or variable > length):
+            if variable < 0 or variable > length:
                 variable = length
 
             try:
                 forceascii = self.cbASCIIBasicOutput.isChecked()
                 # handle XML
-                if(self.cbXMLBasicOutput.isChecked() == True):
+                if self.cbXMLBasicOutput.isChecked() == True:
                     return spectrumtranslate.basictoxml(data, auto, variable,
                                                         forceascii)
 
@@ -3473,9 +3430,9 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                 QtGui.QMessageBox.warning(self, "Error!", ste.value)
                 return None
 
-        elif(datatype == "Machine Code"):
+        elif datatype == "Machine Code":
             origin = self.getNumber(self.leCodeOrigin)
-            if(origin < 0 or origin > 0xFFFF):
+            if origin < 0 or origin > 0xFFFF:
                 QtGui.QMessageBox.warning(self, "Error!", "Code Origin must \
 be between 0 and 65535 (0000 and FFFF hexadecimal).")
                 return None
@@ -3531,32 +3488,31 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
 
             return self.DisassembleDialog(data, origin)
 
-        elif(datatype == "Variable Array"):
+        elif datatype == "Variable Array":
             idescriptor = self.cbArrayVarType.currentIndex()
             idescriptor += 2
             idescriptor -= (idescriptor >> 2) * 3
             idescriptor *= 64
 
             sVarName = str(self.leArrayVarName.text()).lower()
-            if(len(sVarName) != 1 or ord(sVarName) < 97 or
-               ord(sVarName) > 122):
+            if len(sVarName) != 1 or ord(sVarName) < 97 or ord(sVarName) > 122:
                 QtGui.QMessageBox.warning(
                     self, "Error!", "Variable Name must be single letter.")
                 return None
 
             forceascii = self.cbASCIIVarOutput.isChecked()
             # handle XML
-            if(self.cbXMLVarOutput.isChecked() == True):
-                if(idescriptor & 192 == 64):
+            if self.cbXMLVarOutput.isChecked() == True:
+                if idescriptor & 192 == 64:
                     vartype = 'string'
-                elif(idescriptor & 192 == 128):
+                elif idescriptor & 192 == 128:
                     vartype = 'numberarray'
-                elif(idescriptor & 192 == 192):
+                elif idescriptor & 192 == 192:
                     vartype = 'characterarray'
 
                 soutput = '<?xml version="1.0" encoding="UTF-8" ?>\n'
                 soutput += '<variable>\n  <name>' + sVarName
-                if(idescriptor & 64 == 64):
+                if idescriptor & 64 == 64:
                     soutput += '$'
 
                 soutput += '</name>\n  <type>' + vartype + '</type>\n'
@@ -3636,7 +3592,7 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
         dContainer.reject()
 
     def DisassembleFinished(self):
-        if(self.progressdialog.error):
+        if self.progressdialog.error:
             QtGui.QMessageBox.warning(self, "Error!",
                                       self.progressdialog.error)
 
@@ -3663,7 +3619,8 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
         textdisplay = QtGui.QTextEdit()
         textdisplay.setPlainText(txt)
         textdisplay.setReadOnly(True)
-        textdisplay.myfont = QFont('monospace', textdisplay.fontPointSize())
+        textdisplay.myfont = QFont('monospace',
+                                   int(round(textdisplay.fontPointSize())))
         textdisplay.setFont(textdisplay.myfont)
 
         lay = QtGui.QVBoxLayout()
@@ -3685,46 +3642,41 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
 
     def PutFileData(self, data, isbinary=False):
         fileout = self.leFileNameOut.text()
-        if(not fileout or fileout == ""):
+        if not fileout or fileout == "":
             QtGui.QMessageBox.warning(self, "Error!",
                                       'No output file selected.')
             return
 
         # prepare data for output
-        if(sys.hexversion > 0x03000000):
-            if(isinstance(data, str)):
-                data = bytes([ord(b) for b in data])
-            elif(isinstance(data, (list, tuple))):
-                data = bytes(data)
-        else:
-            if(isinstance(data, (list, tuple))):
-                data = ''.join([chr(x) for x in data])
+        if isinstance(data, str):
+            data = bytes([ord(b) for b in data])
+        elif isinstance(data, (list, tuple)):
+            data = bytes(data)
 
         try:
-            fo = open(fileout, MODE_WB)
-            if(sys.hexversion >= 0x03000000 or isbinary):
-                fo.write(data)
-            else:
-                fo.write(data.encode('utf-8'))
-            fo.close()
+            with open(fileout, MODE_WB) as fo:
+                if isbinary:
+                    fo.write(data)
+                else:
+                    fo.write(data.encode('utf-8'))
         except:
             QtGui.QMessageBox.warning(
-                self, "Error!", 'Failed to save data to "{0}"'.format(fileout))
+                self, "Error!", 'Failed to save data to "{}"'.format(fileout))
 
     def GetSelectedData(self):
         # first check if is +d/disciple file as go by file number rather
         # than start & stop
-        if(self.bBrowseContainer.text() == "Browse disk image"):
+        if self.bBrowseContainer.text() == "Browse disk image":
             i = self.getNumber(self.leDataFile)
             o = self.getNumber(self.leDataFileOffset)
 
-            if(i < 1 or i > 80):
+            if i < 1 or i > 80:
                 QtGui.QMessageBox.warning(
                     self, "Error!",
                     'Valid file numbers are 1 to 80 inclusive.')
                 return None
 
-            if(o < 0):
+            if o < 0:
                 QtGui.QMessageBox.warning(self, "Error!",
                                           'Valid offsets are 0 and above.')
                 return None
@@ -3733,14 +3685,14 @@ be between 0 and 65535 (0000 and FFFF hexadecimal).")
                 # get disciple file object
                 di = disciplefile.DiscipleImage(self.leFileNameIn.text())
                 di.guessimageformat()
-                if(di.ImageFormat == "Unknown"):
+                if di.ImageFormat == "Unknown":
                     di.ImageFormat = self.ImageFormatFallback
                 df = disciplefile.DiscipleFile(di, i)
                 # return it's data, ignoreing any offset
                 return (df.getfiledata(True))[o:]
             except:
                 QtGui.QMessageBox.warning(self, "Error!", 'Failed to extract \
-file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
+file {} from "{}".'.format(i, self.leFileNameIn.text()))
                 return None
 
         offset = self.getNumber(self.leDataOffset)
@@ -3748,34 +3700,33 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         length = end - offset
 
         # sanity check for inputs
-        if(offset < 0 or end < 0 or offset > end or length > 65535):
+        if offset < 0 or end < 0 or offset > end or length > 65535:
             QtGui.QMessageBox.warning(
                 self, "Error!", 'invalid data offset or data end parameters')
             return None
 
         filein = self.leFileNameIn.text()
-        if(not os.path.isfile(filein)):
+        if not os.path.isfile(filein):
             QtGui.QMessageBox.warning(self, "Error!",
-                                      '"{0}" does not exist.'.format(filein))
+                                      '"{}" does not exist.'.format(filein))
             return None
 
         # get contents of file
         try:
-            fo = open(filein, MODE_RB)
-            fo.seek(offset)
-            data = fo.read(length)
-            fo.close()
+            with open(filein, MODE_RB) as fo:
+                fo.seek(offset)
+                data = fo.read(length)
         except:
             QtGui.QMessageBox.warning(
-                self, "Error!", 'Unable to get data from "{0}"'.format(filein))
+                self, "Error!", 'Unable to get data from "{}"'.format(filein))
             return None
 
         # ensure data is converted to valid format
         data = _validbytestointlist(data)
 
-        if(len(data) != length):
+        if len(data) != length:
             QtGui.QMessageBox.warning(
-                self, "Error!", 'Unable to get data from "{0}"'.format(filein))
+                self, "Error!", 'Unable to get data from "{}"'.format(filein))
             return None
 
         return data
@@ -3785,7 +3736,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         self.SetTranslateButtonText()
 
     def SetTranslateButtonText(self):
-        if(self.cbExportToContainer.isChecked()):
+        if self.cbExportToContainer.isChecked():
             self.bTranslate.setText("Export")
             self.bExportSettings.setEnabled(True)
         else:
@@ -3796,7 +3747,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
 
     def FormatChange(self, newformat):
         # we're done if no change
-        if(self.CurrentNumberFormat == newformat):
+        if self.CurrentNumberFormat == newformat:
             return
 
         # go through all the boxes changing text formats
@@ -3842,12 +3793,12 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
 
         di = disciplefile.DiscipleImage(self.leFileNameIn.text())
         di.guessimageformat()
-        if(di.ImageFormat == "Unknown"):
+        if di.ImageFormat == "Unknown":
             di.ImageFormat = self.ImageFormatFallback
 
         for df in di.iteratedisciplefiles():
             # do we have a valid entry?
-            if(not df.isempty()):
+            if not df.isempty():
                 txt = '{filenumber:2} "{filename:s}"{sectors:4} \
 {filetypeshort} {catextradata}'.format(**df.getfiledetails())
                 maxwidth = max(Dview.fontMetrics().width(txt), maxwidth)
@@ -3855,7 +3806,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
                 line.Ddata = df
                 line.setEditable(False)
                 faults = df.checkforfaults()
-                if(faults):
+                if faults:
                     line.setBackground(QColor(255,128,128))
                     line.setToolTip("\n".join(faults))
                 Dmodel.appendRow(line)
@@ -3897,7 +3848,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
 
         # run dialog, but forget Dview and dialog references if cancel
         # pressed
-        if(dContainer.exec_() == QtGui.QDialog.Rejected):
+        if dContainer.exec_() == QtGui.QDialog.Rejected:
             del self.Ddialog
             del self.Dview
 
@@ -3907,12 +3858,12 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         Ddialog = self.Ddialog
 
         # check to see if faulty entry selected
-        if(len(Dview.selectedIndexes()) > 0):
+        if len(Dview.selectedIndexes()) > 0:
             # retrieve Ddata
             index = Dview.selectedIndexes()[0]
             df = index.model().itemFromIndex(index).Ddata
             # check
-            if(df.checkforfaults()):
+            if df.checkforfaults():
                 QtGui.QMessageBox.warning(self, "Error",
                     "Selected file is faulty and can't be extracted")
                 return
@@ -3925,15 +3876,15 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         Ddialog.accept()
 
         # if nothing selected then exit
-        if(len(Dview.selectedIndexes()) < 1):
+        if len(Dview.selectedIndexes()) < 1:
             return
 
-        headder = df.getheadder()
-        t = df.getfiletype(headder)
+        header = df.getheader()
+        t = df.getfiletype(header)
 
         # set filenumber and offset (remmbering that basic, code, screen
         # number and character array
-        # have a 9 byte headder at the start of the file
+        # have a 9 byte header at the start of the file
         self.SetSourceLimits(-1, -1, df.filenumber,
                              9 if ((t > 0 and t < 5) or t == 7) else 0)
 
@@ -3941,37 +3892,37 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         self.ExportSettings["Filename"] = ''.join(
             [chr(x) for x in df.getrawfilename()])
 
-        if(t == 1):
+        if t == 1:
             # basic program
-            self.SetBasicDetails(df.getautostartline(headder),
-                                 df.getvariableoffset(headder))
+            self.SetBasicDetails(df.getautostartline(header),
+                                 df.getvariableoffset(header))
 
-        elif(t == 2 or t == 3):
+        elif t in [2, 3]:
             # number or character array
-            self.SetVariableArrayDetails(df.getvariableletter(headder),
-                                         df.getarraydescriptor(headder))
+            self.SetVariableArrayDetails(df.getvariableletter(header),
+                                         df.getarraydescriptor(header))
 
-        elif(t == 4):
+        elif t == 4:
             # bytes: can be screen or data/machine code
-            if(df.getfilelength(headder) == 6912):
-                self.SetScreenDetails(df.getcodestart(headder))
+            if df.getfilelength(header) == 6912:
+                self.SetScreenDetails(df.getcodestart(header))
 
             else:
-                self.SetCodeDetails(df.getcodestart(headder))
+                self.SetCodeDetails(df.getcodestart(header))
 
-        elif(t == 5):
+        elif t == 5:
             # 48K Snapshot
             self.SetSnapshotDetails(False)
 
-        elif(t == 7):
+        elif t == 7:
             # SCREEN$
-            self.SetScreenDetails(df.getcodestart(headder))
+            self.SetScreenDetails(df.getcodestart(header))
 
-        elif(t == 7):
+        elif t == 7:
             # Execute
-            self.SetCodeDetails(df.getcodestart(headder))
+            self.SetCodeDetails(df.getcodestart(header))
 
-        elif(t == 9):
+        elif t == 9:
             # 128K Snapshot
             self.SetSnapshotDetails(True)
 
@@ -3982,22 +3933,26 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
             self.SetRawData()
 
     # browse files in TAP file
-    def BrowseTapFile(self):
+    def BrowseTapeFile(self):
         dContainer = QtGui.QDialog(self)
         dContainer.setWindowTitle("Select what to translate")
         dContainer.setModal(True)
 
         tapmodel = QStandardItemModel()
-        tapmodel.setHorizontalHeaderLabels(['Tap Entries'])
+        tapmodel.setHorizontalHeaderLabels(['Tape Entries'])
 
-        tbs = spectrumtapblock.gettapblocks(self.leFileNameIn.text())
+        with open(self.leFileNameIn.text(), 'rb') as f:
+            if self.bBrowseContainer.text() == "Browse TAP":
+                tbs = [*spectrumtape.nexttapblock(f)]
+            else:
+                tbs = [*spectrumtape.nexttzxblock(f)]
         i = 0
-        while(i < len(tbs)):
-            # do we have a headder that matches the next code block?
-            if(i < len(tbs) - 1 and tbs[i].isheadder() and
-               tbs[i + 1].flag == 255 and
-               len(tbs[i + 1].data) == tbs[i].getheadderdescribeddatalength()):
-                block = QStandardItem(tbs[i].getfiledetailsstring())
+        while i < len(tbs):
+            # do we have a header that matches the next code block?
+            if (i < len(tbs) - 1 and tbs[i].isheader() and
+               tbs[i + 1].isdatablock() and tbs[i + 1].flag == 255 and
+               tbs[i + 1].getpayloadlength() == tbs[i].getheaderdescribeddatalength()):
+                block = QStandardItem(tbs[i].getblockinfo())
                 block.tapdata = tbs[i:i + 2]
                 line = QStandardItem(str(tbs[i]))
                 line.tapdata = tbs[i:i + 1]
@@ -4033,7 +3988,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         lay2.addStretch(1)
         ok = QtGui.QPushButton("Ok", self)
         lay2.addWidget(ok)
-        ok.clicked.connect(self.TapEntrySelected)
+        ok.clicked.connect(self.TapeEntrySelected)
         lay2.addStretch(1)
         close = QtGui.QPushButton("Cancel", self)
         lay2.addWidget(close)
@@ -4043,7 +3998,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
 
         dContainer.setLayout(lay)
 
-        tapview.doubleClicked.connect(self.TapEntrySelected)
+        tapview.doubleClicked.connect(self.TapeEntrySelected)
         tapview.setExpandsOnDoubleClick(False)
 
         # ensure first item is always selected
@@ -4056,24 +4011,23 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
 
         # run dialog, but forget tapview and dialog references if cancel
         # pressed
-        if(dContainer.exec_() == QtGui.QDialog.Rejected):
+        if dContainer.exec_() == QtGui.QDialog.Rejected:
             del self.tapdialog
             del self.tapview
 
     def BrowseFileHex(self):
 
-        if(not os.path.isfile(self.leFileNameIn.text())):
+        if not os.path.isfile(self.leFileNameIn.text()):
             return
 
         # get contents of file
         try:
-            fo = open(self.leFileNameIn.text(), MODE_RB)
-            data = _validbytestointlist(fo.read())
-            fo.close()
+            with open(self.leFileNameIn.text(), MODE_RB) as fo:
+                data = _validbytestointlist(fo.read())
         except:
             QtGui.QMessageBox.warning(
                 self, "Error",
-                'Unable to read file:\n"{0}"'.format(self.leFileNameIn.text()))
+                'Unable to read file:\n"{}"'.format(self.leFileNameIn.text()))
             return
 
         # create dialog
@@ -4122,11 +4076,11 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         dContainer.setGeometry(self.geometry())
 
         # run dialog, and if ok selected get start & stop points
-        if(dContainer.exec_() == QtGui.QDialog.Accepted):
+        if dContainer.exec_() == QtGui.QDialog.Accepted:
             self.SetSourceLimits(hexview.selectStart,
                                  hexview.selectEnd - hexview.selectStart)
 
-    def TapEntrySelected(self, x):
+    def TapeEntrySelected(self, x):
         # retrieve references to what we need
         tapview = self.tapview
         tapdialog = self.tapdialog
@@ -4138,7 +4092,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         tapdialog.accept()
 
         # if nothing selected then exit
-        if(len(tapview.selectedIndexes()) < 1):
+        if len(tapview.selectedIndexes()) < 1:
             return
 
         # retrieve tapdata
@@ -4146,40 +4100,40 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         tapdata = index.model().itemFromIndex(index).tapdata
 
         # if only 1 tap block then is individual tapblock. treat as code
-        if(len(tapdata) == 1):
+        if len(tapdata) == 1:
             # set values
-            self.SetSourceLimits(tapdata[0].getdatastartoffset(),
-                                 len(tapdata[0].data))
+            self.SetSourceLimits(tapdata[0].getpayloadstartoffset(),
+                                 tapdata[0].getpayloadlength())
             self.SetCodeDetails(0)
 
             return
 
-        # if not then should contain 2 TapBlocks: headder & data block.
-        self.SetSourceLimits(tapdata[1].getdatastartoffset(),
-                             len(tapdata[1].data), -1)
+        # if not then should contain 2 TapBlocks: header & data block.
+        self.SetSourceLimits(tapdata[1].getpayloadstartoffset(),
+                             tapdata[1].getpayloadlength(), -1)
 
         # save off filename incase want to export it
         self.ExportSettings["Filename"] = ''.join(
             [chr(x) for x in tapdata[0].getrawfilename()])
 
-        if(tapdata[0].data[0] == 0):
+        if tapdata[0].getpayload()[0] == 0:
             # basic program
-            self.SetBasicDetails(tapdata[0].getheadderautostartline(),
-                                 tapdata[0].getheaddervariableoffset())
+            self.SetBasicDetails(tapdata[0].getheaderautostartline(),
+                                 tapdata[0].getheadervariableoffset())
 
-        elif(tapdata[0].data[0] == 1 or tapdata[0].data[0] == 2):
+        elif tapdata[0].getpayload()[0] in [1, 2]:
             # number or character array
-            self.SetVariableArrayDetails(tapdata[0].getheaddervariableletter(),
-                                         tapdata[0].getheadderarraydescriptor()
+            self.SetVariableArrayDetails(tapdata[0].getheadervariableletter(),
+                                         tapdata[0].getheaderarraydescriptor()
                                          )
 
-        elif(tapdata[0].data[0] == 3):
+        elif tapdata[0].getpayload()[0] == 3:
             # bytes: can be screen or data/machine code
-            if(len(tapdata[1].data) == 6912):
-                self.SetScreenDetails(tapdata[0].getheaddercodestart())
+            if tapdata[1].getpayloadlength() == 6912:
+                self.SetScreenDetails(tapdata[0].getheadercodestart())
 
             else:
-                self.SetCodeDetails(tapdata[0].getheaddercodestart())
+                self.SetCodeDetails(tapdata[0].getheadercodestart())
 
         else:
             # default to code block
@@ -4265,7 +4219,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         self.cbDataType.model().item(5).setEnabled(False)
 
     def FormatNumber(self, n):
-        if(n == -1):
+        if n == -1:
             return ""
 
         # format provided number to current number format
@@ -4275,22 +4229,34 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
         return form.format(n)
 
     def handle_changed_text(self, txt):
-        if(self.leFileNameIn.hasFocus()):
+        if self.leFileNameIn.hasFocus():
             self.CheckIfKnownContainerFile()
 
     def CheckIfKnownContainerFile(self):
-        if(os.path.isfile(self.leFileNameIn.text())):
+        if os.path.isfile(self.leFileNameIn.text()):
 
             self.bBrowseHex.setEnabled(True)
 
+            # try extracting from tzx file
+            try:
+                with open(self.leFileNameIn.text(), 'rb') as f:
+                    tbs = [*spectrumtape.nexttzxblock(f)]
+                    if len(tbs) > 0:
+                        self.bBrowseContainer.setText("Browse TZX")
+                        self.bBrowseContainer.setEnabled(True)
+                        return
+            except IOError:
+                pass
+
             # try extracting from tap file
             try:
-                tbs = spectrumtapblock.gettapblocks(self.leFileNameIn.text())
-                if(len(tbs) > 0):
-                    self.bBrowseContainer.setText("Browse TAP")
-                    self.bBrowseContainer.setEnabled(True)
-                    return
-            except:
+                with open(self.leFileNameIn.text(), 'rb') as f:
+                    tbs = [*spectrumtape.nexttapblock(f)]
+                    if len(tbs) > 0:
+                        self.bBrowseContainer.setText("Browse TAP")
+                        self.bBrowseContainer.setEnabled(True)
+                        return
+            except IOError:
                 tbs = []
 
             # display waiting cursor while do translation
@@ -4304,14 +4270,14 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
                 self.ImageFormatFallback = di.ImageFormat
 
                 # handle definately valid disciple/+D image
-                if(di.isimagevalid(True)[0]):
+                if di.isimagevalid(True)[0]:
                     QtGui.QApplication.restoreOverrideCursor()
                     self.bBrowseContainer.setText("Browse disk image")
                     self.bBrowseContainer.setEnabled(True)
                     return
 
                 # check if could possibly be image file
-                if(di.couldbeimage):
+                if di.couldbeimage:
                     di.ImageFormat = "MGT"
                     mgtErrors = di.isimagevalid(True)[1]
                     di.ImageFormat = "IMG"
@@ -4328,7 +4294,7 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
                                              QtGui.QMessageBox.AcceptRole)
                     imgbutton = qb.addButton('IMG', QtGui.QMessageBox.NoRole)
                     qb.addButton('HEX', QtGui.QMessageBox.RejectRole)
-                    if(imgErrors.count('\n') > mgtErrors.count('\n')):
+                    if imgErrors.count('\n') > mgtErrors.count('\n'):
                         qb.setDefaultButton(mgtbutton)
                         qb.setDetailedText("""In MGT format, the errors were:
 """ + mgtErrors + "\n\nIn IMG format, the errors were:\n" + imgErrors)
@@ -4338,12 +4304,12 @@ file {0} from "{1}".'.format(i, self.leFileNameIn.text()))
 """ + imgErrors + "\n\nIn MGT format, the errors were:\n" + mgtErrors)
     	
                     i = qb.exec_()
-                    if(i == QtGui.QMessageBox.AcceptRole):
+                    if i == QtGui.QMessageBox.AcceptRole:
                         self.ImageFormatFallback = "MGT"
                         self.bBrowseContainer.setText("Browse disk image")
                         self.bBrowseContainer.setEnabled(True)
                         return
-                    if(i == QtGui.QMessageBox.RejectRole):
+                    if i == QtGui.QMessageBox.RejectRole:
                         self.ImageFormatFallback = "IMG"
                         self.bBrowseContainer.setText("Browse disk image")
                         self.bBrowseContainer.setEnabled(True)

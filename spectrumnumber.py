@@ -43,17 +43,7 @@
 # Please note that functions are capitalized so that Abs etc will not
 # conflict with builtin functions.
 
-from numbers import Integral as _INT_OR_LONG
 from math import log10, floor
-from sys import hexversion as _PYTHON_VERSION_HEX
-
-# ensure this code runs on python 2 and 3
-# 2to3 will complain about these lines but is 2 & 3 compatible
-if(_PYTHON_VERSION_HEX > 0x03000000):
-    _longint = int
-else:
-    # 2to3 will complain but won't cause problems in real life
-    _longint = long
 
 
 class SpectrumNumberError(Exception):
@@ -122,13 +112,13 @@ class SpectrumNumber:
         Creates a SpectrumNumber object.
         optional argument data is a 1-5 number list to initialise the
         Spectrumnumber, or another SpectrumNumber, or an int, or a
-        float, or a long.  This raises an Exception if the float value
-        is too big or too small to be represented by a SpectrumNumber,
-        or the number list contains numbers not in the range 0-255, and
-        not 1-5 numbers.  The optional argument listContainsSignedBytes
-        is used if a list is supplied as a constructor, in which case
-        the list contains numbers in the range -128 to +127 (-1 being
-        FF hexadecimal, -2 being FE, ... -128 being 80 hexadecimal).
+        float.  This raises an Exception if the float value is too big
+        or too small to be represented by a SpectrumNumber, or the
+        number list contains numbers not in the range 0-255, and not 1-5
+        numbers.  The optional argument listContainsSignedBytes is used
+        if a list is supplied as a constructor, in which case the list
+        contains numbers in the range -128 to +127 (-1 being FF
+        hexadecimal, -2 being FE, ... -128 being 80 hexadecimal).
         """
         # array to hold 8bit exponent, 1 bit sign, and 31 bit mantissa
         # 1st byte is exponent+128
@@ -156,33 +146,32 @@ class SpectrumNumber:
         range -128 to +127 (-1 being FF hexadecimal, -2 being FE, ...
         -128 being 80 hexadecimal).
         """
-        if(data is None):
+        if data is None:
             return
 
         # if is tuple, then recast it so can be worked with
-        if(data == ()):
+        if data == ():
             data = list(data)
 
-        if(isinstance(data, list)):
+        if isinstance(data, list):
             # should be 1-5 numbers between 0 and 255 inclusive
-            if(len(data) < 1 or len(data) > 5):
+            if len(data) < 1 or len(data) > 5:
                 raise SpectrumNumberError("List or Tuple argument must contain\
  from 1 to 5 numbers")
 
-            if(all(isinstance(val, (_INT_OR_LONG, float)) for val in data) is
-                    False):
+            if all(isinstance(val, (int, float)) for val in data) is False:
                 raise SpectrumNumberError("List or Tuple argument must contain\
  numbers")
 
             # check and correct if bytes supplied in list
-            if(listContainsSignedBytes):
-                if(not all(val >= -128 and val <= 127 for val in data)):
+            if listContainsSignedBytes:
+                if not all(val >= -128 and val <= 127 for val in data):
                     raise SpectrumNumberError("List or Tuple argument must \
 contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
                 # convert byte to unsigned int
                 data = [(byte + 256) & 255 for byte in data]
 
-            if(not all(val >= 0 and val <= 255 for val in data)):
+            if not all(val >= 0 and val <= 255 for val in data):
                 raise SpectrumNumberError("List or Tuple argument must contain\
  numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
 
@@ -193,16 +182,16 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
                 self.data[i] = int(data[i])
             return
 
-        if(isinstance(data, SpectrumNumber)):
+        if isinstance(data, SpectrumNumber):
             self.data = list(data.data)
             return
 
-        if(isinstance(data, _INT_OR_LONG)):
+        if isinstance(data, int):
             # if simple int, save it as such in spectrum format
-            if(data <= 65535 and data >= -65535):
+            if data <= 65535 and data >= -65535:
                 self.data[0] = 0
                 self.data[1] = data < 0 and 0xFF or 0
-                if(data < 0):
+                if data < 0:
                     data += 65536
                 self.data[2] = data & 0xFF
                 self.data[3] = (data >> 8) & 0xFF
@@ -214,10 +203,10 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
 
                 snc.negative = data < 0
                 snc.exponent = 32
-                snc.mantissa = _longint(snc.negative and -data or data)
+                snc.mantissa = snc.negative and -data or data
                 snc.mantissa &= 0xFFFFFFFF
                 # shift to most significant byte
-                while((snc.mantissa & 0x80000000) == 0):
+                while (snc.mantissa & 0x80000000) == 0:
                     snc.mantissa <<= 1
                     snc.exponent -= 1
                 snc.exponent += 128
@@ -226,15 +215,15 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
 
             return
 
-        if(type(data) is float):
+        if type(data) is float:
             self.SetValue(get_SpectrumNumber_from_string(str(data)))
             return
 
-        if(type(data) is str):
+        if type(data) is str:
             self.SetValue(get_SpectrumNumber_from_string(data))
             return
 
-        if(isinstance(data, (bytes, bytearray))):
+        if isinstance(data, (bytes, bytearray)):
             self.data = list(data)
             return
 
@@ -252,7 +241,7 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
     def truefloat(self):
         """Returns the current SpectrumNumber as a float."""
 
-        if(self.data[0] == 0):  # simple integer number
+        if self.data[0] == 0:  # simple integer number
             return float(self.GetSmallInt())
 
         # left with 5 byte floating point value:
@@ -269,7 +258,7 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
         f = f / 256
         f = f / 128
         f *= 2 ** (self.data[0] - 129)
-        if(self.data[1] > 127):
+        if self.data[1] > 127:
             f *= -1
 
         return f
@@ -288,14 +277,14 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
         return int(self.__float__())
 
     def __long__(self):
-        return __longint(self.__float__())
+        return int(self.__float__())
 
     def getValue(self):
         """Returns the number represented by this spectrumnumber as
         either an int or float depending on the way it's stored.
         """
 
-        if(self.data[0] == 0):  # simple integer number
+        if self.data[0] == 0:  # simple integer number
             return int(self.GetSmallInt())
 
         # otherwise is a float, so return this
@@ -328,8 +317,8 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
         compatison is.
         """
 
-        if(isinstance(other, (_INT_OR_LONG, SpectrumNumber, float, str, list,
-                              tuple, bytes, bytearray))):
+        if isinstance(other, (int, SpectrumNumber, float, str, list,
+                              tuple, bytes, bytearray)):
             try:
                 # first subtract one from the other (convert other to a
                 # Spectrum Number just in case)
@@ -359,14 +348,14 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
     def __lt__(self, other):
         """Is this SpectrumNumber less than the supplied object?"""
 
-        if(isinstance(other, (_INT_OR_LONG, SpectrumNumber, float))):
+        if isinstance(other, (int, SpectrumNumber, float)):
             # first subtract one from the other (convert other to a
             # Spectrum Number just in case)
             sn = Subtract(self, SpectrumNumber(other))
 
             # if difference is zero then are same so not less than
-            if(IsZero(sn) or
-               sn.data[0] <= 96 + SPECTRUM_NUMBER_COMPARISON_PRECISSION):
+            if IsZero(sn) or \
+               sn.data[0] <= 96 + SPECTRUM_NUMBER_COMPARISON_PRECISSION:
                 return False
 
             # if result is less than zero then self must be less than
@@ -380,14 +369,14 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
         object?
         """
 
-        if(isinstance(other, (_INT_OR_LONG, SpectrumNumber, float))):
+        if isinstance(other, (int, SpectrumNumber, float)):
             # first subtract one from the other (convert other to a
             # Spectrum Number just in case)
             sn = Subtract(self, SpectrumNumber(other))
 
             # if difference is zero then are equal
-            if(IsZero(sn) or
-               sn.data[0] <= 96 + SPECTRUM_NUMBER_COMPARISON_PRECISSION):
+            if IsZero(sn) or \
+               sn.data[0] <= 96 + SPECTRUM_NUMBER_COMPARISON_PRECISSION:
                 return True
 
             # if result is less than zero then self must be less than
@@ -407,14 +396,14 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
     def __gt__(self, other):
         """Is this SpectrumNumber greater than the supplied object?"""
 
-        if(isinstance(other, (_INT_OR_LONG, SpectrumNumber, float))):
+        if isinstance(other, (int, SpectrumNumber, float)):
             # first subtract one from the other (convert other to a
             # Spectrum Number just in case)
             sn = Subtract(self, SpectrumNumber(other))
 
             # if difference is zero then are same so not greater than
-            if(IsZero(sn) or
-               sn.data[0] <= 96 + SPECTRUM_NUMBER_COMPARISON_PRECISSION):
+            if IsZero(sn) or \
+               sn.data[0] <= 96 + SPECTRUM_NUMBER_COMPARISON_PRECISSION:
                 return False
 
             # if result is greater than zero then self must be greater
@@ -428,14 +417,14 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
         object?
         """
 
-        if(isinstance(other, (_INT_OR_LONG, SpectrumNumber, float))):
+        if isinstance(other, (int, SpectrumNumber, float)):
             # first subtract one from the other (convert other to a
             # Spectrum Number just in case)
             sn = Subtract(self, SpectrumNumber(other))
 
             # if difference is zero then are equal
-            if(IsZero(sn) or
-               sn.data[0] <= 96 + SPECTRUM_NUMBER_COMPARISON_PRECISSION):
+            if IsZero(sn) or \
+               sn.data[0] <= 96 + SPECTRUM_NUMBER_COMPARISON_PRECISSION:
                 return True
 
             # if result is greater than zero then self must be greater
@@ -449,8 +438,6 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
         return IsZero(self)
 
     # for comparison reasons
-    # have both nonzero and bool to cover python 2 and 3
-    # 2to3 will complain but won't cause problems in real life
     def __nonzero__(self):
         """Returns true if the SpectrumNumber is non zero."""
         return (not self.IsZero())
@@ -620,7 +607,7 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
 
     def __sub__(self, val):
         """
-        Subtracts the supplied SpectrumNumber (or float,long, or int)
+        Subtracts the supplied SpectrumNumber (or float, or int)
         from this SpectrumNumber using the -= syntax.  This is the same
         as the Spectrum floating point calculator command 0x03 at 0x300F
         in the 48K Spectrum ROM.  SpectrumNumberError is raised if the
@@ -628,14 +615,14 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
         SpectrumNumber.  SpectrumNumberError is also raised if an
         incorrect argument is supplied.
         """
-        # if is long, int, or float convert to SpectrumNumber
-        if(isinstance(val, (_INT_OR_LONG, float))):
+        # if is int, or float convert to SpectrumNumber
+        if isinstance(val, (int, float)):
             val = SpectrumNumber(val)
 
         # ensure we have valid argument
-        if(not isinstance(val, SpectrumNumber)):
+        if not isinstance(val, SpectrumNumber):
             raise SpectrumNumberError(
-                "Argument must be SpectrumNumber, int, float, or long")
+                "Argument must be SpectrumNumber, int, or float")
 
         return Subtract(self, val)
 
@@ -653,7 +640,7 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
 
     def __add__(self, val):
         """
-        Adds the supplied SpectrumNumber (or float,long, or int) to this
+        Adds the supplied SpectrumNumber (or float, or int) to this
         SpectrumNumber using the += syntax.  This is the same as the
         Spectrum floating point calculator command 0x0F at 0x3014 in the
         48K Spectrum ROM.  SpectrumNumberError is raised if the result
@@ -661,14 +648,14 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
         SpectrumNumberError is also raised if an incorect argument is
         supplied.
         """
-        # if is long, int, or float convert to SpectrumNumber
-        if(isinstance(val, (_INT_OR_LONG, float))):
+        # if is int, or float convert to SpectrumNumber
+        if isinstance(val, (int, float)):
             val = SpectrumNumber(val)
 
         # ensure we have valid argument
-        if(not isinstance(val, SpectrumNumber)):
+        if not isinstance(val, SpectrumNumber):
             raise SpectrumNumberError(
-                "Argument must be SpectrumNumber, int, float, or long")
+                "Argument must be SpectrumNumber, int, or float")
 
         return Add(self, val)
 
@@ -686,7 +673,7 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
 
     def __mul__(self, val):
         """
-        Multiplies the supplied SpectrumNumber (or float,long, or int)
+        Multiplies the supplied SpectrumNumber (or float, or int)
         by this SpectrumNumber using the *= syntax.  This is the same as
         the Spectrum floating point calculator command 0x04 at 0x30CA in
         the 48K Spectrum ROM.  SpectrumNumberError is raised if the
@@ -694,14 +681,14 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
         SpectrumNumber.  SpectrumNumberError is also raised if an
         incorect argument is supplied.
         """
-        # if is long, int, or float convert to SpectrumNumber
-        if(isinstance(val, (_INT_OR_LONG, float))):
+        # if is int, or float convert to SpectrumNumber
+        if isinstance(val, (int, float)):
             val = SpectrumNumber(val)
 
         # ensure we have valid argument
-        if(not isinstance(val, SpectrumNumber)):
+        if not isinstance(val, SpectrumNumber):
             raise SpectrumNumberError(
-                "Argument must be SpectrumNumber, int, float, or long")
+                "Argument must be SpectrumNumber, int, or float")
 
         return Multiply(self, val)
 
@@ -728,7 +715,7 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
 
     def __div__(self, val):
         """
-        Divide the supplied SpectrumNumber (or float,long, or int) by
+        Divide the supplied SpectrumNumber (or float, or int) by
         this SpectrumNumber using the /= syntax.  This is the same as
         the Spectrum floating point calculator command 0x05 at 0x31AF in
         the 48K Spectrum ROM.  SpectrumNumberError is raised if the
@@ -736,14 +723,14 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
         SpectrumNumber.  SpectrumNumberError is also raised if an
         incorect argument is supplied.
         """
-        # if is long, int, or float convert to SpectrumNumber
-        if(isinstance(val, (_INT_OR_LONG, float))):
+        # if is int, or float convert to SpectrumNumber
+        if isinstance(val, (int, float)):
             val = SpectrumNumber(val)
 
         # ensure we have valid argument
-        if(not isinstance(val, SpectrumNumber)):
+        if not isinstance(val, SpectrumNumber):
             raise SpectrumNumberError(
-                "Argument must be SpectrumNumber, int, float, or long")
+                "Argument must be SpectrumNumber, int, or float")
 
         return Divide(self, val)
 
@@ -827,7 +814,7 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
      */
     public static SpectrumNumber Or(SpectrumNumber sn1,
                                     SpectrumNumber sn2) {
-      if(IsZero(sn2)) return new SpectrumNumber(sn1);
+      if IsZero(sn2) return new SpectrumNumber(sn1);
       return new SpectrumNumber(0,0,IsZero(sn1)?0:1,0,0);
     }
 
@@ -862,7 +849,7 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
      */
     public static SpectrumNumber And(SpectrumNumber sn1,
                                      SpectrumNumber sn2) {
-      if(IsZero(sn2)) return new SpectrumNumber(0,0,0,0,0);
+      if IsZero(sn2) return new SpectrumNumber(0,0,0,0,0);
       return new SpectrumNumber(sn1);
     }
 
@@ -878,19 +865,19 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
     # convert small int to full floating point
     def IntToFP(self):
         # first check if already is a floating point number
-        if(self.data[0] != 0 or self.IsZero()):
+        if self.data[0] != 0 or self.IsZero():
             return SpectrumNumber(self)
 
         i = self.GetSmallInt()
-        if(i < 0):
+        if i < 0:
             i *= -1
 
         e = 144
-        if(i < 255):
+        if i < 255:
             e = 136
             i <<= 8
 
-        while(i < 32768):
+        while i < 32768:
             e -= 1
             i <<= 1
 
@@ -902,8 +889,8 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
 
     def _get_internals(self):
         # if is int then display this
-        if(self.data[0] == 0):
-            s = '{0} {1}'.format(self.GetSmallInt(), self.data)
+        if self.data[0] == 0:
+            s = '{} {}'.format(self.GetSmallInt(), self.data)
             return s
 
         # else is float
@@ -915,9 +902,9 @@ contain numbers from 0 to 255 inclusive (or -128 to +127 if signed bytes)")
         f /= 256
         f /= 128
         f *= 2 ** (self.data[0] - 129)
-        if(self.data[1] > 127):
+        if self.data[1] > 127:
             f *= -1
-        s = '{0} {1}'.format(f, self.data)
+        s = '{} {}'.format(f, self.data)
         return s
 
 
@@ -936,10 +923,10 @@ def Abs(sn):
     # create copy to work with
     sn = SpectrumNumber(sn)
     # deal with floating point
-    if(sn.data[0] != 0):
+    if sn.data[0] != 0:
         sn.data[1] &= 0x7F
     # deal with negative small ints
-    elif(sn.data[1] != 0):
+    elif sn.data[1] != 0:
         sn.SetValue(-sn.GetSmallInt())
 
     return sn
@@ -954,11 +941,11 @@ def Negate(sn):
     """
     sn = SpectrumNumber(sn)
 
-    if(sn.IsZero()):
+    if sn.IsZero():
         return sn
 
     # floating point numbers
-    if(sn.data[0] != 0):
+    if sn.data[0] != 0:
         # this will toggle bit 7: byte so will ignore any carry
         sn.data[1] += 128
         sn.data[1] &= 0xFF
@@ -983,11 +970,11 @@ def Truncate(sn):
     e = sn.data[0]
 
     # return if is integer: so already truncated
-    if(e == 0):
+    if e == 0:
         return sn
 
     # if small fraction then set to 0
-    if(e < 129):
+    if e < 129:
         sn.SetValue([0, 0, 0, 0, 0])
         return sn
 
@@ -995,7 +982,7 @@ def Truncate(sn):
     # skip code from #3223 until 323E
 
     # if exponent is between 129 and 144
-    if(e < 145):
+    if e < 145:
         # how many bits to shift to eradicate decimal
         e = 144 - e
         # sign
@@ -1011,7 +998,7 @@ def Truncate(sn):
 
     # if exponent is 160 or more then no significant digits after decimal
     # so simply return
-    if(e >= 160):
+    if e >= 160:
         return sn
 
     # now left with exponents from 145 to 159
@@ -1023,12 +1010,12 @@ def Truncate(sn):
 
     # clear whole bytes first
     i = 4
-    while(e >= 8):
+    while e >= 8:
         sn.data[i] = 0
         i -= 1
         e -= 8
     # now clear any remaining bits
-    if(e > 0):
+    if e > 0:
         # make bit mask
         e = 0xFF - ((1 << e) - 1)
         # clear unused bits
@@ -1049,7 +1036,7 @@ def Int(sn):
     sn = SpectrumNumber(sn)
 
     # if not negative, simply truncate
-    if(not sn.LessThanZero()):
+    if not sn.LessThanZero():
         sn.Truncate()
         return sn
 
@@ -1058,7 +1045,7 @@ def Int(sn):
 
     sn -= snTrunc
     # if is exact negative int then return
-    if(sn.IsZero()):
+    if sn.IsZero():
         return snTrunc
 
     # otherwise reduce by 1;
@@ -1074,7 +1061,7 @@ def Sign(sn):
     positive value.  This is the same as the Spectrum floating point
     calculator command 0x29 at 0x3492 in the 48K Spectrum ROM.
     """
-    if(IsZero(sn)):
+    if IsZero(sn):
         return SpectrumNumber((0, 0, 0, 0, 0))
     return SpectrumNumber((0, (sn.data[1] & 128) != 0 and 0xFF or 0, 1, 0, 0))
 
@@ -1100,9 +1087,9 @@ def Add(sn1, sn2):
     SpectrumNumber.
     """
 
-    if((sn1.data[0] | sn2.data[0]) == 0):  # both small integers
+    if (sn1.data[0] | sn2.data[0]) == 0:  # both small integers
         i = sn1.GetSmallInt() + sn2.GetSmallInt()
-        if(i <= 65535 and i > -65535):
+        if i <= 65535 and i > -65535:
             return SpectrumNumber(i)
 
     # convert to floating point numbers components
@@ -1110,17 +1097,17 @@ def Add(sn1, sn2):
     nc2 = SpectrumNumberComponents(sn2)
 
     # complement mantissas if numbers are negative
-    if(nc1.negative):
+    if nc1.negative:
         nc1.twos_complement_mantissa()
-    if(nc2.negative):
+    if nc2.negative:
         nc2.twos_complement_mantissa()
 
     # ensure nc1 is larger number (bigger exponent)
-    if(nc1.exponent < nc2.exponent):  # swap if not
+    if nc1.exponent < nc2.exponent:  # swap if not
         nc1, nc2 = nc2, nc1
 
     # make sure mantissa's line up
-    if(nc1.exponent != nc2.exponent):
+    if nc1.exponent != nc2.exponent:
         # ? is altering exponent needed. Keeps number correct
         nc2.shift_mantissa(nc1.exponent - nc2.exponent,
                            nc2.negative and 0xFF or 0x00)
@@ -1132,19 +1119,18 @@ def Add(sn1, sn2):
 
     # add mantissas
     ncRet.mantissa = nc1.mantissa + nc2.mantissa
-    ncRet.mantissa &= _longint(0xFFFFFFFF)
+    ncRet.mantissa &= 0xFFFFFFFF
 
     # did adding mantissas carry over?
-    carry = ((nc1.mantissa + nc2.mantissa) &
-             _longint(0x100000000)) == _longint(0x100000000)
+    carry = ((nc1.mantissa + nc2.mantissa) & 0x100000000) == 0x100000000
 
     # do we need to shift result(two positive with carry, or 2 negative
     # without)
-    if((carry and not nc1.negative and not nc2.negative) or
-       (not carry and nc1.negative and nc2.negative)):
+    if (carry and not nc1.negative and not nc2.negative) or \
+       (not carry and nc1.negative and nc2.negative):
         ncRet.shift_mantissa(1, carry and 0x01 or 0xFE)
         ncRet.exponent += 1
-        if(ncRet.exponent == 256):
+        if ncRet.exponent == 256:
             raise SpectrumNumberError("Number too big")
 
     # get sign of result
@@ -1152,13 +1138,13 @@ def Add(sn1, sn2):
                       (not carry and (nc1.negative or nc2.negative)))
 
     # if negative calculate two'2 complement of mantissa
-    if(ncRet.negative):
-        if(ncRet.twos_complement_mantissa()):
+    if ncRet.negative:
+        if ncRet.twos_complement_mantissa():
             # overflow reverting back to positive(when two negative
             # numbers added to give exact power of 2
-            ncRet.mantissa = _longint(0x80000000)
+            ncRet.mantissa = 0x80000000
             ncRet.exponent += 1
-            if(ncRet.exponent == 256):
+            if ncRet.exponent == 256:
                 raise SpectrumNumberError("Number too big")
 
     # Normalise number
@@ -1178,11 +1164,11 @@ def Multiply(sn1, sn2):
     # if both simple numbers then return multiplying them
     # in spectrum need to check for overflow but SpectrumNumber(int)
     # already puts values bigger than 65535 in FP form
-    if(sn1.data[0] == 0 and sn2.data[0] == 0):
+    if sn1.data[0] == 0 and sn2.data[0] == 0:
         return SpectrumNumber(sn1.GetSmallInt() * sn2.GetSmallInt())
 
     # if either number is zero, result will be zero
-    if(IsZero(sn1) or IsZero(sn2)):
+    if IsZero(sn1) or IsZero(sn2):
         return SpectrumNumber(0)
 
     # deal with 1 or 2 FP numbers
@@ -1202,7 +1188,7 @@ def Multiply(sn1, sn2):
     # shift bits back where they ought to be
     # remember 8 most significant bits that are beeing lost incase we're
     # normalizinig later
-    norm = int((ncRet.mantissa >> 24) & 0xFF)
+    norm = (ncRet.mantissa >> 24) & 0xFF
     ncRet.mantissa >>= 32
 
     # calculate exponent
@@ -1210,13 +1196,13 @@ def Multiply(sn1, sn2):
     # adjust to match spectrum number
     ncRet.exponent -= 128
     # check if too big
-    if(ncRet.exponent > 256 or (ncRet.exponent == 256 and
-       (ncRet.mantissa & _longint(80000000)) != 0)):
+    if ncRet.exponent > 256 or (ncRet.exponent == 256 and
+                                (ncRet.mantissa & 80000000) != 0):
         raise SpectrumNumberError("Number too big")
     # check if too small
-    if(ncRet.exponent == 0 and (ncRet.mantissa & _longint(80000000)) != 0):
+    if ncRet.exponent == 0 and (ncRet.mantissa & 80000000) != 0:
         return SpectrumNumber([1, ncRet.negative and 128 or 0, 0, 0, 0])
-    if(ncRet.exponent < 1):
+    if ncRet.exponent < 1:
         return SpectrumNumber(0)
 
     # normalise number
@@ -1235,9 +1221,9 @@ def Divide(sn1, sn2):
     floating point calculator command 0x05 at 0x31AF in the 48K Spectrum
     ROM.
     """
-    if(sn2.IsZero()):
+    if sn2.IsZero():
         raise SpectrumNumberError("Number too big")
-    if(sn1.IsZero()):
+    if sn1.IsZero():
         return SpectrumNumber(0)
 
     # convert to floating point numbers components
@@ -1252,16 +1238,15 @@ def Divide(sn1, sn2):
     b = -33
     norm = 0
 
-    while(True):
+    while True:
         # if been round loop already possibility that bit 32 might be set
         # same as carry set after adding divisor in origional code
         # in which case, need to subtact divisor from dividend regardless
 
         # if dividend greater or equal to divisor then subtract divisor
         # from dividend
-        if((nc1.mantissa & _longint(0x100000000)) != 0 or
-           nc1.mantissa >= nc2.mantissa):
-            nc1.mantissa &= _longint(0xFFFFFFFF)
+        if (nc1.mantissa & 0x100000000) != 0 or nc1.mantissa >= nc2.mantissa:
+            nc1.mantissa &= 0xFFFFFFFF
             nc1.mantissa -= nc2.mantissa
             # concat 1 to right end of quotient
             c = 1
@@ -1270,10 +1255,10 @@ def Divide(sn1, sn2):
             c = 0
 
         b += 1
-        if(b == 0):
+        if b == 0:
             norm = c << 6
             continue
-        if(b == 1):
+        if b == 1:
             norm |= c << 7
             break
 
@@ -1284,7 +1269,7 @@ def Divide(sn1, sn2):
 
         # shift divisor one place
         nc1.mantissa <<= 1
-        nc1.mantissa &= _longint(0x1FFFFFFFF)
+        nc1.mantissa &= 0x1FFFFFFFF
 
     # calculate sign: positive if same, negative if different
     ncRet.negative = (nc1.negative != nc2.negative)
@@ -1294,13 +1279,13 @@ def Divide(sn1, sn2):
     # adjust to match spectrum number
     ncRet.exponent += 129
     # check if too big
-    if(ncRet.exponent > 256 or (ncRet.exponent == 256 and
-       (ncRet.mantissa & _longint(80000000)) != 0)):
+    if ncRet.exponent > 256 or (ncRet.exponent == 256 and
+                                (ncRet.mantissa & 80000000) != 0):
         raise SpectrumNumberError("Number too big")
     # check if too small
-    if(ncRet.exponent == 0 and (ncRet.mantissa & _longint(80000000)) != 0):
+    if ncRet.exponent == 0 and (ncRet.mantissa & 80000000) != 0:
         return SpectrumNumber([1, ncRet.negative and 128 or 0, 0, 0, 0])
-    if(ncRet.exponent < 1):
+    if ncRet.exponent < 1:
         return SpectrumNumber(0)
 
     # normalise number
@@ -1324,20 +1309,20 @@ def E_to_FP(sn, exponent):
 
     # split exponent into sign and magnitude
     ePositive = (exponent >= 0)
-    if(not ePositive):
+    if not ePositive:
         exponent *= -1
 
     snTemp = SpectrumNumber(10)
 
-    while(exponent > 0):
-        if((exponent & 1) == 1):
-            if(ePositive):
+    while exponent > 0:
+        if (exponent & 1) == 1:
+            if ePositive:
                 sn *= snTemp
             else:
                 sn /= snTemp
 
         exponent >>= 1
-        if(exponent == 0):
+        if exponent == 0:
             break
         snTemp.Multiply(snTemp)
 
@@ -1369,7 +1354,7 @@ def GreaterThanZero(sn):
     This is the same as the Spectrum floating point calculator command
     0x37 at 0x34F9 in the 48K Spectrum ROM.
     """
-    if(IsZero(sn)):
+    if IsZero(sn):
         return False
     return (sn.data[1] & 128) == 0
 
@@ -1388,40 +1373,40 @@ def get_SpectrumNumber_from_string(s):
     IsNegative = False
     SkipFraction = False
 
-    if(s is None or len(s) == 0):
+    if s is None or len(s) == 0:
         raise SpectrumNumberError("Invalid Number")
 
     # origional doesn't deal with '-' at start of numbers but will
     # implement to make more user friendly
-    if(s[0] == '-'):
+    if s[0] == '-':
         IsNegative = True
 
         # Remove negative & check for end
         s = s[1:]
-        if(s is None or len(s) == 0):
+        if s is None or len(s) == 0:
             raise SpectrumNumberError("Invalid Number")
 
     # if starting with decimal
-    if(s[0] == '.'):
+    if s[0] == '.':
         # must be followed by digit or is invalid
         s = s[1:]
-        if(s is None or len(s) == 0 or not s[0].isdigit()):
+        if s is None or len(s) == 0 or not s[0].isdigit():
             raise SpectrumNumberError("Invalid Number")
     # otherwise get number up to possible decimal
     else:
         # raise an error of no digit
-        if(not s[0].isdigit()):
+        if not s[0].isdigit():
             raise SpectrumNumberError("Invalid Number")
 
-        while(s[0].isdigit()):
+        while s[0].isdigit():
             sn *= 10
             sn += int(s[0])
             s = s[1:]
-            if(s is None or len(s) == 0):
+            if s is None or len(s) == 0:
                 break
 
         # can have number after decimal then exponent, or exponent
-        if(len(s) == 0 or s[0] != '.'):
+        if len(s) == 0 or s[0] != '.':
             SkipFraction = True
 
         else:
@@ -1430,22 +1415,22 @@ def get_SpectrumNumber_from_string(s):
             SkipFraction = len(s) == 0 or not s[0].isdigit()
 
     # deal with non-exponent part of decimal
-    if(not SkipFraction):
+    if not SkipFraction:
         snFract = SpectrumNumber(1)
         # loop through digits of decimal
-        while(s[0].isdigit()):
+        while s[0].isdigit():
             snFract /= 10
             sn += snFract * int(s[0])
             s = s[1:]
-            if(s is None or len(s) == 0):
+            if s is None or len(s) == 0:
                 break
 
     # if negative, adjust number now
-    if(IsNegative):
+    if IsNegative:
         sn.Negate()
 
     # return if end of number
-    if(len(s) == 0 or (s[0] != 'e' and s[0] != 'E')):
+    if len(s) == 0 or (s[0] != 'e' and s[0] != 'E'):
         return sn
 
     # now deal with 'E' format
@@ -1453,29 +1438,29 @@ def get_SpectrumNumber_from_string(s):
     # remove 'E'
     s = s[1:]
     # check sign of exponent
-    if(len(s) == 0):
+    if len(s) == 0:
         raise SpectrumNumberError("Invalid Number")
 
     # process sign of exponent
     exponentSign = 1
-    if(s[0] == '-' or s[0] == '+'):
+    if s[0] in ['-', '+']:
         exponentSign = s[0] == '-' and -1 or 1
         s = s[1:]
-        if(len(s) == 0):
+        if len(s) == 0:
             raise SpectrumNumberError("Invalid Number")
 
-    if(not s[0].isdigit()):
+    if not s[0].isdigit():
         raise SpectrumNumberError("Invalid Number")
 
     exponent = 0
-    while(s[0].isdigit()):
+    while s[0].isdigit():
         exponent *= 10
         exponent += int(s[0])
         s = s[1:]
-        if(s is None or len(s) == 0):
+        if s is None or len(s) == 0:
             break
 
-    if(exponent > 127):
+    if exponent > 127:
         raise SpectrumNumberError("Number too big")
 
     return sn.E_to_FP(exponent * exponentSign)
@@ -1500,9 +1485,9 @@ def toString(sn):
         # point to start of digit buffer
         i = 0
         # deal with digits before decimal
-        while(True):
-            while(iDigitsBeforeDecimal > 0):
-                if(iDigitsPrintable == 0):
+        while True:
+            while iDigitsBeforeDecimal > 0:
+                if iDigitsPrintable == 0:
                     strRet += '0'
                 else:
                     strRet += str(digitBuffer[i])
@@ -1511,12 +1496,12 @@ def toString(sn):
 
                 iDigitsBeforeDecimal -= 1
 
-            if(iDigitsPrintable == 0):
+            if iDigitsPrintable == 0:
                 return strRet
 
             strRet += '.'
             iDigitsBeforeDecimal *= -1
-            while(iDigitsBeforeDecimal > 0):
+            while iDigitsBeforeDecimal > 0:
                 strRet += '0'
                 iDigitsBeforeDecimal -= 1
 
@@ -1525,7 +1510,7 @@ def toString(sn):
     # end nested function
 
     # deal with simple case
-    if(sn.IsZero()):
+    if sn.IsZero():
         return "0"
 
     # make local copy we can change if needed
@@ -1534,7 +1519,7 @@ def toString(sn):
     strRet = ''
 
     # is it a negative number
-    if((sn.data[1] & 128) == 128):
+    if (sn.data[1] & 128) == 128:
         # if so print '-' and abs number
         strRet = "-"
         sn.Abs()
@@ -1550,7 +1535,7 @@ def toString(sn):
     rounding = -1
 
     # is it large number (exponent>=28)
-    while(snInt.data[0] - 128 >= 28):
+    while snInt.data[0] - 128 >= 28:
         snTemp = SpectrumNumber(snInt.data[0] - 128)
         # multiply by log2
         snTemp *= SpectrumNumber([0x7F, 0x1A, 0x20, 0x9A, 0x85])
@@ -1564,17 +1549,17 @@ def toString(sn):
         snFrac = Subtract(sn, snInt)
 
     # deal with integer component>0
-    if(not snInt.IsZero()):
+    if not snInt.IsZero():
         # deal with medium numbers (large numbers sorted in previous loop
-        if(snInt.data[0] != 0):
+        if snInt.data[0] != 0:
             # is medium number (exponent 0-27, but not small int)
-            BitsToPrint = _longint(0)
+            BitsToPrint = 0
             for i in range(1, 5):
                 BitsToPrint <<= 8
                 BitsToPrint |= snInt.data[i]
 
             # add in most significant bit
-            BitsToPrint |= _longint(0x80000000)
+            BitsToPrint |= 0x80000000
             NumberOfBitsToPrint = snInt.data[0] - 128
 
         # deal with small ints
@@ -1586,10 +1571,10 @@ def toString(sn):
         # PF_BITS to print bits
 
         # generate decimal digits in array digitBuffer
-        while(True):
+        while True:
             c = (BitsToPrint >> 31) & 1
             BitsToPrint <<= 1
-            BitsToPrint &= _longint(0xFFFFFFFF)
+            BitsToPrint &= 0xFFFFFFFF
 
             # binary coded decimal emulated
             for i in range(9, 0, -1):
@@ -1599,7 +1584,7 @@ def toString(sn):
 
             NumberOfBitsToPrint -= 1
 
-            if(not NumberOfBitsToPrint > 0):
+            if not NumberOfBitsToPrint > 0:
                 break
 
         # now move digits to begining of array and calculate how many
@@ -1607,7 +1592,7 @@ def toString(sn):
         bFoundNonZero = False
         c = 0
         for i in range(1, 10):
-            if(digitBuffer[i] > 0 or bFoundNonZero):
+            if digitBuffer[i] > 0 or bFoundNonZero:
                 digitBuffer[c] = digitBuffer[i]
                 c += 1
                 bFoundNonZero = True
@@ -1615,7 +1600,7 @@ def toString(sn):
                 iDigitsBeforeDecimal += 1
 
         # check if have enough digits or needs rounding
-        if(iDigitsPrintable > 8):
+        if iDigitsPrintable > 8:
             iDigitsPrintable -= 1
             rounding = (digitBuffer[8] > 4) and 1 or 0
 
@@ -1636,7 +1621,7 @@ def toString(sn):
         digitBuffer[0] = Int(snFrac).GetSmallInt()
         snFrac.Subtract(Int(snFrac))
 
-        if(digitBuffer[0] == 0):
+        if digitBuffer[0] == 0:
             i = 0
         else:
             i = 1
@@ -1646,32 +1631,32 @@ def toString(sn):
 
     # PF-FRACTN
     # if not rounding, check if fraction part to add first
-    if(rounding == -1):
+    if rounding == -1:
         nc = SpectrumNumberComponents(snFrac)
         nc.shift_mantissa(128 - nc.exponent, 0)
 
         # print extra bits of fraction
-        while(iDigitsPrintable < 8):
+        while iDigitsPrintable < 8:
             nc.mantissa *= 10
-            digitBuffer[iDigitsPrintable] = int(nc.mantissa >> 32)
-            nc.mantissa &= _longint(0xFFFFFFFF)
+            digitBuffer[iDigitsPrintable] = nc.mantissa >> 32
+            nc.mantissa &= 0xFFFFFFFF
             iDigitsPrintable += 1
 
         # note if need to round
-        rounding = ((nc.mantissa & _longint(0x80000000)) != 0) and 1 or 0
+        rounding = ((nc.mantissa & 0x80000000) != 0) and 1 or 0
 
     # do rounding of number
     # also ensures no unneeded zeros after decimal point
     i = iDigitsPrintable
-    while(True):
+    while True:
         i -= 1
         digitBuffer[i] += rounding
-        if(digitBuffer[i] != 0 and digitBuffer[i] != 10):
+        if digitBuffer[i] != 0 and digitBuffer[i] != 10:
             break
 
         rounding = digitBuffer[i] // 10
         iDigitsPrintable -= 1
-        if(iDigitsPrintable != 0):
+        if iDigitsPrintable != 0:
             continue
 
         # digit overflow
@@ -1684,12 +1669,12 @@ def toString(sn):
     # now do printing
 
     # if digits before decimal >=9 or <-4 then floating point format
-    if(iDigitsBeforeDecimal > 8 or iDigitsBeforeDecimal < -4):
+    if iDigitsBeforeDecimal > 8 or iDigitsBeforeDecimal < -4:
         # print out mantissa as x.xxxxx
         strRet += digit_buffer_to_string(digitBuffer, iDigitsPrintable, 1)
         strRet += 'E'
         iDigitsBeforeDecimal -= 1
-        if(iDigitsBeforeDecimal >= 0):
+        if iDigitsBeforeDecimal >= 0:
             strRet += '+'
         strRet += str(iDigitsBeforeDecimal)
 
@@ -1697,7 +1682,7 @@ def toString(sn):
     else:
         # ensure that if number is .X* where x=1-9 that 0 is printed
         # first
-        if(iDigitsBeforeDecimal == 0):
+        if iDigitsBeforeDecimal == 0:
             strRet += '0'
         # output number
         strRet += digit_buffer_to_string(digitBuffer, iDigitsPrintable,
@@ -1713,23 +1698,20 @@ class SpectrumNumberComponents:
     """
 
     def __init__(self, data=None):
-        # int has enough bits to hold the 31 bits+1 of mantissa
-        # however in system without unsigned ints or carry notification,
-        # easier to use a long
-        self.mantissa = _longint(0)
+        self.mantissa = 0
         self.negative = False
         self.exponent = 0
 
-        if(data is None):
+        if data is None:
             return
 
-        if(isinstance(data, SpectrumNumberComponents)):
+        if isinstance(data, SpectrumNumberComponents):
             self.mantissa = data.mantissa
             self.negative = data.negative
             self.exponent = data.exponent
             return
 
-        if(isinstance(data, SpectrumNumber)):
+        if isinstance(data, SpectrumNumber):
             # convert to floating point
             # with 32 bit mantissa can hold 16 bit ints without loss of
             # precission
@@ -1740,7 +1722,7 @@ class SpectrumNumberComponents:
             for i in range(1, 5):
                 self.mantissa <<= 8
                 self.mantissa |= data.data[i]
-            self.mantissa |= _longint(0x80000000)
+            self.mantissa |= 0x80000000
             return
 
         raise SpectrumNumberError(
@@ -1748,32 +1730,31 @@ class SpectrumNumberComponents:
 
     # Right shift mantissa by specified number of bits
     def shift_mantissa(self, shift, LeftBitBuffer):
-        if(shift == 0):
+        if shift == 0:
             return
 
         # only 32 bits in mantissa so would shift to nothing
-        if(shift > 32):
+        if shift > 32:
             self.mantissa = 0
             self.negative = False
             return
 
     # shift mantissa required number of places
         c = 0
-        while(shift > 0):
+        while shift > 0:
             # remember least significant byte
-            c = int(self.mantissa & 1)
-            self.mantissa = (self.mantissa >> 1) | _longint(
-                                (LeftBitBuffer & 1) << 31)
+            c = self.mantissa & 1
+            self.mantissa = (self.mantissa >> 1) | (LeftBitBuffer & 1) << 31
             shift -= 1
             LeftBitBuffer >>= 1
             LeftBitBuffer |= ((LeftBitBuffer << 1) & 0x80)
 
-        if(c == 1):
+        if c == 1:
             # add back in carry if needed: round up
             self.mantissa += 1
             # ensure limited to 32 bits
             self.mantissa &= 0xFFFFFFFF
-            if(self.mantissa == 0):
+            if self.mantissa == 0:
                 self.negative = False
 
     def twos_complement_mantissa(self):
@@ -1781,7 +1762,7 @@ class SpectrumNumberComponents:
         self.mantissa = ~self.mantissa
         self.mantissa += 1
         # ensure limited to 32 bits
-        self.mantissa &= _longint(0xFFFFFFFF)
+        self.mantissa &= 0xFFFFFFFF
         return self.mantissa == 0
 
     def normalise(self, extra):
@@ -1791,7 +1772,7 @@ class SpectrumNumberComponents:
         # normalise by up to 32 bits
         count = 32
 
-        while((self.mantissa & _longint(0x80000000)) == 0):
+        while (self.mantissa & 0x80000000) == 0:
             self.mantissa <<= 1
             self.mantissa = self.mantissa | ((extra >> 7) & 1)
             extra = extra << 1
@@ -1801,37 +1782,37 @@ class SpectrumNumberComponents:
 
             # check to see if have 2^-129, with bit in which case round
             # up or without in which case round to 0
-            if(self.exponent == 0):
-                self.mantissa &= _longint(0x80000000)
-                self.exponent = int(self.mantissa >> 31)
+            if self.exponent == 0:
+                self.mantissa &= 0x80000000
+                self.exponent = self.mantissa >> 31
                 return
 
             # check to see if moved 32 bits: if so, won't ever find set
             # bit, so stop
             count -= 1
-            if(count == 0):
+            if count == 0:
                 self.mantissa = 0
                 self.negative = False
                 self.exponent = 0
                 return
 
         # extra info: do we need to round up?
-        if((extra & 0x80) == 0x80):
+        if (extra & 0x80) == 0x80:
             self.mantissa += 1
-            if(self.mantissa == _longint(0x100000000)):
+            if self.mantissa == 0x100000000:
                 self.mantissa >>= 1
                 self.exponent += 1
-                if(self.exponent == 256):
+                if self.exponent == 256:
                     raise SpectrumNumberError("Number too big")
 
     # convert back to a spectrum number
     def get_SpectrumNumber(self):
         return SpectrumNumber([self.exponent,
-                               int(((self.mantissa >> 24) & 0x7F) |
-                                   (self.negative and 0x80 or 0)),
-                               int((self.mantissa >> 16) & 0xFF),
-                               int((self.mantissa >> 8) & 0xFF),
-                               int(self.mantissa & 0xFF)])
+                               ((self.mantissa >> 24) & 0x7F) |
+                               (self.negative and 0x80 or 0),
+                               (self.mantissa >> 16) & 0xFF,
+                               (self.mantissa >> 8) & 0xFF,
+                               self.mantissa & 0xFF])
 
     def __str__(self):
         f = float(self.mantissa)
@@ -1840,11 +1821,11 @@ class SpectrumNumberComponents:
         f /= 256
         f /= 128
         f *= 2 ** (self.exponent - 129)
-        if(self.negative):
+        if self.negative:
             f *= -1
-        return '{0} ({1:08X}e{2}{3})'.format(f, self.mantissa,
-                                             self.negative and '-' or '+',
-                                             str(self.exponent))
+        return '{} ({:08X}e{}{})'.format(f, self.mantissa,
+                                         self.negative and '-' or '+',
+                                         str(self.exponent))
 
 
 if __name__ == "__main__":

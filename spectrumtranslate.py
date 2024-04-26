@@ -42,51 +42,26 @@
 # Author: william.fraser@virgin.net
 # Date: 14th January 2015
 
-# 2to3 will complain but won't cause problems in real life
 import spectrumnumber
 import sys
 import re
-from numbers import Integral as _INT_OR_LONG
 from functools import reduce
 from operator import attrgetter
 
-# ensure this code runs on python 2 and 3
-if(sys.hexversion > 0x03000000):
-    _unistr = str
+def _isarray(x):
+    return isinstance(x, (list, tuple))
 
-    def _u(x):
-        return x
+def _validateandpreparebytes(x, m):
+    if (isinstance(x, (bytes, bytearray)) or
+       (_isarray(x) and
+       all(isinstance(val, int) for val in x))):
+        return bytearray(x)
 
-    def _validateandpreparebytes(x, m):
-        if(isinstance(x, (bytes, bytearray)) or
-           (isinstance(x, (list, tuple)) and
-           all(isinstance(val, int) for val in x))):
-            return bytearray(x)
+    if isinstance(x, str):
+        return bytearray(x, 'latin-1')
 
-        if(isinstance(x, str)):
-            return bytearray(x, 'latin-1')
-
-        raise SpectrumTranslateError("{0} needs to be a list or tuple of \
+    raise SpectrumTranslateError("{} needs to be a list or tuple of \
 ints, or of type 'bytes' or 'bytearray'".format(m))
-
-else:
-    # 2to3 will complain but this code is python 2 & 3 compatible
-    _unistr = unicode
-    from codecs import unicode_escape_decode as _UED
-
-    def _u(x):
-        return _UED(x)[0]
-
-    def _validateandpreparebytes(x, m):
-        # function to convert any valid source to a list of ints and
-        # except if not
-        if(isinstance(x, (str, bytes, bytearray)) or
-           (isinstance(x, (list, tuple)) and
-           all(isinstance(val, _INT_OR_LONG) for val in x))):
-            return bytearray(x)
-
-        raise SpectrumTranslateError("{0} needs to be a byte string, or a \
-list or tuple of ints or longs, or of type 'bytes' or 'bytearray'".format(m))
 
 
 # tables of all the opcodes
@@ -1036,11 +1011,11 @@ def getvariableoffset(data):
 
     # work out position of variables
     offset = 0
-    while(offset < len(data)):
+    while offset < len(data):
         linenumber = (data[offset] * 256) + data[offset + 1]
         # bits 5,6,7 of variable code will be 16384 or
         # more as the max line number is 9999
-        if(linenumber > 9999):
+        if linenumber > 9999:
             # too big for line number: is 1st variable
             break
 
@@ -1082,26 +1057,26 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
     data = _validateandpreparebytes(data, "data")
 
     # if no variable offset supplied then work out where
-    if(ivariableOffset == -1):
+    if ivariableOffset == -1:
         ivariableOffset = getvariableoffset(data)
 
     text = ''
 
-    if(iAutostart >= 0 and iAutostart < 10000):
-        text = "Autostart at line:{0}\n".format(iAutostart)
+    if iAutostart >= 0 and iAutostart < 10000:
+        text = "Autostart at line:{}\n".format(iAutostart)
 
     i = 0
 
     # move through program listing lines
-    while(i < ivariableOffset):
+    while i < ivariableOffset:
         # get line number
         # line number is high byte first
         iLineNumber = data[i+1] + 256 * data[i]
         i += 2
-        if(iLineNumber > 9999):
+        if iLineNumber > 9999:
             raise SpectrumTranslateError("Line number cannot exceed 9999")
 
-        text += "{0} ".format(iLineNumber)
+        text += "{} ".format(iLineNumber)
 
         # get line length
         iLineLen = data[i] + 256 * data[i+1]
@@ -1116,29 +1091,29 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
         # now move through line
         l = 0
         k = data[i]
-        while(l < iLineLen):
+        while l < iLineLen:
             # get next line entry character
             k = data[i]
             i += 1
 
             # if we're in a REM statement display characters.  ignore
             # last character as should be new line character
-            if(bPostREM and l < iLineLen - 1):
+            if bPostREM and l < iLineLen - 1:
                 text += getspectrumchar(k, hexfornonascii)
                 l += 1
                 continue
 
             # have we reached end of number without hitting number
             # definition?
-            if(len(sNumber) > 0 and  # are we in a number?
+            if (len(sNumber) > 0 and  # are we in a number?
                k != 0x0E and         # and not hitting a hidden number
                not(                  # and not an extension of number
                                      # 0-9
                    (k >= 0x30 and k <= 0x39 and ' ' not in sNumber) or
-                   k == ord('E') or k == ord('e') or     # an exponent symbol
+                   k in [ord('E'), ord('e')] or     # an exponent symbol
                    # a plus of minus after an exponent symbol
-                   ((k == ord('+') or k == ord('-')) and
-                    (sNumber[-1] == ord('E') or sNumber[-1] == ord('e'))) or
+                   (k in [ord('+'), ord('-')] and
+                   sNumber[-1] in [ord('E'), ord('e')]) or
                    k == 32                   # hit a space
                )):
                 # if so exit number gathering routine without gathering
@@ -1148,33 +1123,33 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                 sNumber = ''
 
             # are we entering/leaving a quote
-            if(k == ord('"')):
+            if k == ord('"'):
                 bInQuotes = not bInQuotes
 
             # are we entering or definately leaving a DEF
-            if(k == ord(')')):
+            if k == ord(')'):
                 bPostDEF = False
 
-            if(k == 206):
+            if k == 206:
                 bPostDEF = True
 
             # deal with non-printable characters, and user-defined
             # characters
-            if(k < 32 or (k > 127 and k < 163)):
-                if(k == 13):  # end of line
+            if k < 32 or (k > 127 and k < 163):
+                if k == 13:  # end of line
                     # if still characters hidden after end-of line char
                     # then print them
-                    if(l != iLineLen - 1):
-                        while(l < iLineLen):
-                            text += '^{0:02X}'.format(data[i])
+                    if l != iLineLen - 1:
+                        while l < iLineLen:
+                            text += '^{:02X}'.format(data[i])
                             i += 1
                             l += 1
                     text += "\n"
 
-                elif(k == 14):  # number definition
+                elif k == 14:  # number definition
                     # if not enough bytes before end of line or program
                     # then we have a problem
-                    if(l + 5 >= iLineLen or i + 5 >= len(data)):
+                    if l + 5 >= iLineLen or i + 5 >= len(data):
                         raise SpectrumTranslateError(
                             "Error with number format")
 
@@ -1182,7 +1157,7 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                     i += 5
                     l += 5
                     # ignore what happens after def
-                    if(bPostDEF):
+                    if bPostDEF:
                         sNumber = ''
 
                     # output displayed number
@@ -1194,11 +1169,11 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                         # unlikely.  trying to get value of empty string
                         # however will cause exception so test for this
                         # case & handle it first
-                        if(len(sNumber) == 0):
+                        if len(sNumber) == 0:
                             text += "({0!s})".format(sn)
                         else:
                             try:
-                                if(sn != sNumber):
+                                if sn != sNumber:
                                     text += "({0!s})".format(sn)
                             except (e):
                                 text += "(real value unclear)"
@@ -1207,30 +1182,30 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
 
                 # deal with commands like INK, PAPER etc that have a
                 # single byte argument
-                elif((k >= 16 and k <= 21) or k == 23):
-                    text += "^{0:02X}^{1:02X}".format(k, data[i])
+                elif (k >= 16 and k <= 21) or k == 23:
+                    text += "^{:02X}^{:02X}".format(k, data[i])
                     i += 1
                     l += 1
 
                 # deal with AT with x & y coordinates after
-                elif(k == 22):
-                    text += "^{0:02X}^{1:02X}^{2:02X}".format(k, data[i],
-                                                              data[i+1])
+                elif k == 22:
+                    text += "^{:02X}^{:02X}^{:02X}".format(k, data[i],
+                                                           data[i+1])
                     i += 2
                     l += 2
 
                 else:
-                    text += "^{0:02X}".format(k)
+                    text += "^{:02X}".format(k)
                     i += 1
                     l += 1
 
             # see if is valid number digit.  If so store it
-            if(not bInQuotes and not bPostREM and (
+            if (not bInQuotes and not bPostREM and (
                (k >= 0x30 and k <= 0x39) or
                k == ord('.') or
-               ((k == ord('E') or k == ord('e')) and len(sNumber) > 0) or
-               ((k == ord('-') or k == ord('+')) and len(sNumber) > 0 and
-                (sNumber[-1] == ord('E') or sNumber[-1] == ord('e')))
+               (k in [ord('E'), ord('e')] and len(sNumber) > 0) or
+               (k in [ord('-'), ord('+')] and len(sNumber) > 0 and
+               sNumber[-1] in [ord('E'), ord('e')])
                )):
                 sNumber += chr(k)
                 Lastchar = k
@@ -1238,15 +1213,15 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                 continue
 
             # printable characters
-            if(k > 31 and k < 128):
+            if k > 31 and k < 128:
                 text += getspectrumchar(k, hexfornonascii)
 
             # check for commands
-            if(k > 162):
-                if(k == 234):
+            if k > 162:
+                if k == 234:
                     bPostREM = True
 
-                if(Lastchar != ord(' ') and not bInQuotes):
+                if Lastchar != ord(' ') and not bInQuotes:
                     text += ' '
 
                 text += SPECTRUM_COMMANDS[k - 163] + " "
@@ -1254,29 +1229,29 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
 
             Lastchar = k
             # exit if hit end of line
-            if(k == 13):
+            if k == 13:
                 break
 
             l += 1
 
         # see if hit end of program marker
-        if(k == 128):
+        if k == 128:
             break
 
     # end program part of code
 
     # do variables
-    if(i < len(data)):
+    if i < len(data):
         text += "\n\nVariables:\n"
 
-    while(i < len(data)):
+    while i < len(data):
         # get indicator of type of variable
         k = (data[i] >> 5) & 0x7
 
         VarName = getspectrumchar((data[i] & 0x1F) + 0x60, hexfornonascii)
 
         # number who's name is one letter only
-        if(k == 3):
+        if k == 3:
             text += VarName + "="
             text += _sn_to_string(data[i + 1:i + 6],
                                   "unable to extract number")
@@ -1284,13 +1259,13 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
             i += 6
 
         # number who's name is greater than 1 letter
-        elif(k == 5):
+        elif k == 5:
             text += VarName
             i += 1
 
-            while(True):
+            while True:
                 text += getspectrumchar(data[i] & 0x7F, hexfornonascii)
-                if(data[i] > 127):
+                if data[i] > 127:
                     break
 
                 i += 1
@@ -1302,25 +1277,25 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
             i += 5
 
         # array of numbers
-        elif(k == 4):
+        elif k == 4:
             text += VarName
             i += 1
 
             # for each dimension, print its length
             for x in range(data[i + 2]):
-                text += "[{0}]".format(data[i+3+x+x] + 256 * data[i+4+x+x])
+                text += "[{}]".format(data[i+3+x+x] + 256 * data[i+4+x+x])
 
             text += "=" + arraytotext(data[i+2:], 128, hexfornonascii) + "\n"
             i += 2 + data[i] + 256 * data[i+1]
 
         # for next loop control
-        elif(k == 7):
+        elif k == 7:
             try:
-                text += "FOR...NEXT, {0} Value={1} Limit={2} Step={3}".format(
+                text += "FOR...NEXT, {} Value={} Limit={} Step={}".format(
                     VarName, _sn_to_string(data[i+1:i+6]),
                     _sn_to_string(data[i+6:i+11]),
                     _sn_to_string(data[i+11:i+16]))
-                text += " Loop back to line={0}, statement={1}\n".format(
+                text += " Loop back to line={}, statement={}\n".format(
                     data[i+16] + 256 * data[i+17], data[i+18])
             except:
                 text += "Unable to extract FOR...NEXT variable VarName"
@@ -1328,20 +1303,20 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
             i += 19
 
         # string
-        elif(k == 2):
+        elif k == 2:
             strlen = data[i+1] + 256 * data[i+2]
             text += VarName + '$="' + getspectrumstring(data[i+3:i+3+strlen],
                                                         hexfornonascii) + '"\n'
             i += strlen + 3
 
         # array of characters
-        elif(k == 6):
+        elif k == 6:
             text += VarName + "$"
             i += 1
 
             # for each dimension, print it's length
             for x in range(data[i+2]):
-                text += "[{0}]".format(data[i+3+x*2] + 256 * data[i+4+x*2])
+                text += "[{}]".format(data[i+3+x*2] + 256 * data[i+4+x*2])
 
             text += "=" + arraytotext(data[i+2:], 192, hexfornonascii) + "\n"
             i += 2 + data[i] + 256 * data[i+1]
@@ -1383,26 +1358,26 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
     data = _validateandpreparebytes(data, "data")
 
     # if no variable offset supplied then work out where
-    if(ivariableOffset == -1):
+    if ivariableOffset == -1:
         ivariableOffset = getvariableoffset(data)
 
     text = '<?xml version="1.0" encoding="UTF-8" ?>\n<basiclisting>\n'
 
-    if(iAutostart >= 0 and iAutostart < 10000):
+    if iAutostart >= 0 and iAutostart < 10000:
         text += "  <autostart>" + str(iAutostart) + "</autostart>\n"
 
     i = 0
 
     # move through program listing lines
-    while(i < ivariableOffset):
+    while i < ivariableOffset:
         # get line number
         # line number is high byte first
         iLineNumber = data[i+1] + 256*data[i]
         i += 2
-        if(iLineNumber > 9999):
+        if iLineNumber > 9999:
             raise SpectrumTranslateError("Line number cannot exceed 9999")
 
-        text += "  <line>\n    <linenumber>{0}</linenumber>\n".format(
+        text += "  <line>\n    <linenumber>{}</linenumber>\n".format(
             iLineNumber)
 
         # get line length
@@ -1418,36 +1393,35 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
 
         # now move through line
         l = 0
-        while(l < iLineLen):
+        while l < iLineLen:
             # get next line entry character
             k = data[i]
             i += 1
 
             # have we hit an argument for an instruction?
-            if(bInInstruction and not bInstructionHadArgument and
+            if (bInInstruction and not bInstructionHadArgument and
                not bInQuotes and k != ord(':') and k != 13):
                 text += '\n      <argument>'
                 bInstructionHadArgument = True
 
             # if we're in a REM statement display characters.  ignore
             # last character as should be new line character
-            if(bPostREM and l < iLineLen - 1):
+            if bPostREM and l < iLineLen - 1:
                 text += getspectrumchar(k, hexfornonascii)
                 l += 1
                 continue
 
             # have we reached end of number without hitting number
             # definition?
-            if(len(sNumber) > 0 and  # are we in a number?
+            if (len(sNumber) > 0 and  # are we in a number?
                k != 0x0E and         # and not hitting a hidden number
                not(                 # and not an extension of the number
                    # have 0-9
                    (k >= 0x30 and k <= 0x39 and ' ' not in sNumber) or
-                   k == ord('E') or k == ord('e') or     # an exponent symbol
+                   k in [ord('E'), ord('e')] or     # an exponent symbol
                    # a plus of minus after an exponent symbol
-                   ((k == ord('+') or k == ord('-')) and
-                    (sNumber[-1] == ord('E') or
-                    sNumber[-1] == ord('e'))) or
+                   (k in [ord('+'), ord('-')] and
+                   sNumber[-1] in [ord('E'), ord('e')]) or
                    k == 32                   # hit a space
                )):
                 # if so exit number gathering routine without gathering
@@ -1458,53 +1432,53 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                 sNumber = ''
 
             # are we entering/leaving a quote
-            if(k == ord('"')):
+            if k == ord('"'):
                 bInQuotes = not bInQuotes
 
             # are we entering or definately leaving a DEF
-            if(k == ord(')')):
+            if k == ord(')'):
                 bPostDEF = False
 
-            if(k == 206):
+            if k == 206:
                 bPostDEF = True
 
             # deal with non-printable characters, and user-defined
             # characters
-            if(k < 32 or (k > 127 and k < 163)):
-                if(k == 13):  # end of line
+            if k < 32 or (k > 127 and k < 163):
+                if k == 13:  # end of line
                     # if still characters hidden after end-of line char
                     # then print them
-                    if(l != iLineLen-1):
+                    if l != iLineLen-1:
                         text += '<hiddendata>'
-                        while(l < iLineLen):
-                            text += '^{0:02X}'.format(data[i])
+                        while l < iLineLen:
+                            text += '^{:02X}'.format(data[i])
                             i += 1
                             l += 1
 
                         text += '</hiddendata>'
 
-                    if(bInInstruction and bInstructionHadArgument):
+                    if bInInstruction and bInstructionHadArgument:
                         text += '</argument>'
                         bInstructionHadArgument = False
 
                     # terminate command if we have to
-                    if(bInInstruction):
+                    if bInInstruction:
                         text += '\n    </instruction>'
                         bInInstruction = False
 
                     text += "\n"
 
-                elif(k == 14):  # number definition
+                elif k == 14:  # number definition
                     # if not enough bytes before end of line or program
                     # then we have a problem
-                    if(l + 5 >= iLineLen or i + 5 >= len(data)):
+                    if l + 5 >= iLineLen or i + 5 >= len(data):
                         raise SpectrumTranslateError("Number format error")
 
                     sn = spectrumnumber.SpectrumNumber(data[i:i+5])
                     i += 5
                     l += 5
                     # ignore what happens after def
-                    if(bPostDEF):
+                    if bPostDEF:
                         sNumber = ''
 
                     # output displayed number
@@ -1516,12 +1490,12 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                         # unlikely.  Trying to get value of empty string
                         # however will cause exception so test for this
                         # case & handle it first
-                        if(len(sNumber) == 0):
+                        if len(sNumber) == 0:
                             text += "<{1}>{0!s}</{1}>".format(
                                 sn, "realvalue")
                         else:
                             try:
-                                if(sn != sNumber):
+                                if sn != sNumber:
                                     text += "<{1}>{0!s}</{1}>".format(
                                         sn, "realvalue")
                             except:
@@ -1533,7 +1507,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
 
                 # deal with commands like INK, PAPER etc that have a
                 # single byte argument
-                elif((k >= 16 and k <= 21) or k == 23):
+                elif (k >= 16 and k <= 21) or k == 23:
                     text += '<format>' + ("INK", "PAPER", "FLASH", "BRIGHT",
                                           "INVERSE", "OVER", "", "TAB")[k-16]
                     text += ' ' + str(data[i]) + '</format>'
@@ -1541,7 +1515,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                     l += 1
 
                 # deal with AT with x & y coordinates after
-                elif(k == 22):
+                elif k == 22:
                     text += '<format>AT {0!s},{1!s}</format>'.format(data[i],
                                                                      data[i+1])
                     i += 2
@@ -1554,21 +1528,21 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                     l += 1
 
             # see if is valid number digit.  If so store it
-            if(not bInQuotes and not bPostREM and (
+            if (not bInQuotes and not bPostREM and (
                (k >= 0x30 and k <= 0x39) or
                k == ord('.') or
-               ((k == ord('E') or k == ord('e')) and len(sNumber) > 0) or
-               ((k == ord('-') or k == ord('+')) and len(sNumber) > 0 and
-                (sNumber[-1] == ord('E') or sNumber[-1] == ord('e')))
+               (k in [ord('E'), ord('e')] and len(sNumber) > 0) or
+               (k in [ord('-'), ord('+')] and len(sNumber) > 0 and
+                sNumber[-1] in [ord('E'), ord('e')])
                )):
                 sNumber += chr(k)
                 l += 1
                 continue
 
             # have we hit an instruction seperator?
-            if(bInInstruction and not bInQuotes and k == 58):
+            if bInInstruction and not bInQuotes and k == 58:
                 # check to see if we need to close argument xml tag
-                if(bInstructionHadArgument):
+                if bInstructionHadArgument:
                     text += '</argument>'
 
                 text += '\n    </instruction>\n    \
@@ -1577,16 +1551,16 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                 bInInstruction = False
 
             # printable characters not handled elsewhere
-            if(k > 31 and k < 128 and k != ord(':')):
+            if k > 31 and k < 128 and k != ord(':'):
                 text += getspectrumchar(k, hexfornonascii)
 
             # check for commands
-            if(k > 162):
-                if(k == 234):
+            if k > 162:
+                if k == 234:
                     bPostREM = True
 
                 # are we entering an instruction
-                if(not bInInstruction):
+                if not bInInstruction:
                     # if so make a note of it and output xml
                     text += '    <instruction>\n      '
                     bInInstruction = True
@@ -1595,7 +1569,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                 text += '<keyword>' + SPECTRUM_COMMANDS[k-163] + '</keyword>'
 
             # exit if hit end of line
-            if(k == 13):
+            if k == 13:
                 break
 
             l += 1
@@ -1604,23 +1578,23 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
         text += "  </line>\n"
 
         # see if hit end of program marker
-        if(k == 128):
+        if k == 128:
             break
 
     # end program part of code
 
     # do variables
-    if(i < len(data)):
+    if i < len(data):
         text += "  <variables>\n"
 
-        while(i < len(data)):
+        while i < len(data):
             # get indicator of type of variable
             k = (data[i] >> 5) & 0x7
 
             VarName = getspectrumchar((data[i] & 0x1F) + 0x60, hexfornonascii)
 
             # number who's name is one letter only
-            if(k == 3):
+            if k == 3:
                 text += '    <variable>\n      <name>' + VarName
                 text += '</name>\n      <type>number</type>\n'
                 text += '      <value>'
@@ -1630,13 +1604,13 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                 i += 6
 
             # number who's name is greater than 1 letter
-            elif(k == 5):
+            elif k == 5:
                 text += '    <variable>\n      <name>' + VarName
                 i += 1
 
-                while(True):
+                while True:
                     text += getspectrumchar(data[i] & 0x7F, hexfornonascii)
-                    if(data[i] > 127):
+                    if data[i] > 127:
                         break
 
                     i += 1
@@ -1649,7 +1623,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                 i += 6
 
             # array of numbers
-            elif(k == 4):
+            elif k == 4:
                 text += '    <variable>\n      <name>' + VarName
                 text += '</name>\n      <type>numberarray</type>\n'
                 text += '      <value>\n'
@@ -1662,7 +1636,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                 i += 2 + data[i] + 256*data[i+1]
 
             # for next loop control
-            elif(k == 7):
+            elif k == 7:
                 try:
                     text += '    <variable>\n      <name>' + VarName
                     text += '</name>\n      <type>fornext</type>\n'
@@ -1685,7 +1659,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                 i += 19
 
             # string
-            elif(k == 2):
+            elif k == 2:
                 text += '    <variable>\n      <name>' + VarName
                 text += '$</name>\n      <type>string</type>\n'
                 strlen = data[i+1] + 256*data[i+2]
@@ -1695,7 +1669,7 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                 i += strlen + 3
 
             # array of characters
-            elif(k == 6):
+            elif k == 6:
                 text += '    <variable>\n      <name>' + VarName + '$</name>\n'
                 text += '      <type>characterarray</type>\n      <value>\n'
                 i += 1
@@ -1720,14 +1694,14 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
 def getarraydepth(data, descriptor):
     """This function works out how many dimensions there are in a
     spectrum file array.  data is the spectrum file array data as a list
-    or tuple of ints or longs, or a byte string in python 2, or of type
-    'bytes' or 'bytearray'.  descriptor is the file descriptor for the
-    file array.  The lower 6 bits specify the array name (a single
-    character).  The top 2 specify the array type.  You don't have to
-    single out these bits as this function will only consider bits 6 and
-    7.  The top 2 bits are 128 for a number array, 192 for a character
-    array, and 64 for a string array.  Returns the number of dimensions
-    in the array, or -1 if not a recognised format.
+    or tuple of ints, or of type 'bytes' or 'bytearray'.  descriptor is
+    the file descriptor for the file array.  The lower 6 bits specify
+    the array name (a single character).  The top 2 specify the array
+    type.  You don't have to single out these bits as this function will
+    only consider bits 6 and 7.  The top 2 bits are 128 for a number
+    array, 192 for a character array, and 64 for a string array.
+    Returns the number of dimensions in the array, or -1 if not a
+    recognised format.
 
     NB strings are an array of characters and thus array such as
     String[] would have depth of 2: array of array of characters.
@@ -1737,11 +1711,11 @@ def getarraydepth(data, descriptor):
     data = _validateandpreparebytes(data, "data")
 
     # number array or character array
-    if((descriptor & 192) == 128 or (descriptor & 192) == 192):
+    if (descriptor & 192) in [128, 192]:
         return data[0]
 
     # string
-    if((descriptor & 192) == 64):
+    if (descriptor & 192) == 64:
         # always unidimensional
         return 1
 
@@ -1750,16 +1724,15 @@ def getarraydepth(data, descriptor):
 
 def extractarray(data, descriptor):
     """This function extracts a spectrum array (number, character, or
-    string) from data.  data must be a list or tuple of ints or longs,
-    or a byte string in python 2, or a bytes or bytearray object.
-    Note that the data returned if it's string is in raw spectum bytes,
-    and that it may need to be output through a function to code escape
-    characters and commands (function such as getspectrumstring).  Also
-    numbers are extracted into lists of SpectrumNumber objects.
+    string) from data.  data must be a list or tuple of ints, or a bytes
+    or bytearray object.  Note that the data returned if it's string is
+    in raw spectum bytes, and that it may need to be output through a
+    function to code escape characters and commands (function such as
+    getspectrumstring).  Also numbers are extracted into lists of
+    SpectrumNumber objects.
 
     data is the spectrum file array data supplied as a list or tuple of
-    ints or longs, or a byte string in python 2, or a bytes or bytearray
-    object.
+    ints, or a bytes or bytearray object.
     descriptor is the file descriptor for the file array.
         The lower 6 bits specify the array name (a single character).
         The top 2 specify the array type.
@@ -1772,9 +1745,9 @@ def extractarray(data, descriptor):
     # return array including subarrays
     def getSubArray(dims, data, isnumber, offset):
         # have we reached last dimension?
-        if(len(dims) == 1):
+        if len(dims) == 1:
             # if so it's either number
-            if(isnumber):
+            if isnumber:
                 # in which case return list of numbers
                 return [spectrumnumber.SpectrumNumber(data[i:i+5]) for i in
                         range(offset, offset + 5*dims[0], 5)]
@@ -1787,7 +1760,7 @@ def extractarray(data, descriptor):
         # number of elements in sub arrays
         o = reduce(lambda x, y: x * y, dims[1:])
         # if is number then each element takes up 5 bytes of memory
-        if(isnumber):
+        if isnumber:
             o *= 5
 
         # return the array as made up of sub arrays
@@ -1798,7 +1771,7 @@ def extractarray(data, descriptor):
     data = _validateandpreparebytes(data, "data")
 
     # number array or character array
-    if(descriptor & 128 == 128):
+    if descriptor & 128 == 128:
         # get dimension lengths
         dim_lengths = [data[x] + 256*data[x+1] for x in range(1, data[0]*2, 2)]
         # o is current offset.  Set to past dimensions details pointing
@@ -1808,7 +1781,7 @@ def extractarray(data, descriptor):
         return getSubArray(dim_lengths, data, descriptor & 192 == 128, o)
 
     # string
-    if(descriptor & 192 == 64):
+    if descriptor & 192 == 64:
         return data[:]
 
     return None
@@ -1820,8 +1793,8 @@ def arraytotext(data, descriptor, hexfornonascii=False):
     the individual dimensions are seperated by curly brackets.
 
     data is the spectrum file array data supplied as a list or tuple of
-    ints or longs, or a byte string in python 2, or a bytes or bytearray
-    object.
+    ints or, or a bytes or bytearray object.
+
     descriptor is the file descriptor for the file array.
         The lower 6 bits specify the array name (a single character).
         The top 2 specify the array type.
@@ -1842,9 +1815,9 @@ def arraytotext(data, descriptor, hexfornonascii=False):
     def getSubArray(data, isnumber, indent):
         # have we reached last subarray (will be string or number, but
         # not a list)
-        if(not isinstance(data[0], list)):
+        if not _isarray(data[0]):
             # if so it's either number
-            if(isnumber):
+            if isnumber:
                 # in which case return list of numbers
                 return indent + ', '.join([str(i) for i in data])
             # or a string
@@ -1861,12 +1834,12 @@ def arraytotext(data, descriptor, hexfornonascii=False):
     data = _validateandpreparebytes(data, "data")
 
     # number array or character array
-    if(descriptor & 128 == 128):
+    if descriptor & 128 == 128:
         return '{\n' + getSubArray(extractarray(data, descriptor),
                                    (descriptor & 192 == 128), "  ") + '\n}'
 
     # string
-    if(descriptor & 192 == 64):
+    if descriptor & 192 == 64:
         return getspectrumstring(data, hexfornonascii)
 
     return None
@@ -1878,8 +1851,8 @@ def arraytoxml(data, descriptor, hexfornonascii=False):
     string) to XML.
 
     data is the spectrum file array data supplied as a list or tuple of
-    ints or longs, or a byte string in python 2, or a bytes or bytearray
-    object.
+    ints, or a bytes or bytearray object.
+
     descriptor is the file descriptor for the file array.
         The lower 6 bits specify the array name (a single character).
         The top 2 specify the array type.
@@ -1900,9 +1873,9 @@ def arraytoxml(data, descriptor, hexfornonascii=False):
     def getSubArray(data, isnumber, indent):
         # have we reached last subarray (will be string or number, but
         # not a list)
-        if(not isinstance(data[0], list)):
+        if not _isarray(data[0]):
             # if so it's either number
-            if(isnumber):
+            if isnumber:
                 # in which case return list of numbers
                 return indent + '<number>' + (
                     '</number>\n' + indent + '<number>').join(
@@ -1925,13 +1898,13 @@ def arraytoxml(data, descriptor, hexfornonascii=False):
     data = _validateandpreparebytes(data, "data")
 
     # number array or character array
-    if(descriptor & 128 == 128):
+    if descriptor & 128 == 128:
         return '<dimension>\n' + getSubArray(extractarray(data, descriptor),
                                              (descriptor & 192 == 128),
                                              "  ") + '\n</dimension>'
 
     # string
-    if(descriptor & 192 == 64):
+    if descriptor & 192 == 64:
         return '<string>' + getspectrumstring(data, hexfornonascii) + \
                '</string>'
 
@@ -1948,7 +1921,7 @@ def _sn_to_string(data, message=-1):
         # convert to string: can cause exceptions
         return str(sn)
     except:
-        if(message == -1):
+        if message == -1:
             raise
 
         return message
@@ -1979,29 +1952,24 @@ def getspectrumchar(c, hexfornonascii=False):
     """
 
     # convert to int if needed
-    if(isinstance(c, (str, _unistr))):
+    if isinstance(c, str):
         c = ord(c[0]) & 0xFF
 
-    if(c == 127):
-        # 2to3 will complain but this code is python 2 & 3 compatible
-        return "^7F" if hexfornonascii else _u("\u00A9")
-    if(c == 96):
-        # 2to3 will complain but this code is python 2 & 3 compatible
-        return "^60" if hexfornonascii else _u("\u00A3")
-    if(c == 94):
-        # 2to3 will complain but this code is python 2 & 3 compatible
-        return "^5E" if hexfornonascii else _u("\u2191")
-    if(c >= 128 and c <= 143 and not hexfornonascii):
-        # 2to3 will complain but this code is python 2 & 3 compatible
-        return (_u('\u2003'), _u('\u259D'), _u('\u2598'), _u('\u2580'),
-                _u('\u2597'), _u('\u2590'), _u('\u259A'), _u('\u259C'),
-                _u('\u2596'), _u('\u259E'), _u('\u258C'), _u('\u259B'),
-                _u('\u2584'), _u('\u259F'), _u('\u2599'), _u('\u2588')
-                )[c-128]
-    if(c >= 163 and not hexfornonascii):
+    if c == 127:
+        return "^7F" if hexfornonascii else "\u00A9"
+    if c == 96:
+        return "^60" if hexfornonascii else "\u00A3"
+    if c == 94:
+        return "^5E" if hexfornonascii else "\u2191"
+    if c >= 128 and c <= 143 and not hexfornonascii:
+        return ('\u2003', '\u259D', '\u2598', '\u2580', '\u2597',
+                '\u2590', '\u259A', '\u259C', '\u2596', '\u259E',
+                '\u258C', '\u259B', '\u2584', '\u259F', '\u2599',
+                '\u2588')[c-128]
+    if c >= 163 and not hexfornonascii:
         return SPECTRUM_COMMANDS[c-163] + ' '
-    if(c < 32 or c > 127):
-        return '^{0:02X}'.format(c)
+    if c < 32 or c > 127:
+        return '^{:02X}'.format(c)
 
     return chr(c)
 
@@ -2030,7 +1998,7 @@ def getspectrumstring(s, hexfornonascii=False):
     Returns the Spectrum string representation of the bytes supplied
     """
 
-    if(isinstance(s, list)):
+    if _isarray(s):
         s = [chr(x) for x in s]
 
     return ''.join([getspectrumchar(c, hexfornonascii) for c in s])
@@ -2048,7 +2016,7 @@ def chartospectrum(c):
     """
 
     # handle control codes
-    if(isinstance(c, (str, _unistr)) and len(c) == 3 and c[0] == '^'):
+    if isinstance(c, str) and len(c) == 3 and c[0] == '^':
         try:
             return chr(int(c[1:], 16))
         except:
@@ -2056,32 +2024,31 @@ def chartospectrum(c):
                 "code must be ^ followed by 2 digit hexadecimal number.")
 
     # If not a single character, check for command
-    if(isinstance(c, (str, _unistr)) and len(c) != 1):
+    if isinstance(c, str) and len(c) != 1:
         for i in range(len(SPECTRUM_COMMANDS)):
-            if(SPECTRUM_COMMANDS[i] + ' ' == c or
-               SPECTRUM_COMMANDS[i] == c):
+            if SPECTRUM_COMMANDS[i] + ' ' == c or SPECTRUM_COMMANDS[i] == c:
                 return chr(i + 163)
         raise SpectrumTranslateError("Not recognised spectrum command.")
 
     # convert to number
-    if(isinstance(c, (str, _unistr))):
+    if isinstance(c, str):
         c = ord(c)
 
-    if(c == 0x00A9):
+    if c == 0x00A9:
         return chr(127)
-    if(c == 0x00A3):
+    if c == 0x00A3:
         return chr(96)
-    if(c == 0x2191):
+    if c == 0x2191:
         return chr(94)
     blockcodes = (0x2003, 0x259D, 0x2598, 0x2580, 0x2597, 0x2590, 0x259A,
                   0x259C, 0x2596, 0x259E, 0x258C, 0x259B, 0x2584, 0x259F,
                   0x2599, 0x2588)
-    if(c in blockcodes):
+    if c in blockcodes:
         for i in range(len(blockcodes)):
-            if(c == blockcodes[i]):
+            if c == blockcodes[i]:
                 return chr(i + 128)
 
-    if(c < 0 or c > 255):
+    if c < 0 or c > 255:
         raise SpectrumTranslateError(
             chr(c) + " is invalid spectrum character.")
 
@@ -2102,25 +2069,25 @@ def stringtospectrum(s, wantcommands=True):
 
     ret = []
     i = 0
-    while(i < len(s)):
+    while i < len(s):
         # deal with escape codes
-        if(s[i] == '^'):
+        if s[i] == '^':
             ret += chartospectrum(s[i:i+3])
             i += 3
             continue
 
         # now check for commands if needed
-        if(wantcommands):
+        if wantcommands:
             foundcommand = False
             for c in range(len(SPECTRUM_COMMANDS)):
-                if(s[i:].startswith(SPECTRUM_COMMANDS[c] + ' ')):
+                if s[i:].startswith(SPECTRUM_COMMANDS[c] + ' '):
                     ret += chr(c + 163)
                     # move past command and terminating space
                     i += len(SPECTRUM_COMMANDS[c]) + 1
                     foundcommand = True
                     break
 
-            if(foundcommand):
+            if foundcommand:
                 continue
 
         # otherwise just treat as one character
@@ -2159,8 +2126,7 @@ def getgiffromscreen(data, delay=320):
     screen refresh equates to 320 milliseconds.  If there is no flash
     being used then it returns a normal static GIF image.
 
-    data must be a list or tuple of ints or longs, or a byte string in
-    python 2, or a bytes or bytearray object.
+    data must be a list or tuple of ints, or a bytes or bytearray object.
 
     delay is the delay between flashing images in milliseconds if the
     image has flashing colours.  If you don't want a flashing image then
@@ -2193,7 +2159,7 @@ def getgiffromscreen(data, delay=320):
 
         def OutAdd(self, x):
             xlen = len(x)
-            if(xlen + self.pout > len(self.out)):
+            if xlen + self.pout > len(self.out):
                 self.out += [0] * 10000
             self.out[self.pout: self.pout + xlen] = x
             self.pout += xlen
@@ -2207,7 +2173,7 @@ def getgiffromscreen(data, delay=320):
             self.PutByte(4)     # data block size
             self.PutByte(0)     # no transparency
             # delay in 1/100 of seconds
-            self.PutWord(0 if (delay == -1 or delay == -2) else delay//10)
+            self.PutWord(0 if delay in [-1, -2] else delay//10)
             self.PutByte(0)     # transparent color index
             self.PutByte(0)     # block terminator
 
@@ -2222,7 +2188,7 @@ def getgiffromscreen(data, delay=320):
             self.PutByte(0 if bFirst else 0x83)
 
             # output colour map if not first
-            if(not bFirst):
+            if not bFirst:
                 for i in _COLOUR_MAP:
                     self.PutByte((_ZXCOLOURTORGB[i] >> 16) & 0XFF)
                     self.PutByte((_ZXCOLOURTORGB[i] >> 8) & 0XFF)
@@ -2280,15 +2246,15 @@ def getgiffromscreen(data, delay=320):
                     # search list of sequences to see if current
                     # sequence already exists
                     i = SearchPoint
-                    while(i < compressionArraySize):
-                        if(compressionArray[i] == CompressionValue):
+                    while i < compressionArraySize:
+                        if compressionArray[i] == CompressionValue:
                             break
 
                         i += 1
 
                     # if sequence already exists, then remember loop
                     # back to look for longer sequence
-                    if(i < compressionArraySize):
+                    if i < compressionArraySize:
                         # longer matching sequence will come later in
                         # sequence table if exists so no point searching
                         # first part of sequence table again.  Setting
@@ -2311,7 +2277,7 @@ def getgiffromscreen(data, delay=320):
                     OldCompressionValue = CompressionValue & 0xFFF
                     # check if have reached maximum number of sequences
                     # possible
-                    if(compressionArraySize == self.MaxOutputCode):
+                    if compressionArraySize == self.MaxOutputCode:
                         # if so then output code to note table reset
                         self.OutputBits(code_tableReset)
                         # reset sequence table
@@ -2327,7 +2293,7 @@ def getgiffromscreen(data, delay=320):
                     # hold sequence code then increment output bits and
                     # make note of when to increase the number of output
                     # bits again
-                    if(compressionArraySize == incBitsAt):
+                    if compressionArraySize == incBitsAt:
                         self.output_dataSize += 1
                         incBitsAt = (1 << self.output_dataSize) + 1
 
@@ -2341,11 +2307,11 @@ def getgiffromscreen(data, delay=320):
             self.OutputBits(code_EOF)
             # if there are bits waiting to be written int the output cue
             # write them now
-            while(self.output_cueBits > 0):
+            while self.output_cueBits > 0:
                 self.cue[self.output_cuePointer] = self.output_cue & 0xFF
                 self.output_cuePointer += 1
                 # if cue full, then output it
-                if(self.output_cuePointer == 255):
+                if self.output_cuePointer == 255:
                     self.OutAdd([0xFF] + self.cue)
                     self.output_cuePointer = 0
 
@@ -2353,7 +2319,7 @@ def getgiffromscreen(data, delay=320):
                 self.output_cueBits -= 8
 
             # if still bits in cue
-            if(self.output_cuePointer > 0):
+            if self.output_cuePointer > 0:
                 self.OutAdd([self.output_cuePointer] +
                             self.cue[0:self.output_cuePointer])
 
@@ -2366,7 +2332,7 @@ def getgiffromscreen(data, delay=320):
             bg = _COLOUR_MAP[(colour >> 3) & 15]
 
             # swap foreground & background if flash & second image
-            if(colour >= 128 and bFlash):
+            if colour >= 128 and bFlash:
                 fg, bg = bg, fg
 
             pixels = self.data[((y >> 6) << 11) + ((y & 7) << 8) +
@@ -2380,7 +2346,7 @@ def getgiffromscreen(data, delay=320):
             # is strictly needed but is safe)
             self.output_cue &= self.output_masks[self.output_cueBits]
             # add new bits to bitcue
-            if(self.output_cueBits > 0):
+            if self.output_cueBits > 0:
                 self.output_cue |= bits << self.output_cueBits
 
             # no bitcue so set bitcue as bits to add
@@ -2390,13 +2356,13 @@ def getgiffromscreen(data, delay=320):
             # update how many bits in bitcue
             self.output_cueBits += self.output_dataSize
             # if more than 8 bits in bitcue, output a byte at a time
-            while(self.output_cueBits >= 8):
+            while self.output_cueBits >= 8:
                 # add from bitcue to byte cue
                 self.cue[self.output_cuePointer] = self.output_cue & 0xFF
                 # increment number of bytes in byte cue
                 self.output_cuePointer += 1
                 # if buffer full, output them to stream
-                if(self.output_cuePointer == 255):
+                if self.output_cuePointer == 255:
                     # block headder & cue
                     self.OutAdd([0xFF] + self.cue)
                     # reset byte cue pointer
@@ -2422,7 +2388,7 @@ def getgiffromscreen(data, delay=320):
     # end of private class
 
     # if not enough data for image supplied
-    if(len(data) < 6912):
+    if len(data) < 6912:
         return None
 
     # validate and convert data from string to bytearray if needed
@@ -2455,7 +2421,7 @@ def getgiffromscreen(data, delay=320):
         ges.PutByte(_ZXCOLOURTORGB[i] & 0XFF)
 
     # put delay if have flash & want flashing image (delay != -1 and -2)
-    if(bFlash and delay > 0):
+    if bFlash and delay > 0:
         ges.PutByte(0x21)  # extension introducer
         ges.PutByte(0xff)  # app extension label
         ges.PutByte(11)    # block size
@@ -2468,7 +2434,7 @@ def getgiffromscreen(data, delay=320):
     # output Image
     ges.PutImageAsGif(bFlash, delay, True)
     # output 2nd image if apropriate
-    if(bFlash and delay != -1):
+    if bFlash and delay != -1:
         ges.PutImageAsGif(bFlash, delay, False)
 
     # gif trailer
@@ -2480,8 +2446,7 @@ def getgiffromscreen(data, delay=320):
 def getrgbfromscreen(data, alphamask=0xFF, imageformat=0):
     """This function extracts an Image from spectrum screen format data.
 
-    data must be a list or tuple of ints or longs, or a byte string in
-    python 2, or a bytes or bytearray object.
+    data must be a list or tuple of ints, or a bytes or bytearray object.
 
     This returns a 2 element list.  Because of flashing colours in the
     spectrum, there are efectively 2 images: one for each of the 2
@@ -2506,16 +2471,16 @@ def getrgbfromscreen(data, alphamask=0xFF, imageformat=0):
     """
 
     # validate inputs
-    if(imageformat < 0 or imageformat > 1):
+    if imageformat < 0 or imageformat > 1:
         raise SpectrumTranslateError("Invalid imageformat.")
 
-    if(alphamask < -1 or alphamask > 255):
+    if alphamask < -1 or alphamask > 255:
         raise SpectrumTranslateError("Invalid alphamask.")
 
     # validate and convert data from string to bytearray if needed
     data = _validateandpreparebytes(data, "data")
 
-    if(imageformat == 0):
+    if imageformat == 0:
         alpha = 0 if alphamask == -1 else alphamask << 24
         colourtransform = _ZXCOLOURTORGB
     else:
@@ -2551,7 +2516,7 @@ def getrgbfromscreen(data, alphamask=0xFF, imageformat=0):
             p += 1
 
     # now deal with flash image if needed
-    if(bFlash):
+    if bFlash:
         image2 = []
         for y in range(192):
             # get pixel address for start of row
@@ -2563,7 +2528,7 @@ def getrgbfromscreen(data, alphamask=0xFF, imageformat=0):
                 i = data[c]
                 fg = colourtransform[(i & 7) + ((i >> 3) & 8)] + alpha
                 bg = colourtransform[(i >> 3) & 15] + alpha
-                if(i >= 128):
+                if i >= 128:
                     # swap foreground & background as flashing
                     fg, bg = bg, fg
 
@@ -2603,13 +2568,12 @@ def snaptosna(data, register, border=0):
 
     border is the border colour.
 
-    data must be a list or tuple of ints or longs, or a byte string in
-    python 2, or a bytes or bytearray object.
+    data must be a list or tuple of ints, or a bytes or bytearray object.
     """
 
     # first check have valid data
     # return if not 48k or 128K
-    if(len(data) != 49152 and len(data) != 131072):
+    if len(data) != 49152 and len(data) != 131072:
         raise SpectrumTranslateError("Wrong size memory")
 
     # validate and convert data to bytearray if needed
@@ -2636,7 +2600,7 @@ def snaptosna(data, register, border=0):
            border & 7]
 
     # if 48K then add memory dump & return
-    if(len(data) == 49152):
+    if len(data) == 49152:
         # Program Counter needs to be on the stack so can't simply dump
         # memory contents
         # calculate where SP offset is in data
@@ -2658,7 +2622,7 @@ def snaptosna(data, register, border=0):
     # output ram bank 2
     out += data[2*16384:3*16384]
     # check if valid bank
-    if(register["RAMbank"] < 0 or register["RAMbank"] > 7):
+    if register["RAMbank"] < 0 or register["RAMbank"] > 7:
         raise SpectrumTranslateError("RAMbank has to be 0 to 7 inclusive.")
 
     # output currently paged ram bank
@@ -2677,7 +2641,7 @@ def snaptosna(data, register, border=0):
     # now output remaining RAM banks
     for i in range(8):
         # check if RAM bank already output
-        if(i == 2 or i == 5 or i == register["RAMbank"]):
+        if i in [2, 5, register["RAMbank"]]:
             continue
 
         # otherwise output RAM bank
@@ -2690,8 +2654,7 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
     """Function to convert data of +D/Disciple format snapshot to .Z80
     format byte string that can be saved.
 
-    data must be a list or tuple of ints or longs, or a byte string in
-    python 2, or a bytes or bytearray object.
+    data must be a list or tuple of ints, or a bytes or bytearray object.
 
     Register is a dictionary of the various registers.  A,F,BC,DE,HL,I,
     R,IX,IY,SP,PC,A',F',BC',DE',HL',IFF2 (the interupt state), and IM
@@ -2721,20 +2684,20 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
         i = 0
 
         # loop through memory stopping 4 bytes before end
-        while(i < len(mem) - 4):
+        while i < len(mem) - 4:
             x = mem[i]
             # check for runs of 5 or more bytes, or 2 or more if ED
-            if((x == mem[i+1] and x == mem[i+2] and x == mem[i+3] and
+            if ((x == mem[i+1] and x == mem[i+2] and x == mem[i+3] and
                 x == mem[i+4]) or
                (x == 0xED and mem[i+1] == 0xED)):
                 c = 0
-                while(i < len(mem) and x == mem[i]):
+                while i < len(mem) and x == mem[i]:
                     c += 1
                     i += 1
 
                 out += [0xED, 0xED, c, x]
 
-            elif(x == 0xED):
+            elif x == 0xED:
                 out += [0xED, mem[i+1]]
                 i += 2
 
@@ -2742,26 +2705,26 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
                 out += [x]
                 i += 1
 
-        if(i < len(mem)):
+        if i < len(mem):
             out += mem[i:]
 
-        if(wantblockterminator):
+        if wantblockterminator:
             out += [0, 0xED, 0xED, 0]
 
         return out
 
     # first check have valid data
     # return if not 48k or 128K
-    if(len(data) != 49152 and len(data) != 131072):
+    if len(data) != 49152 and len(data) != 131072:
         raise SpectrumTranslateError("Wrong size memory")
 
     # version 1 can only handle 48K snapshots
-    if(version == 1 and len(data) != 49152):
+    if version == 1 and len(data) != 49152:
         raise SpectrumTranslateError(
             "version 1 of Z80 format can't handle 128K snapshots.")
 
     # ensure we have valid version
-    if(version != 1 and version != 2 and version != 3):
+    if version != 1 and version != 2 and version != 3:
         raise SpectrumTranslateError(
             "Valid version numbers for Z80 files are 1, 2, and 3.")
 
@@ -2792,9 +2755,9 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
            register["IFF2"],
            register["IM"] & 3]
 
-    if(version == 1):
+    if version == 1:
         # add memory
-        if(compressed):
+        if compressed:
             out += compress(data, True)
 
         else:
@@ -2815,15 +2778,15 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
             register["IgnorePageChange"] == 1 else 0)]
     out += [0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
-    if(version == 3):
+    if version == 3:
         out += [0]*28
         out += [16, 0, 0]
 
     # handle 48K data
-    if(len(data) == 49152):
+    if len(data) == 49152:
         # move through pages
         for page, address in ((8, 0), (4, 0x4000), (5, 0x8000)):
-            if(compressed):
+            if compressed:
                 compdat = compress(data[address:address + 0x3FFF])
                 out += [len(compdat) & 0xFF, (len(compdat) >> 8) & 0xFF,
                         page] + compdat
@@ -2835,7 +2798,7 @@ def snaptoz80(data, register, version=3, compressed=True, border=0):
     else:
         # move through pages
         for page in range(8):
-            if(compressed):
+            if compressed:
                 compdat = compress(data[page*0x4000:page*0x4000 + 0x3FFF])
                 out += [len(compdat) & 0xFF, (len(compdat) >> 8) & 0xFF,
                         page + 3] + compdat
@@ -2853,8 +2816,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     code.  You can specify instructions to alter the disassembled
     output.
 
-    data must be a list or tuple of ints or longs, or a byte string in
-    python 2, or a bytes or bytearray object.
+    data must be a list or tuple of ints, or a bytes or bytearray object.
     offset is how far into the array to start disassembling.
     origin is the address of the first byte in the byte array.
     length is how many bytes to disassemble
@@ -2880,14 +2842,14 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     # get string for used flags
     def getFlagChanges(instructionData):
         # do we have flag data?
-        if(((instructionData >> 20) & 1) == 0):
+        if ((instructionData >> 20) & 1) == 0:
             # if not return None
             return None
 
         # holds flag indicators
         FlagStates = ("?", "-", "+", "0", "1", "P", "V")
 
-        s = "S{0} Z{1} H{2} PV{3} N{4} C{5}".format(
+        s = "S{} Z{} H{} PV{} N{} C{}".format(
             FlagStates[(instructionData >> 17) & 7],
             FlagStates[(instructionData >> 14) & 7],
             FlagStates[(instructionData >> 11) & 7],
@@ -2905,7 +2867,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         states = None
 
         # if only overall T length known then extract this now
-        if((instructionTimes & 0x1) != 0):
+        if (instructionTimes & 0x1) != 0:
             duration = [(instructionTimes >> 1) & 0x7FFF,
                         (instructionTimes >> 17) & 0x7FFF]
 
@@ -2916,7 +2878,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             k = (instructionTimes >> 1) & 7
             # offset
             i = 4
-            while(k > 0):
+            while k > 0:
                 t = ((instructionTimes >> i) & 3) + 3
                 states[0].append(t)
                 duration[0] += t
@@ -2926,7 +2888,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             # do alternative length if exists
             k = (instructionTimes >> 16) & 7
             i = 19
-            while(k > 0):
+            while k > 0:
                 t = ((instructionTimes >> i) & 3) + 3
                 states[1].append(t)
                 duration[1] += t
@@ -2936,7 +2898,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         return duration, states
 
     def CommentOutput(comment, XMLOutput):
-        if(XMLOutput == 1):
+        if XMLOutput == 1:
             return "  <line><comment>" + comment + "</comment></line>"
         else:
             linestart = "\0" + chr(12) + chr(0) + "0000" + Seperator + ";"
@@ -2989,11 +2951,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     CommentReferences = []
     CommentDisplacementsX = [[[None, 0x10000, 0], []] for i in range(256)]
     CommentDisplacementsY = [[[None, 0x10000, 0], []] for i in range(256)]
-    FunctionMatcher = re.compile("^\s*%![a-zA-Z_][a-zA-Z_0-9]*[(].*[)]\s*$",
+    FunctionMatcher = re.compile(r"^\s*%![a-zA-Z_][a-zA-Z_0-9]*[(].*[)]\s*$",
                                  re.DOTALL)
-    MatcherinBraces = re.compile(
-        "^\s*%[(]\s*%!([a-zA-Z_][a-zA-Z_0-9]*[(].*[)])\s*%[)](\s*%#[^\n]*?)?$",
-        re.DOTALL)
+    MatcherinBraces = re.compile(r"^\s*%[(]\s*%!([a-zA-Z_][a-zA-Z_0-9]*"
+                                 r"[(].*[)])\s*%[)](\s*%#[^\n]*?)?$",
+                                 re.DOTALL)
 
     # Work out how much there is to process for progress callback
     # faster going through formatting at end than actual disassembling
@@ -3005,64 +2967,64 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     worktodo3 = length      # for formatting
     workdone = 0
     # now look at special instructions as this can increase workload
-    if(SpecialInstructions is not None and len(SpecialInstructions) > 0):
+    if SpecialInstructions is not None and len(SpecialInstructions) > 0:
         for di in SpecialInstructions:
             worktodo1 += 1
-            if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
-                    "Pattern Data Block"] or
-               di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
-                    "Comment Pattern"]):
+            if (di.instruction in [DisassembleInstruction.DISASSEMBLE_CODES[
+                    "Pattern Data Block"],
+                    DisassembleInstruction.DISASSEMBLE_CODES[
+                    "Comment Pattern"]]):
                 # work out start and end points
                 e = di.end
-                if(e >= origin + len(data)):
+                if e >= origin + len(data):
                     e = origin + len(data)-1
                 s = di.start
-                if(s < origin):
+                if s < origin:
                     s = origin
                 # must process once before disassembly
                 worktodo1 += (e - s) * 2
 
     # process special instructions
     DisassembleInstructions = []
-    if(SpecialInstructions is not None and len(SpecialInstructions) > 0):
+    if SpecialInstructions is not None and len(SpecialInstructions) > 0:
         for di in SpecialInstructions:
             # update progress
             workdone += 1
             # call progress update
-            if(progressfunction is not None):
+            if progressfunction is not None:
                 progressfunction("Evaluating Instructions",
                                  workdone, worktodo1,
                                  (workdone * 10) / worktodo1, 100)
 
             # check if special formatting commands for default for whole
             # output
-            if(di.start == 0x0000 and di.end >= 0xFFFF):
-                if(di.instruction & 0xFFFF00 == 0x000100):
+            if di.start == 0x0000 and di.end >= 0xFFFF:
+                if di.instruction & 0xFFFF00 == 0x000100:
                     # AddressOutputFormat
                     AddressOutput = di.instruction & 0x03
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x000200):
+                elif di.instruction & 0xFFFF00 == 0x000200:
                     # NumberOutputFormat
                     NumberOutput = di.instruction & 0x03
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x000300):
+                elif di.instruction & 0xFFFF00 == 0x000300:
                     # CommandOutputFormat
                     CommandOutput = di.instruction & 0x03
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x000400):
+                elif di.instruction & 0xFFFF00 == 0x000400:
                     # OutputTStatesFormat
                     OutputTStates = di.instruction & 0x03
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x000500):
+                elif di.instruction & 0xFFFF00 == 0x000500:
                     # LineAfterJumpOutputFormat
                     BreakAfterJumps = di.instruction & 0x03
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x000600):
+                elif di.instruction & 0xFFFF00 == 0x000600:
                     # DefaultFormat
                     AddressOutput = di.instruction & 0x03
                     NumberOutput = di.instruction & 0x03
@@ -3105,96 +3067,96 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     HexForNonASCII = settingstemp["HexForNonASCII"]
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x000800):
+                elif di.instruction & 0xFFFF00 == 0x000800:
                     # LineNumberOutput
                     LineNumberOutput = di.instruction & 0x03
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x000900):
+                elif di.instruction & 0xFFFF00 == 0x000900:
                     # ListEveryXLines
                     ListEveryXLines = int(di.data, 16)
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x000A00):
+                elif di.instruction & 0xFFFF00 == 0x000A00:
                     # BreakAfterData
                     BreakAfterData = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x000B00):
+                elif di.instruction & 0xFFFF00 == 0x000B00:
                     # TreatDataNumbersAsLineReferences
                     TreatDataNumbersAsLineReferences = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x000C00):
+                elif di.instruction & 0xFFFF00 == 0x000C00:
                     # DisplayCommandBytes
                     DisplayCommandBytes = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x000D00):
+                elif di.instruction & 0xFFFF00 == 0x000D00:
                     # DisplayComments
                     DisplayComments = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFFFFFF == 0x000E00):
+                elif di.instruction & 0xFFFFFF == 0x000E00:
                     # Seperator space
                     Seperator = "  "
                     continue
 
-                elif(di.instruction & 0xFFFFFF == 0x000E01):
+                elif di.instruction & 0xFFFFFF == 0x000E01:
                     # Seperator tab
                     Seperator = "\t"
                     continue
 
-                elif(di.instruction & 0xFFFFFF == 0x000E02):
+                elif di.instruction & 0xFFFFFF == 0x000E02:
                     # Seperator custom
                     Seperator = di.data
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x000F00):
+                elif di.instruction & 0xFFFF00 == 0x000F00:
                     # Display flags
                     ShowFlags = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x001000):
+                elif di.instruction & 0xFFFF00 == 0x001000:
                     # note undocumened commands
                     MarkUndocumenedCommand = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x001200):
+                elif di.instruction & 0xFFFF00 == 0x001200:
                     # XML mode
                     XMLOutput = di.instruction & 0x01
                     continue
 
-                elif(di.instruction & 0xFFFF00 == 0x001300):
+                elif di.instruction & 0xFFFF00 == 0x001300:
                     # HexForNonASCII mode
                     HexForNonASCII = di.instruction & 0x01
                     continue
 
             # check if end after end of code, in which case truncate it
-            if(di.end >= origin + len(data)):
+            if di.end >= origin + len(data):
                 di.end = origin + len(data)-1
 
             # check if start before start of code, but ends inside code,
             # in which case truncate it
-            if(di.start < origin and di.end > origin):
+            if di.start < origin and di.end > origin:
                 di.start = origin
 
             # is this a patterndatablock instruction or a find&comment
-            if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
-                    "Pattern Data Block"] or
-               di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
-                    "Comment Pattern"]):
+            if (di.instruction in [DisassembleInstruction.DISASSEMBLE_CODES[
+                    "Pattern Data Block"],
+                    DisassembleInstruction.DISASSEMBLE_CODES[
+                    "Comment Pattern"]]):
                 # get parts of patterndatablock
                 TestBlock, PrepBlock, ActionBlock = getpartsofpatterndatablock(
                     di.data)
 
                 # first check is valid test block
-                if(TestBlock is None):
+                if TestBlock is None:
                     raise SpectrumTranslateError(
                         "patern to search for must be inside brackets")
 
                 # now check is valid preperation block
-                if(PrepBlock is None):
+                if PrepBlock is None:
                     raise SpectrumTranslateError(
                         "preperation block must be inside brackets")
 
@@ -3225,20 +3187,20 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 matches = []
                 # handle predefined routine
                 match = MatcherinBraces.match(TestBlock)
-                if(match):
-                    if(progressfunction is not None):
+                if match:
+                    if progressfunction is not None:
                         progressfunction("Evaluating Instructions", workdone,
                                          worktodo1,
                                          (workdone * 10) / worktodo1, 100)
                     details = _ProcessFunctionDetails(match.group(1))
-                    if(isinstance(details, str)):
+                    if isinstance(details, str):
                         raise SpectrumTranslateError(details)
 
                     # check is valid command
-                    if(details[0] not in
+                    if (details[0] not in
                        DisassembleInstruction.PredefinedRoutines):
                         raise SpectrumTranslateError(
-                            'Routine "{0}" not defined'.format(details[0]))
+                            'Routine "{}" not defined'.format(details[0]))
 
                     # process routine
                     Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, di.start, 0, 0,
@@ -3253,11 +3215,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     # move through area covered by instruction & check for
                     # matches
                     k = di.start
-                    while(k <= di.end):
+                    while k <= di.end:
                         # update progress
                         workdone += 2
                         # call progress update
-                        if(progressfunction is not None):
+                        if progressfunction is not None:
                             progressfunction("Evaluating Instructions",
                                              workdone, worktodo1,
                                              (workdone * 10) / worktodo1, 100)
@@ -3272,9 +3234,9 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                             # test each address
                             # will fail for Comment pattern but only after
                             # pattern has been added
-                            if((_processcommandblock(TestBlock, Vars, Settings,
-                                                     data, True,
-                                                     True)[0] & 1) == 1):
+                            if (_processcommandblock(TestBlock, Vars, Settings,
+                                                    data, True,
+                                                    True)[0] & 1) == 1:
                                 matches += [k]
                             k += 1
 
@@ -3286,19 +3248,19 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 blockdetails = []
                 # process matches if needed
                 match = MatcherinBraces.match(PrepBlock)
-                if(len(matches) > 0 and isinstance(matches[0], list)):
+                if len(matches) > 0 and _isarray(matches[0]):
                     # matching routine has returned list of blockdetails
                     blockdetails = matches
-                elif(len(matches) > 0 and match):
+                elif len(matches) > 0 and match:
                     details = _ProcessFunctionDetails(match.group(1))
-                    if(isinstance(details, str)):
+                    if isinstance(details, str):
                         raise SpectrumTranslateError(details)
 
                     # check is valid command
-                    if(details[0] not in
+                    if (details[0] not in
                        DisassembleInstruction.PredefinedRoutines):
                         raise SpectrumTranslateError(
-                            'Routine "{0}" not defined'.format(details[0]))
+                            'Routine "{}" not defined'.format(details[0]))
 
                     # process routine
                     Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, di.start, 0, 0,
@@ -3307,7 +3269,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     keyargs = details[2]
                     blockdetails = DisassembleInstruction.\
                         PredefinedRoutines[details[0]](*args, **keyargs)
-                elif(len(matches) > 0):
+                elif len(matches) > 0:
                     # process matches using scripting
                     for k in matches:
                         try:
@@ -3338,7 +3300,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                     worktodo2 += (end - start) * 2
 
                 # if have instructions, add them
-                if(len(Settings["InstructionsToAdd"]) > 0):
+                if len(Settings["InstructionsToAdd"]) > 0:
                     DisassembleInstructions += Settings["InstructionsToAdd"]
 
                 workdone = wdafter
@@ -3346,13 +3308,13 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 continue
 
             # check if is reference instruction
-            if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
-                    "Reference Line"]):
+            if di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
+                    "Reference Line"]:
                 ReferencedLineNumbers += [di.start]
                 continue
 
-            if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
-                    "Data Block"]):
+            if di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
+                    "Data Block"]:
                 # increase work in disassembly phase
                 worktodo2 += (di.end - di.start) * 2
 
@@ -3389,7 +3351,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     nextDataFormatEnd = 65536    # end after
 
     # output start text
-    if(XMLOutput == 1):
+    if XMLOutput == 1:
         soutput = ['<?xml version="1.0" encoding="UTF-8" ?>', '<z80code>',
                    '  <org>' + _numbertostring(currentAddress, 16,
                                                AddressOutput) + '</org>']
@@ -3399,15 +3361,15 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                    '']
 
     # start disassembling
-    while(length > 0):
+    while length > 0:
         # call progress update
-        if(progressfunction is not None):
+        if progressfunction is not None:
             progressfunction("Disassembling", workdone, worktodo2,
                              workdone + worktodo1,
                              worktodo1 + worktodo2 + worktodo3)
 
         # are we exiting format section?
-        if(currentAddress > CurrentFormatEnd):
+        if currentAddress > CurrentFormatEnd:
             # if so recover details of underlying format
             diTemp = Format.pop()
             settingstemp = get_custom_format_values(diTemp.data, False)
@@ -3433,23 +3395,23 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             continue
 
         # remove expired comment references
-        if(CommentReferences and currentAddress >= CommentReferences[0].end):
+        if CommentReferences and currentAddress >= CommentReferences[0].end:
             CommentReferences = [x for x in CommentReferences if
                                  x.end > currentAddress]
 
         # skip past instructions not relavent to code
-        while(DisassembleInstructions and
-              currentAddress > DisassembleInstructions[0].end):
+        while DisassembleInstructions and \
+              currentAddress > DisassembleInstructions[0].end:
             DisassembleInstructions.pop(0)
         # get instruction or set to None
-        if(DisassembleInstructions and
+        if (DisassembleInstructions and
            currentAddress >= DisassembleInstructions[0].start):
             di = DisassembleInstructions.pop(0)
         else:
             di = None
 
         # first check if in data block
-        if(di is not None and
+        if (di is not None and
            di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
                "Data Block"]):
             Settings = {"DATASTRINGPOS": 0,
@@ -3468,19 +3430,19 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                         "COMMENTCONTROL": [DisassembleInstructions,
                                            DisplayComments, CommentEnd,
                                            CommentAfter, CommentOutput]}
-            if(TreatDataNumbersAsLineReferences == 0):
+            if TreatDataNumbersAsLineReferences == 0:
                 Settings["ReferencedLineNumbers"] = ReferencedLineNumbers
 
-            if(FunctionMatcher.match(di.data)):
+            if FunctionMatcher.match(di.data):
                 details = _ProcessFunctionDetails(di.data.strip()[2:])
-                if(isinstance(details, str)):
+                if isinstance(details, str):
                     raise SpectrumTranslateError(details)
 
                 # check is valid command
-                if(details[0] not in
+                if (details[0] not in
                    DisassembleInstruction.PredefinedRoutines):
                     raise SpectrumTranslateError(
-                        'Routine "{0}" not defined'.format(details[0]))
+                        'Routine "{}" not defined'.format(details[0]))
 
                 # process routine
                 Vars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, di.start, 0, 0, di.start,
@@ -3492,20 +3454,20 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 # adjust end of data block
                 di.end = Vars[10] - 1
                 # extract text from result
-                if(isinstance(result, (str, _unistr))):
+                if isinstance(result, str):
                     txt = result
-                elif(isinstance(result, list) and len(result) > 0 and
-                     isinstance(result[0], (str, _unistr))):
+                elif (_isarray(result) and len(result) > 0 and
+                     isinstance(result[0], str)):
                     txt = result[0]
-                elif(isinstance(result, list) and len(result) > 1 and
-                     isinstance(result[1], (str, _unistr))):
+                elif (_isarray(result) and len(result) > 1 and
+                     isinstance(result[1], str)):
                     txt = result[1]
                 else:
                     txt = ""
             else:
                 di.end, txt = di.disassembledatablock(Settings, data)
 
-            if(txt.endswith("\n")):
+            if txt.endswith("\n"):
                 txt = txt[:-1]
             soutput += txt.split("\n")
 
@@ -3520,7 +3482,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             # have been missed
             for ditemp in DisassembleInstructions:
                 # ensure is line after data and applies to this block
-                if(ditemp.instruction & 0xFFFFFF00 == 0xA00 and
+                if (ditemp.instruction & 0xFFFFFF00 == 0xA00 and
                    ditemp.start <= currentAddress and
                    ditemp.end >= di.end):
                     # record current format state in custom, place on stack
@@ -3552,14 +3514,14 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             workdone += (di.end - di.start) * 2
 
             # put empty line after data if needed
-            if(("LINEAFTERDATA" in Settings and Settings["LINEAFTERDATA"]) or
+            if (("LINEAFTERDATA" in Settings and Settings["LINEAFTERDATA"]) or
                (BreakAfterData == 0 and "LINEAFTERDATA" not in Settings)):
                 soutput += ['']
 
             continue
 
         # check formatting command
-        if(di is not None and di.isformatinstruction()):
+        if di is not None and di.isformatinstruction():
             # record current format state in custom, place on stack
             s = get_custom_format_string(AddressOutput, NumberOutput,
                                          CommandOutput, OutputTStates,
@@ -3575,27 +3537,27 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 currentAddress, CurrentFormatEnd, s)]
 
             # deal with format commands
-            if(di.instruction & 0xFFFF00 == 0x000100):
+            if di.instruction & 0xFFFF00 == 0x000100:
                 # AddressOutputFormat
                 AddressOutput = di.instruction & 0x03
 
-            elif(di.instruction & 0xFFFF00 == 0x000200):
+            elif di.instruction & 0xFFFF00 == 0x000200:
                 # NumberOutputFormat
                 NumberOutput = di.instruction & 0x03
 
-            elif(di.instruction & 0xFFFF00 == 0x000300):
+            elif di.instruction & 0xFFFF00 == 0x000300:
                 # CommandOutputFormat
                 CommandOutput = di.instruction & 0x03
 
-            elif(di.instruction & 0xFFFF00 == 0x000400):
+            elif di.instruction & 0xFFFF00 == 0x000400:
                 # OutputTStatesFormat
                 OutputTStates = di.instruction & 0x03
 
-            elif(di.instruction & 0xFFFF00 == 0x000500):
+            elif di.instruction & 0xFFFF00 == 0x000500:
                 # LineAfterJumpOutputFormat
                 BreakAfterJumps = di.instruction & 0x03
 
-            elif(di.instruction & 0xFFFF00 == 0x000600):
+            elif di.instruction & 0xFFFF00 == 0x000600:
                 # DefaultFormat
                 AddressOutput = di.instruction & 0x03
                 NumberOutput = di.instruction & 0x03
@@ -3614,7 +3576,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 XMLOutput = 0
                 HexForNonASCII = 0
 
-            elif(di.instruction & 0xFFFF00 == 0x000700):
+            elif di.instruction & 0xFFFF00 == 0x000700:
                 # CustomFormat
                 settingstemp = get_custom_format_values(di.data, False)
                 AddressOutput = settingstemp["AddressOutput"]
@@ -3635,55 +3597,55 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 XMLOutput = settingstemp["XMLOutput"]
                 HexForNonASCII = settingstemp["HexForNonASCII"]
 
-            elif(di.instruction & 0xFFFF00 == 0x000800):
+            elif di.instruction & 0xFFFF00 == 0x000800:
                 # LineNumberOutput
                 LineNumberOutput = di.instruction & 0x03
 
-            elif(di.instruction & 0xFFFF00 == 0x000900):
+            elif di.instruction & 0xFFFF00 == 0x000900:
                 # ListEveryXLines
                 ListEveryXLines = int(di.data, 16)
 
-            elif(di.instruction & 0xFFFF00 == 0x000A00):
+            elif di.instruction & 0xFFFF00 == 0x000A00:
                 # BreakAfterData
                 BreakAfterData = di.instruction & 0x01
 
-            elif(di.instruction & 0xFFFF00 == 0x000B00):
+            elif di.instruction & 0xFFFF00 == 0x000B00:
                 # TreatDataNumbersAsLineReferences
                 TreatDataNumbersAsLineReferences = di.instruction & 0x01
 
-            elif(di.instruction & 0xFFFF00 == 0x000C00):
+            elif di.instruction & 0xFFFF00 == 0x000C00:
                 # DisplayCommandBytes
                 DisplayCommandBytes = di.instruction & 0x01
 
-            elif(di.instruction & 0xFFFF00 == 0x000D00):
+            elif di.instruction & 0xFFFF00 == 0x000D00:
                 # DisplayComments
                 DisplayComments = di.instruction & 0x01
 
-            elif(di.instruction & 0xFFFFFF == 0x000E00):
+            elif di.instruction & 0xFFFFFF == 0x000E00:
                 # Seperator space
                 Seperator = "  "
 
-            elif(di.instruction & 0xFFFFFF == 0x000E01):
+            elif di.instruction & 0xFFFFFF == 0x000E01:
                 # Seperator tab
                 Seperator = "\t"
 
-            elif(di.instruction & 0xFFFFFF == 0x000E02):
+            elif di.instruction & 0xFFFFFF == 0x000E02:
                 # Seperator custom
                 Seperator = di.data
 
-            elif(di.instruction & 0xFFFF00 == 0x000F00):
+            elif di.instruction & 0xFFFF00 == 0x000F00:
                 # Display flags
                 ShowFlags = di.instruction & 0x01
 
-            elif(di.instruction & 0xFFFF00 == 0x001000):
+            elif di.instruction & 0xFFFF00 == 0x001000:
                 # note undocumened commands
                 MarkUndocumenedCommand = di.instruction & 0x01
 
-            elif(di.instruction & 0xFFFF00 == 0x001200):
+            elif di.instruction & 0xFFFF00 == 0x001200:
                 # XML mode
                 XMLOutput = di.instruction & 0x01
 
-            elif(di.instruction & 0xFFFF00 == 0x001300):
+            elif di.instruction & 0xFFFF00 == 0x001300:
                 # HexForNonASCII mode
                 HexForNonASCII = di.instruction & 0x01
 
@@ -3691,29 +3653,29 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             continue
 
         # check is comment
-        if(di is not None and di.instruction & 0xFFFF00 == 0x030000 and
+        if (di is not None and di.instruction & 0xFFFF00 == 0x030000 and
            di.data is not None and di.data != ""):
             # handle commenmts before this line first
-            if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
-                    "Comment Before"]):
-                if(DisplayComments == 0):
+            if di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
+                    "Comment Before"]:
+                if DisplayComments == 0:
                     soutput += CommentOutput(di.data, XMLOutput).split("\n")
 
                 continue
             # otherwise comnment end of this line or after
-            if(di.instruction == 0x030002):
-                if(CommentAfter != ""):
+            if di.instruction == 0x030002:
+                if CommentAfter != "":
                     CommentAfter += "\n"
                 CommentAfter += di.data
             else:
-                if(CommentEnd != ""):
+                if CommentEnd != "":
                     CommentEnd += ". "
                 CommentEnd += di.data
 
             continue
 
         # check is reference comment
-        if(di is not None and di.instruction & 0xFFFF00 == 0x030100):
+        if di is not None and di.instruction & 0xFFFF00 == 0x030100:
             # make note of reference, flag, and comment
             di.reference, di.flag, di.comment = get_comment_reference_values(
                 di.data)
@@ -3724,26 +3686,26 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             continue
 
         # check is reference displacement
-        if(di is not None and di.instruction & 0xFFFF00 == 0x030200):
+        if di is not None and di.instruction & 0xFFFF00 == 0x030200:
             # Remove expired comment displacements
             for i in range(256):
-                while(currentAddress > CommentDisplacementsX[i][0][1]):
+                while currentAddress > CommentDisplacementsX[i][0][1]:
                     CommentDisplacementsX[i][0] = CommentDisplacementsX[i][
                         1].pop()
-                while(currentAddress > CommentDisplacementsY[i][0][1]):
+                while currentAddress > CommentDisplacementsY[i][0][1]:
                     CommentDisplacementsY[i][0] = CommentDisplacementsY[i][
                         1].pop()
 
             # get displacement, flag, and comment
             displace, flag, comment = get_comment_displacement_values(di.data)
             # add it to IX if indicated
-            if(flag & 1 == 1):
+            if flag & 1 == 1:
                 CommentDisplacementsX[displace][1] += [
                     CommentDisplacementsX[displace][0]]
                 CommentDisplacementsX[displace][0] = [comment, di.end,
                                                       di.instruction & 3]
             # add it to IY if indicated
-            if(flag & 2 == 2):
+            if flag & 2 == 2:
                 CommentDisplacementsY[displace][1] += [
                     CommentDisplacementsY[displace][0]]
                 CommentDisplacementsY[displace][0] = [comment, di.end,
@@ -3762,14 +3724,14 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         instructionTimes = Z80_OPCODE_TIMES["base"][data[offset]]
 
         # deal with CB,DD,ED,and FD
-        if(s is None):
-            if(data[offset] == 0xCB):
+        if s is None:
+            if data[offset] == 0xCB:
                 s = Z80_OPCODES["CB"][data[offset + 1]]
                 instructionData = Z80_OPCODE_DATA["CB"][data[offset + 1]]
                 instructionTimes = Z80_OPCODE_TIMES["CB"][data[offset + 1]]
                 commandlength = 2
 
-            elif(data[offset] == 0xED):
+            elif data[offset] == 0xED:
                 s = Z80_OPCODES["ED"][data[offset + 1]]
                 instructionData = Z80_OPCODE_DATA["ED"][data[offset + 1]]
                 instructionTimes = Z80_OPCODE_TIMES["ED"][data[offset + 1]]
@@ -3777,20 +3739,20 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 dataOffset = 2
                 # convert invalid ED codes to do nothing (is like 2
                 # NOPs)
-                if(s is None):
+                if s is None:
                     s = ""
                     instructionData = 0
                     instructionTimes = 1
 
             else:  # is DD or FD
                 dataOffset = 2
-                codehex = '{0:02X}'.format(data[offset])
+                codehex = '{:02X}'.format(data[offset])
                 s = Z80_OPCODES[codehex][data[offset + 1]]
                 instructionData = Z80_OPCODE_DATA[codehex][data[offset + 1]]
                 instructionTimes = Z80_OPCODE_TIMES[codehex][data[offset + 1]]
                 commandlength = 2
                 # deal with DDCB or FDCB
-                if(data[offset + 1] == 0xCB):
+                if data[offset + 1] == 0xCB:
                     commandlength = 3
                     s = Z80_OPCODES[codehex + "CB"][data[offset + 3]]
                     instructionData = Z80_OPCODE_DATA[codehex + "CB"][data[
@@ -3799,7 +3761,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                         offset + 3]]
 
                 # deal with invalid DD/FD codes (is like a NOP)
-                if(s is None):
+                if s is None:
                     s = ""
                     instructionData = 0
                     instructionTimes = 1
@@ -3815,13 +3777,13 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         # beyond end of supplied bytes
         try:
             # first check for & replace displacement byte
-            if("d" in s):
+            if "d" in s:
                 # Remove expired comment displacements
                 for i in range(256):
-                    while(currentAddress > CommentDisplacementsX[i][0][1]):
+                    while currentAddress > CommentDisplacementsX[i][0][1]:
                         CommentDisplacementsX[i][0] = CommentDisplacementsX[i][
                             1].pop()
-                    while(currentAddress > CommentDisplacementsY[i][0][1]):
+                    while currentAddress > CommentDisplacementsY[i][0][1]:
                         CommentDisplacementsY[i][0] = CommentDisplacementsY[i][
                             1].pop()
 
@@ -3829,38 +3791,38 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 i = data[offset + dataOffset]
 
                 # check for reference comments
-                if('IX' in s and CommentDisplacementsX[i][0][0] and
+                if ('IX' in s and CommentDisplacementsX[i][0][0] and
                    CommentDisplacementsX[i][0][0] != ""):
                     # handle comment
-                    if(CommentDisplacementsX[i][0][2] == 1):
-                        if(DisplayComments == 0):
+                    if CommentDisplacementsX[i][0][2] == 1:
+                        if DisplayComments == 0:
                             soutput += CommentOutput(
                                 CommentDisplacementsX[i][0][0],
                                 XMLOutput).split("\n")
                     # otherwise comnment end of this line or after
-                    elif(CommentDisplacementsX[i][0][2] == 2):
-                        if(CommentAfter != ""):
+                    elif CommentDisplacementsX[i][0][2] == 2:
+                        if CommentAfter != "":
                             CommentAfter += "\n"
                         CommentAfter += CommentDisplacementsX[i][0][0]
                     else:
-                        if(CommentEnd != ""):
+                        if CommentEnd != "":
                             CommentEnd += ". "
                         CommentEnd += CommentDisplacementsX[i][0][0]
-                if('IY' in s and CommentDisplacementsY[i][0][0] and
+                if ('IY' in s and CommentDisplacementsY[i][0][0] and
                    CommentDisplacementsY[i][0][0] != ""):
                     # handle comment
-                    if(CommentDisplacementsY[i][0][2] == 1):
-                        if(DisplayComments == 0):
+                    if CommentDisplacementsY[i][0][2] == 1:
+                        if DisplayComments == 0:
                             soutput += CommentOutput(
                                 CommentDisplacementsY[i][0][0],
                                 XMLOutput).split("\n")
                     # otherwise comnment end of this line or after
-                    elif(CommentDisplacementsY[i][0][2] == 2):
-                        if(CommentAfter != ""):
+                    elif CommentDisplacementsY[i][0][2] == 2:
+                        if CommentAfter != "":
                             CommentAfter += "\n"
                         CommentAfter += CommentDisplacementsY[i][0][0]
                     else:
-                        if(CommentEnd != ""):
+                        if CommentEnd != "":
                             CommentEnd += ". "
                         CommentEnd += CommentDisplacementsY[i][0][0]
 
@@ -3869,7 +3831,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 commandlength += 1
 
             # check for & replace relative jump byte
-            if("j" in s):
+            if "j" in s:
                 # calculate address of next command
                 i = currentAddress + commandlength + 1
                 # add displacement
@@ -3880,22 +3842,22 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 # check for reference comments
                 for di in CommentReferences:
                     # have we got right reference
-                    if(di.reference != i):
+                    if di.reference != i:
                         continue
                     # do the flags match
-                    if(di.flag & 16 == 16):
+                    if di.flag & 16 == 16:
                         # handle comment
-                        if(di.instruction & 3 == 1):
-                            if(DisplayComments == 0):
+                        if di.instruction & 3 == 1:
+                            if DisplayComments == 0:
                                 soutput += CommentOutput(di.comment,
                                                          XMLOutput).split("\n")
                         # otherwise comnment end of this line or after
-                        elif(di.instruction & 3 == 2):
-                            if(CommentAfter != ""):
+                        elif di.instruction & 3 == 2:
+                            if CommentAfter != "":
                                 CommentAfter += "\n"
                             CommentAfter += di.comment
                         else:
-                            if(CommentEnd != ""):
+                            if CommentEnd != "":
                                 CommentEnd += ". "
                             CommentEnd += di.comment
 
@@ -3907,7 +3869,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 ReferencedLineNumbers += [i]
 
             # check for & replace 2 byte address
-            if("aa" in s):
+            if "aa" in s:
                 # get number
                 i = data[offset + dataOffset] + \
                     256*data[offset + dataOffset + 1]
@@ -3915,25 +3877,25 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 # check for reference comments
                 for di in CommentReferences:
                     # have we got right reference
-                    if(di.reference != i):
+                    if di.reference != i:
                         continue
                     # do the flags match
-                    if((di.flag & 1 == 1 and '(' in s) or
+                    if ((di.flag & 1 == 1 and '(' in s) or
                        (di.flag & 2 == 2 and s == 'LD SP,aa') or
                        (di.flag & 4 == 4 and s[0] == 'C') or
                        (di.flag & 8 == 8 and s[0] == 'J')):
                         # handle comment
-                        if(di.instruction & 3 == 1):
-                            if(DisplayComments == 0):
+                        if di.instruction & 3 == 1:
+                            if DisplayComments == 0:
                                 soutput += CommentOutput(di.comment,
                                                          XMLOutput).split("\n")
                         # otherwise comnment end of this line or after
-                        elif(di.instruction & 3 == 2):
-                            if(CommentAfter != ""):
+                        elif di.instruction & 3 == 2:
+                            if CommentAfter != "":
                                 CommentAfter += "\n"
                             CommentAfter += di.comment
                         else:
-                            if(CommentEnd != ""):
+                            if CommentEnd != "":
                                 CommentEnd += ". "
                             CommentEnd += di.comment
 
@@ -3946,7 +3908,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 ReferencedLineNumbers += [i]
 
             # check for & replace 2 byte number
-            if("nn" in s):
+            if "nn" in s:
                 # get number
                 i = data[offset + dataOffset] + \
                     256*data[offset + dataOffset + 1]
@@ -3954,22 +3916,22 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 # check for reference comments
                 for di in CommentReferences:
                     # have we got right reference
-                    if(di.reference != i):
+                    if di.reference != i:
                         continue
                     # do the flags match
-                    if(di.flag & 2 == 2):
+                    if di.flag & 2 == 2:
                         # handle comment
-                        if(di.instruction & 3 == 1):
-                            if(DisplayComments == 0):
+                        if di.instruction & 3 == 1:
+                            if DisplayComments == 0:
                                 soutput += CommentOutput(di.comment,
                                                          XMLOutput).split("\n")
                         # otherwise comnment end of this line or after
-                        elif(di.instruction & 3 == 2):
-                            if(CommentAfter != ""):
+                        elif di.instruction & 3 == 2:
+                            if CommentAfter != "":
                                 CommentAfter += "\n"
                             CommentAfter += di.comment
                         else:
-                            if(CommentEnd != ""):
+                            if CommentEnd != "":
                                 CommentEnd += ". "
                             CommentEnd += di.comment
 
@@ -3978,11 +3940,11 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 commandlength += 2
 
                 # make note of referenced number
-                if(TreatDataNumbersAsLineReferences == 0):
+                if TreatDataNumbersAsLineReferences == 0:
                     ReferencedLineNumbers += [i]
 
             # check for & replace 1 byte number
-            if("n" in s):
+            if "n" in s:
                 s = s.replace("n", _numbertostring(data[offset + dataOffset],
                                                    8, NumberOutput, True))
                 dataOffset += 1
@@ -4005,7 +3967,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         # now do output
 
         # Handle XML output
-        if(XMLOutput == 1):
+        if XMLOutput == 1:
             currentline = "  <line><address>" + _numbertostring(
                 currentAddress, 16, AddressOutput, AddressOutput > 1) + \
                 "</address>"
@@ -4018,7 +3980,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
             # output address ready for processing later
             i = AddressOutput + (LineNumberOutput << 3)
-            if(Seperator != "  "):
+            if Seperator != "  ":
                 i += 1 << 5
 
             currentline = "\0" + chr(i) + chr(ListEveryXLines)
@@ -4032,29 +3994,29 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
         # output bytes of commands
         # Handle XML output
-        if(XMLOutput == 1):
-            currentline += "<bytes>{0}</bytes>".format(
+        if XMLOutput == 1:
+            currentline += "<bytes>{}</bytes>".format(
                 ",".join([_numbertostring(b, 8, CommandOutput, False) for b in
                           data[offset:offset + commandlength]]))
 
         # handle non-XML
         else:
             # only do if want them output
-            if(DisplayCommandBytes == 0):
+            if DisplayCommandBytes == 0:
                 currentline += ",".join(
                     [_numbertostring(b, 8, CommandOutput, False) for b in
                      data[offset:offset + commandlength]])
 
                 # now ensure opcodes line up
                 # don't need to bother if using tabs
-                if(Seperator == "  "):
+                if Seperator == "  ":
                     i = 5*FormatByteLength[CommandOutput]
                     # adjust for commas
-                    if(CommandOutput > 0):
+                    if CommandOutput > 0:
                         i += 4
                     i += k
                     i -= len(currentline)
-                    while(i >= 0):
+                    while i >= 0:
                         currentline += " "
                         i -= 1
 
@@ -4067,7 +4029,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
         # output opcode
         # Handle XML output
-        if(XMLOutput == 1):
+        if XMLOutput == 1:
             currentline += "<instruction>" + s + "</instruction>"
 
         # handle non-XML
@@ -4076,15 +4038,15 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
         # Handle XML output of stuff in comments (timing, flags,
         # undocumented commands)
-        if(XMLOutput == 1):
+        if XMLOutput == 1:
             # do comment
-            if(DisplayComments == 0 and CommentEnd != ""):
+            if DisplayComments == 0 and CommentEnd != "":
                 currentline += "<comment>" + CommentEnd + "</comment>"
 
             # do flags
             sflags = getFlagChanges(instructionData)
             # output flag states if we have them
-            if(sflags is not None):
+            if sflags is not None:
                 currentline += "<flags>" + sflags + "</flags>"
 
             # do times
@@ -4096,18 +4058,18 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             currentline += "unknown" if duration[0] == 0 else str(duration[0])
             currentline += "</cycles>"
 
-            if(states is not None):
+            if states is not None:
                 currentline += "<tstates>" + ",".join(
                     str(x) for x in states[0])
                 currentline += "</tstates>"
 
             currentline += "</timeing>"
 
-            if(duration[1] != 0):
+            if duration[1] != 0:
                 currentline += '<timeing alternate="true"><cycles>'
                 currentline += str(duration[1]) + "</cycles>"
 
-                if(states is not None):
+                if states is not None:
                     currentline += "<tstates>"
                     currentline += ",".join(str(x) for x in states[1])
                     currentline += "</tstates>"
@@ -4115,16 +4077,16 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 currentline += "</timeing>"
 
             # do undocumented comments if needed
-            if(((instructionData >> 21) & 1) == 1):
+            if ((instructionData >> 21) & 1) == 1:
                 currentline += "<undocumented/>"
 
         # if we're not doing XML and want comments, do so
-        elif(DisplayComments == 0):
+        elif DisplayComments == 0:
             precomment = ""
 
             # align any comments
             # don't need to bother if using tabs
-            if(Seperator == "  "):
+            if Seperator == "  ":
                 precomment = " " * (FormatOpCodeMaxLength[AddressOutput] if
                                     FormatOpCodeMaxLength[AddressOutput] >
                                     FormatOpCodeMaxLength[NumberOutput] else
@@ -4139,19 +4101,19 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             bNeedSpace = False
 
             # do comment
-            if(CommentEnd != ""):
+            if CommentEnd != "":
                 # output pre comment text
                 currentline += precomment
                 # note has been output
                 precomment = None
 
-                if(CommentEnd.find("\n") == -1):
+                if CommentEnd.find("\n") == -1:
                     currentline += CommentEnd
 
                 else:
                     comments = CommentEnd.split("\n")
                     currentline += comments[0]
-                    if(CommentAfter != ""):
+                    if CommentAfter != "":
                         CommentAfter = "\n" + CommentAfter
                     CommentAfter = "\n".join(comments[1:]) + CommentAfter
 
@@ -4159,35 +4121,35 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
                 bNeedSpace = True
 
             # are we listing flags?
-            if(ShowFlags > 0):
-                if(precomment):
+            if ShowFlags > 0:
+                if precomment:
                     # output pre comment text
                     currentline += precomment
                     # note has been output
                     precomment = None
 
                 # insert space if needed
-                if(bNeedSpace):
+                if bNeedSpace:
                     currentline += "  "
 
                 # get flag states for this instruction
                 sflags = getFlagChanges(instructionData)
                 # output flag states if we have them
-                if(sflags is not None):
+                if sflags is not None:
                     currentline += sflags
 
                     # mark will need space if any comment following
                     bNeedSpace = True
 
-            if(OutputTStates > 0):
-                if(precomment):
+            if OutputTStates > 0:
+                if precomment:
                     # output pre comment text
                     currentline += precomment
                     # note has been output
                     precomment = None
 
                 # insert space if needed
-                if(bNeedSpace):
+                if bNeedSpace:
                     currentline += "  "
 
                 # get times
@@ -4195,38 +4157,38 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
                 # now output timings
                 currentline += "T="
-                if((OutputTStates & 1) == 1):
-                    if(duration[0] == 0):
+                if (OutputTStates & 1) == 1:
+                    if duration[0] == 0:
                         currentline += "unknown"
                     else:
                         currentline += str(duration[0])
 
-                if((OutputTStates & 2) == 2 and states is not None):
+                if (OutputTStates & 2) == 2 and states is not None:
                     currentline += "(" + ",".join(
                         str(x) for x in states[0]) + ")"
 
-                if(duration[1] != 0):
+                if duration[1] != 0:
                     currentline += "/"
-                    if((OutputTStates & 1) == 1):
+                    if (OutputTStates & 1) == 1:
                         currentline += str(duration[1])
 
-                    if((OutputTStates & 2) == 2 and states is not None):
+                    if (OutputTStates & 2) == 2 and states is not None:
                         currentline += "(" + ",".join(
                             str(x) for x in states[1]) + ")"
 
                 bNeedSpace = True
 
             # are we noteing undocumented commands?
-            if(MarkUndocumenedCommand > 0 and
+            if (MarkUndocumenedCommand > 0 and
                ((instructionData >> 21) & 1) == 1):
-                if(precomment):
+                if precomment:
                     # output pre comment text
                     currentline += precomment
                     # note has been output
                     precomment = None
 
                 # do we need gap?
-                if(bNeedSpace):
+                if bNeedSpace:
                     currentline += "  "
 
                 # record that is undocumented
@@ -4234,13 +4196,13 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
 
         # end of line
         # Handle XML output
-        if(XMLOutput == 1):
+        if XMLOutput == 1:
             currentline += "</line>"
 
         soutput += [currentline]
 
         # handle comments after line
-        if(DisplayComments == 0 and CommentAfter != ""):
+        if DisplayComments == 0 and CommentAfter != "":
             soutput += CommentOutput(CommentAfter, XMLOutput).split('\n')
 
         # clear comments
@@ -4250,8 +4212,8 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         # do we need to have newline after command to make more
         # readable.  Only needed if not doing XML
         i = instructionData & 3
-        if(XMLOutput == 0 and BreakAfterJumps != 0 and i != 0):
-            if(BreakAfterJumps != 1 or i != 1):
+        if XMLOutput == 0 and BreakAfterJumps != 0 and i != 0:
+            if BreakAfterJumps != 1 or i != 1:
                 soutput += ['']
 
         length -= commandlength
@@ -4262,7 +4224,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         workdone += commandlength * 2
 
     # end 1st pass
-    if(XMLOutput == 1):
+    if XMLOutput == 1:
         soutput += ["</z80code>"]
     else:
         soutput += ['']
@@ -4279,15 +4241,15 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
     workdone = worktodo1 + worktodo2
 
     # search for address markers
-    while(k < lines):
+    while k < lines:
         # call progress update
-        if(progressfunction is not None):
+        if progressfunction is not None:
             progressfunction("Formatting", k, lines,
                              ((k * worktodo3) / lines) + workdone,
                              worktodo1 + worktodo2 + worktodo3)
 
         # skip lines that don't need formatting
-        if(len(soutput[k]) < 1 or soutput[k][0] != '\0'):
+        if len(soutput[k]) < 1 or soutput[k][0] != '\0':
             k += 1
             continue
 
@@ -4304,7 +4266,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         AddressOutput &= 3
 
         # if moved from data to code
-        if(lastLineInData != 0 and not bInData):
+        if lastLineInData != 0 and not bInData:
             # this will force line to be rendered
             lineCounter = ListEveryXLines
 
@@ -4318,7 +4280,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         currentAddress = int(soutput[k][3:7], 16)
 
         s = ""
-        if(LineNumberOutput == 0 or
+        if (LineNumberOutput == 0 or
            (lineCounter >= ListEveryXLines and ListEveryXLines != 0) or
            (LineNumberOutput == 2 and currentAddress in ReferencedLineNumbers)
            ):
@@ -4330,7 +4292,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
             lineCounter = 0
 
         # if space seperator mode then pad with spaces if needed
-        if(SeperatorMode == 0):
+        if SeperatorMode == 0:
             m = maxAddressLength - len(s)
             s += " " * m
 
@@ -4340,7 +4302,7 @@ def disassemble(data, offset, origin, length, SpecialInstructions=None,
         k += 1
 
     # report job done
-    if(progressfunction is not None):
+    if progressfunction is not None:
         progressfunction("Done", 100, 100, worktodo1 + worktodo2 + worktodo3,
                          worktodo1 + worktodo2 + worktodo3)
 
@@ -4353,47 +4315,47 @@ def PredefinedStartLine(Settings, Vars, datatitle):
     soutput = ""
 
     # check if any comments to be added to this data
-    if("COMMENTCONTROL" in Settings):
+    if "COMMENTCONTROL" in Settings:
         # move past any instructions that has been & gone
         dis = Settings["COMMENTCONTROL"][0]
         # get rid of passed commands
-        while(dis and Vars[0x0A] > dis[0].end):
+        while dis and Vars[0x0A] > dis[0].end:
             dis.pop(0)
         # cycle through commands for this line to find comments
         i = 0
-        while(dis and Vars[0x0A] >= dis[i].start):
+        while dis and Vars[0x0A] >= dis[i].start:
             # if is comment instruction process it
-            if(dis[i].instruction & 0xFFFF00 == 0x030000 and
+            if (dis[i].instruction & 0xFFFF00 == 0x030000 and
                dis[i].data is not None and dis[i].data != ""):
                 di = dis.pop(i)
-                if(di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
-                   "Comment Before"]):
-                    if(Settings["COMMENTCONTROL"][1] == 0):
+                if di.instruction == DisassembleInstruction.DISASSEMBLE_CODES[
+                   "Comment Before"]:
+                    if Settings["COMMENTCONTROL"][1] == 0:
                         soutput += Settings["COMMENTCONTROL"][4](
                             di.data, Settings["XMLOutput"]) + "\n"
 
                 # otherwise comnment end of this line or after
-                elif(di.instruction == 0x030002):
-                    if(Settings["COMMENTCONTROL"][3] != ""):
+                elif di.instruction == 0x030002:
+                    if Settings["COMMENTCONTROL"][3] != "":
                         Settings["COMMENTCONTROL"][3] += "\n"
                     Settings["COMMENTCONTROL"][3] += di.data
                 else:
-                    if(Settings["COMMENTCONTROL"][2] != ""):
+                    if Settings["COMMENTCONTROL"][2] != "":
                         Settings["COMMENTCONTROL"][2] += ". "
                     Settings["COMMENTCONTROL"][2] += di.data
             else:
                 i += 1
 
     # output line details
-    if(Settings["XMLOutput"] == 1):
-        if(not Settings["HadLineStart"]):
+    if Settings["XMLOutput"] == 1:
+        if not Settings["HadLineStart"]:
             soutput += "  <line>"
-        soutput += "<address>{0}</address>".format(
+        soutput += "<address>{}</address>".format(
             _numbertostring(Vars[10], 16, Settings["ADDRESSOUTPUT"], False))
-        soutput += "<instruction>{0}</instruction>".format(datatitle)
+        soutput += "<instruction>{}</instruction>".format(datatitle)
     else:
         i = Settings["ADDRESSOUTPUT"] + 4
-        if(Settings["SEPERATOR"] != "  "):
+        if Settings["SEPERATOR"] != "  ":
             i += 1 << 5
         soutput += "\0" + chr(i) + chr(Settings["DISPLAYEVERYXLINES"])
         soutput += "{0:04X}{1}{1}{2}{1}".format(Vars[10],
@@ -4417,19 +4379,19 @@ def PredefinedEndLine(Settings, Vars):
     Vars[0x0B] += 1
 
     # do comment
-    if("COMMENTCONTROL" in Settings and
+    if ("COMMENTCONTROL" in Settings and
        Settings["COMMENTCONTROL"][1] == 0 and
        Settings["COMMENTCONTROL"][2] != ""):
         # XML comments
-        if(Settings["XMLOutput"] == 1):
-            soutput += "<comment>{0}</comment>".format(
+        if Settings["XMLOutput"] == 1:
+            soutput += "<comment>{}</comment>".format(
                 Settings["COMMENTCONTROL"][2])
         # plain text comments
         else:
             # output pre comment text
             soutput += Settings["SEPERATOR"] + ';'
 
-            if(Settings["COMMENTCONTROL"][2].find("\n") == -1):
+            if Settings["COMMENTCONTROL"][2].find("\n") == -1:
                 soutput += Settings["COMMENTCONTROL"][2]
 
             else:
@@ -4438,17 +4400,17 @@ def PredefinedEndLine(Settings, Vars):
                 soutput += Settings["COMMENTCONTROL"][4](
                     "".join(comments[1:]), Settings["XMLOutput"])
 
-    if(not Settings["HadLineEnd"]):
+    if not Settings["HadLineEnd"]:
         # end of line
-        if(Settings["XMLOutput"] == 1):
+        if Settings["XMLOutput"] == 1:
             soutput += '</line>'
 
         # new line
         soutput += "\n"
 
     # handle comments after line
-    if("COMMENTCONTROL" in Settings):
-        if(Settings["COMMENTCONTROL"][1] == 0 and
+    if "COMMENTCONTROL" in Settings:
+        if (Settings["COMMENTCONTROL"][1] == 0 and
            Settings["COMMENTCONTROL"][3] != ""):
             soutput += Settings["COMMENTCONTROL"][4](
                 Settings["COMMENTCONTROL"][3],
@@ -4496,43 +4458,43 @@ Gap specifies what text you want to use between bytes in the output as
 MaxPerLine specified the maximum number of bytes output per line of data
   before moveing onto a new line."""
 
-    if(Format == 4):
+    if Format == 4:
         Format = Settings["ADDRESSOUTPUT"]
-    elif(Format == 5):
+    elif Format == 5:
         Format = Settings["NUMBEROUTPUT"]
-    elif(Format == 6):
+    elif Format == 6:
         Format = Settings["COMMANDOUTPUT"]
     dataformat = FormatIdentifyer if isinstance(FormatIdentifyer, str) else \
         (("#", "", "o", "b")[Format] if FormatIdentifyer else "")
-    dataformat += ("{0:02X}", "{0}", "{0:03o}", "{0:08b}")[Format]
+    dataformat += ("{:02X}", "{}", "{:03o}", "{:08b}")[Format]
 
     soutput = ""
 
     # look until have passed end point
-    while(Vars[0x0A] <= Vars[0x0E]):
+    while Vars[0x0A] <= Vars[0x0E]:
         # output line details
         soutput += PredefinedStartLine(Settings, Vars,
                                        "SB" if Signed else "DB")
 
         # loop until run out of data area or hit max line length
         Vars[0x0C] = 0
-        while(Vars[0x0A] + Vars[0x0C] <= Vars[0x0E] and
-              Vars[0x0C] < MaxPerLine):
-            if(Settings["XMLOutput"] == 1):
+        while Vars[0x0A] + Vars[0x0C] <= Vars[0x0E] and \
+              Vars[0x0C] < MaxPerLine:
+            if Settings["XMLOutput"] == 1:
                 soutput += "<data>"
-            elif(GapFrequency > 0 and Vars[0x0C] > 0 and
+            elif (GapFrequency > 0 and Vars[0x0C] > 0 and
                  Vars[0x0C] % GapFrequency == 0):
                 soutput += Gap
 
             # get value to output
             n = data[Vars[0x0A] + Vars[0x0C] - Settings["ORIGIN"]]
             # handle negative
-            if(Signed and n > 127):
+            if Signed and n > 127:
                 soutput += "-"
                 n = 256 - n
             # output value
             soutput += dataformat.format(n)
-            if(Settings["XMLOutput"] == 1):
+            if Settings["XMLOutput"] == 1:
                 soutput += "</data>"
             Vars[0x0C] += 1
 
@@ -4574,32 +4536,32 @@ Gap specifies what text you want to use between words in the output as
 MaxPerLine specified the maximum number of words output per line of data
   before moveing onto a new line."""
 
-    if(Format == 4):
+    if Format == 4:
         Format = Settings["ADDRESSOUTPUT"]
-    elif(Format == 5):
+    elif Format == 5:
         Format = Settings["NUMBEROUTPUT"]
-    elif(Format == 6):
+    elif Format == 6:
         Format = Settings["COMMANDOUTPUT"]
     dataformat = FormatIdentifyer if isinstance(FormatIdentifyer, str) else \
         (("#", "", "o", "b")[Format] if FormatIdentifyer else "")
-    dataformat += ("{0:04X}", "{0}", "{0:06o}", "{0:016b}")[Format]
-    datatitle = "{0}{1}".format("SW" if Signed else "DW",
+    dataformat += ("{:04X}", "{}", "{:06o}", "{:016b}")[Format]
+    datatitle = "{}{}".format("SW" if Signed else "DW",
                                 "" if LittleEndian else "BE")
 
     soutput = ""
 
     # look until have passed end point
-    while(Vars[0x0A] <= Vars[0x0E]):
+    while Vars[0x0A] <= Vars[0x0E]:
         # output line details
         soutput += PredefinedStartLine(Settings, Vars, datatitle)
 
         # loop until run out of data area or hit max line length
         Vars[0x0C] = 0
-        while(Vars[0x0A] + Vars[0x0C] <= Vars[0x0E] and
-              Vars[0x0C] < (MaxPerLine * 2)):
-            if(Settings["XMLOutput"] == 1):
+        while Vars[0x0A] + Vars[0x0C] <= Vars[0x0E] and \
+              Vars[0x0C] < (MaxPerLine * 2):
+            if Settings["XMLOutput"] == 1:
                 soutput += "<data>"
-            elif(GapFrequency > 0 and Vars[0x0C] > 0 and
+            elif (GapFrequency > 0 and Vars[0x0C] > 0 and
                  Vars[0x0C] % (GapFrequency * 2) == 0):
                 soutput += Gap
 
@@ -4608,12 +4570,12 @@ MaxPerLine specified the maximum number of words output per line of data
             n = (data[n] + 256 * data[n + 1]) if LittleEndian else \
                 (data[n + 1] + 256 * data[n])
             # handle negative
-            if(Signed and n > 0x7FFF):
+            if Signed and n > 0x7FFF:
                 soutput += "-"
                 n = 65536 - n
             # output value
             soutput += dataformat.format(n)
-            if(Settings["XMLOutput"] == 1):
+            if Settings["XMLOutput"] == 1:
                 soutput += "</data>"
             Vars[0x0C] += 2
 
@@ -4657,8 +4619,8 @@ Noncharoutofquotes defines if you want non characters (ie control codes,
                "DMLB": "DMLB", "LB": "DMLB",
                "DMLW": "DMLW", "LW": "DMLW",
                "DMLWBE": "DMLWBE", "LWBE": "DMLWBE", "BE": "DMLWBE"}
-    if(DataType not in endings):
-        raise SpectrumTranslateError("{0} not a recognised Word format".format(
+    if DataType not in endings:
+        raise SpectrumTranslateError("{} not a recognised Word format".format(
             DataType))
     datatitle = endings[DataType]
 
@@ -4666,42 +4628,42 @@ Noncharoutofquotes defines if you want non characters (ie control codes,
     maxaddress = len(data) + Settings["ORIGIN"] - 1
 
     # look until have passed end point
-    while(Vars[0x0A] <= Vars[0x0E]):
+    while Vars[0x0A] <= Vars[0x0E]:
         # output line details
         soutput += PredefinedStartLine(Settings, Vars, datatitle)
         Vars[0x0C] = 0
         # get last char of string
-        if(datatitle == "DM"):
+        if datatitle == "DM":
             end = Vars[0x0E]
-        elif(datatitle == "DM0"):
+        elif datatitle == "DM0":
             bytesaftercontrol = -1
             end = Vars[0x0A]
-            while(end < maxaddress and (data[end - Settings["ORIGIN"]] != 0 or
-                  bytesaftercontrol > 0)):
+            while end < maxaddress and (data[end - Settings["ORIGIN"]] != 0 or
+                  bytesaftercontrol > 0):
                 bytesaftercontrol -= 1
                 d = data[end - Settings["ORIGIN"]]
                 end += 1
-                if(d >= 16 and d <= 21):
+                if d >= 16 and d <= 21:
                     bytesaftercontrol = 1
-                elif(d == 22):
+                elif d == 22:
                     bytesaftercontrol = 2
-        elif(datatitle == "DM7"):
+        elif datatitle == "DM7":
             bytesaftercontrol = -1
             end = Vars[0x0A]
-            while(end < maxaddress and (data[end - Settings["ORIGIN"]] < 128 or
-                  bytesaftercontrol > 0)):
+            while end < maxaddress and (data[end - Settings["ORIGIN"]] < 128 or
+                  bytesaftercontrol > 0):
                 bytesaftercontrol -= 1
                 d = data[end - Settings["ORIGIN"]]
                 end += 1
-                if(d >= 16 and d <= 21):
+                if d >= 16 and d <= 21:
                     bytesaftercontrol = 1
-                elif(d == 22):
+                elif d == 22:
                     bytesaftercontrol = 2
-        elif(datatitle == "DMLB"):
+        elif datatitle == "DMLB":
             length = data[Vars[0x0A] - Settings["ORIGIN"]]
             end = min(maxaddress, Vars[0x0A] + length)
             Vars[0x0C] = 1
-        elif(datatitle == "DMLW"):
+        elif datatitle == "DMLW":
             length = data[Vars[0x0A] - Settings["ORIGIN"]] + \
                      256 * data[Vars[0x0A] - Settings["ORIGIN"] + 1]
             end = min(maxaddress, Vars[0x0A] + length + 1)
@@ -4712,50 +4674,50 @@ Noncharoutofquotes defines if you want non characters (ie control codes,
             end = min(maxaddress, Vars[0x0A] + length + 1)
             Vars[0x0C] = 2
 
-        if(Settings["XMLOutput"] == 1):
+        if Settings["XMLOutput"] == 1:
             soutput += "<data>"
         # loop until run out of data area or hit max line length
         bytesaftercontrol = 0
         inquotes = False
         startoffset = Vars[0x0C]
-        while(Vars[0x0A] + Vars[0x0C] <= end):
+        while Vars[0x0A] + Vars[0x0C] <= end:
             n = data[Vars[0x0A] + Vars[0x0C] - Settings["ORIGIN"]]
             c = getspectrumchar(n, Settings["HexForNonASCII"])
             # force bytes after control character to be number not char
             # also bytes>127 in bit 7 mode
-            if(bytesaftercontrol > 0 or (datatitle == "DM7" and n > 127)):
-                c = "^{0:02X}".format(n)
+            if bytesaftercontrol > 0 or (datatitle == "DM7" and n > 127):
+                c = "^{:02X}".format(n)
             bytesaftercontrol -= 1
             # handle numbers outside quotes
-            if(c[0] == '^' and Noncharoutofquotes):
-                if(inquotes):
+            if c[0] == '^' and Noncharoutofquotes:
+                if inquotes:
                     soutput += '"'
                     inquotes = False
-                soutput += "{0}0x{1:02X}".format(
+                soutput += "{}0x{:02X}".format(
                     "" if Vars[0x0C] == startoffset else ",", n)
             else:
                 # print enter quotes if needed
-                if(not inquotes):
-                    if(Vars[0x0C] > startoffset):
+                if not inquotes:
+                    if Vars[0x0C] > startoffset:
                         soutput += ','
                     soutput += '"'
                     inquotes = True
                 soutput += c
 
             # if is control code, work out how many bytes follow
-            if(n >= 16 and n <= 21):
+            if n >= 16 and n <= 21:
                 bytesaftercontrol = 1
-            elif(n == 22):
+            elif n == 22:
                 bytesaftercontrol = 2
 
             # move to next char
             Vars[0x0C] += 1
 
         # close quotes if needed
-        if(inquotes):
+        if inquotes:
             soutput += '"'
 
-        if(Settings["XMLOutput"] == 1):
+        if Settings["XMLOutput"] == 1:
             soutput += "</data>"
         # end of line
         soutput += PredefinedEndLine(Settings, Vars)
@@ -4770,7 +4732,7 @@ def _PredefinedFindPattern(data, Settings, Vars, *args):
 bytes. After the basic data, just supp;y the vlues to search for in
 order."""
     arglen = len(args)
-    if(arglen == 0):
+    if arglen == 0:
         raise SpectrumTranslateError("No bytes to match")
 
     matches = []
@@ -4779,9 +4741,9 @@ order."""
     l = len(data)
     # convert args to a bytearray so can be matched
     args = bytearray(args)
-    while(pos <= Vars[0x0E] and pos - origin < l):
+    while pos <= Vars[0x0E] and pos - origin < l:
         n = pos - origin
-        if(data[n:n + arglen] == args):
+        if data[n:n + arglen] == args:
             matches += [pos]
         pos += 1
 
@@ -5825,18 +5787,18 @@ DEFB               %#output instuction (DEFB or Define Byte)
 
         # if constructor arg is another DisassembleInstruction then make
         # a copy
-        if(isinstance(arg, DisassembleInstruction)):
+        if isinstance(arg, DisassembleInstruction):
             data = None if arg.data is None else str(arg.data)
             end = arg.end
             start = arg.start
             arg = arg.instruction
 
         # if argument is string for instruction type then get code
-        if(arg in DisassembleInstruction.DISASSEMBLE_CODES):
+        if arg in DisassembleInstruction.DISASSEMBLE_CODES:
             arg = DisassembleInstruction.DISASSEMBLE_CODES[arg]
 
         # if constructor arg is a string then unpack the contained data
-        if(isinstance(arg, str)):
+        if isinstance(arg, str):
             # break data into components
             parts = arg.split("#", 4)
             arg = int(parts[0], 16)
@@ -5844,7 +5806,7 @@ DEFB               %#output instuction (DEFB or Define Byte)
             end = int(parts[2], 16)
             data = parts[4] if len(parts) == 5 else None
             # handle multiline data
-            if(len(parts[3]) > 0):
+            if len(parts[3]) > 0:
                 # re-insert newline characters
                 for pos in parts[3].split(','):
                     pos = int(pos, 16)
@@ -5876,22 +5838,20 @@ DEFB               %#output instuction (DEFB or Define Byte)
         new DisassembleInstruction
         """
 
-        if(self.data is None or self.data == ''):
+        if self.data is None or self.data == '':
             return "{0.instruction:X}#{0.start:X}#{0.end:X}#".format(self)
 
         return "{0.instruction:X}#{0.start:X}#{0.end:X}#{1}#{2}".format(
             self,
-            ','.join(["{0:X}".format(i) for i, c in enumerate(self.data) if
+            ','.join(["{:X}".format(i) for i, c in enumerate(self.data) if
                       c == '\n']),
             self.data.replace('\n', ''))
 
-    # for python 3, need lt to sort
-    if(sys.hexversion > 0x03000000):
-        def __lt__(self, other):
-            # defined so can sort by starting address
-            if(self.start == other.start):
-                return self.end.__lt__(other.end)
-            return self.start.__lt__(other.start)
+    def __lt__(self, other):
+        # defined so can sort by starting address
+        if self.start == other.start:
+            return self.end.__lt__(other.end)
+        return self.start.__lt__(other.start)
 
     def disassembledatablock(self, Settings, data):
         """This method will disassemble the given data according to the
@@ -5912,33 +5872,33 @@ DEFB               %#output instuction (DEFB or Define Byte)
         soutput = ""
 
         # loop through commandline block
-        while(Vars[0x0A] <= Vars[0x0E]):
+        while Vars[0x0A] <= Vars[0x0E]:
             # check if any comments to be added to this data
-            if("COMMENTCONTROL" in Settings):
+            if "COMMENTCONTROL" in Settings:
                 # move past any instructions that has been & gone
                 dis = Settings["COMMENTCONTROL"][0]
-                while(dis and Vars[0x0A] > dis[0].end):
+                while dis and Vars[0x0A] > dis[0].end:
                     dis.pop(0)
                 # if is comment instruction process it
-                if(dis and
+                if (dis and
                    Vars[0x0A] >= dis[0].start and
                    dis[0].instruction & 0xFFFF00 == 0x030000 and
                    dis[0].data is not None and dis[0].data != ""):
                     di = dis.pop(0)
-                    if(di.instruction == self.DISASSEMBLE_CODES[
-                       "Comment Before"]):
-                        if(Settings["COMMENTCONTROL"][1] == 0):
+                    if di.instruction == self.DISASSEMBLE_CODES[
+                       "Comment Before"]:
+                        if Settings["COMMENTCONTROL"][1] == 0:
                             soutput += Settings["COMMENTCONTROL"][4](
                                 di.data, Settings["XMLOutput"]) + "\n"
 
                         continue
                     # otherwise comnment end of this line or after
-                    if(di.instruction == 0x030002):
-                        if(Settings["COMMENTCONTROL"][3] != ""):
+                    if di.instruction == 0x030002:
+                        if Settings["COMMENTCONTROL"][3] != "":
                             Settings["COMMENTCONTROL"][3] += "\n"
                         Settings["COMMENTCONTROL"][3] += di.data
                     else:
-                        if(Settings["COMMENTCONTROL"][2] != ""):
+                        if Settings["COMMENTCONTROL"][2] != "":
                             Settings["COMMENTCONTROL"][2] += ". "
                         Settings["COMMENTCONTROL"][2] += di.data
 
@@ -5951,12 +5911,12 @@ DEFB               %#output instuction (DEFB or Define Byte)
             Settings["DATASTRINGPOS"] = 0
 
             # output start line if needed
-            if(Settings["XMLOutput"] == 1):
+            if Settings["XMLOutput"] == 1:
                 soutput += '  <line>'
             Settings["HadLineStart"] = True
             Settings["HadLineEnd"] = False
 
-            while(Settings["DATASTRINGPOS"] < len(self.data)):
+            while Settings["DATASTRINGPOS"] < len(self.data):
                 # make note of where command starts in case we have
                 # error
                 commandstart = Settings["DATASTRINGPOS"]
@@ -5964,11 +5924,11 @@ DEFB               %#output instuction (DEFB or Define Byte)
                 # get next char
                 s = _getnextcharacters(self.data, Settings, 1)
 
-                if(s == ""):
+                if s == "":
                     break
 
                 # deal with non-control characters first
-                if(s[0] != '%'):
+                if s[0] != '%':
                     soutput += getspectrumchar(s[0],
                                                Settings["HexForNonASCII"])
                     continue
@@ -5994,41 +5954,41 @@ DEFB               %#output instuction (DEFB or Define Byte)
             Vars[0x0B] += 1
 
             # do comment
-            if("COMMENTCONTROL" in Settings and
+            if ("COMMENTCONTROL" in Settings and
                Settings["COMMENTCONTROL"][1] == 0 and
                Settings["COMMENTCONTROL"][2] != ""):
                 # XML comments
-                if(Settings["XMLOutput"] == 1):
-                    soutput += "<comment>{0}</comment>".format(
+                if Settings["XMLOutput"] == 1:
+                    soutput += "<comment>{}</comment>".format(
                         Settings["COMMENTCONTROL"][2])
                 # plain text comments
                 else:
                     # output pre comment text
                     soutput += Settings["SEPERATOR"] + ';'
 
-                    if(Settings["COMMENTCONTROL"][2].find("\n") == -1):
+                    if Settings["COMMENTCONTROL"][2].find("\n") == -1:
                         soutput += Settings["COMMENTCONTROL"][2]
 
                     else:
                         comments = Settings["COMMENTCONTROL"][2].split("\n")
                         soutput += comments[0]
-                        if(Settings["COMMENTCONTROL"][3] != ""):
+                        if Settings["COMMENTCONTROL"][3] != "":
                             Settings["COMMENTCONTROL"][3] = "\n" +\
                                 Settings["COMMENTCONTROL"][3]
                         Settings["COMMENTCONTROL"][3] = "\n".join(
                             comments[1:]) + Settings["COMMENTCONTROL"][3]
 
-            if(not Settings["HadLineEnd"]):
+            if not Settings["HadLineEnd"]:
                 # output end start line if needed
-                if(Settings["XMLOutput"] == 1):
+                if Settings["XMLOutput"] == 1:
                     soutput += '</line>'
 
                 # new line
                 soutput += "\n"
 
             # handle comments after line
-            if("COMMENTCONTROL" in Settings):
-                if(Settings["COMMENTCONTROL"][1] == 0 and
+            if "COMMENTCONTROL" in Settings:
+                if (Settings["COMMENTCONTROL"][1] == 0 and
                    Settings["COMMENTCONTROL"][3] != ""):
                     soutput += Settings["COMMENTCONTROL"][4](
                         Settings["COMMENTCONTROL"][3],
@@ -6055,7 +6015,7 @@ def isfindandcomment(instructions):
     test, prep, action = getpartsofpatterndatablock(instructions)
 
     # must have a test area and must contain %;
-    if(not test or test.find("%;") == -1):
+    if not test or test.find("%;") == -1:
         return False
 
     return True
@@ -6066,23 +6026,23 @@ def _numbertostring(n, bits, form, typeindicator=True):
     typeindictor specifies display type specifer before number: "" for
     decimal, "#" for hex, "b" for binary, "o" for octal.
     """
-    if(form == 0):
+    if form == 0:
         # hex
-        return ("{0}{1:0" + str(bits >> 2) + "X}").format(
+        return ("{}{:0" + str(bits >> 2) + "X}").format(
             "#" if typeindicator else "", n)
 
-    elif(form == 1):
+    elif form == 1:
         # decimal
-        return "{0}".format(n)
+        return "{}".format(n)
 
-    elif(form == 2):
+    elif form == 2:
         # octal
-        return ("{0}{1:0" + str((bits + 2)//3) + "o}").format(
+        return ("{}{:0" + str((bits + 2)//3) + "o}").format(
             "o" if typeindicator else "", n)
 
-    elif(form == 3):
+    elif form == 3:
         # binary
-        return ("{0}{1:0" + str(bits) + "b}").format(
+        return ("{}{:0" + str(bits) + "b}").format(
             "b" if typeindicator else "", n)
 
     else:
@@ -6098,27 +6058,27 @@ def _getnextcharacters(instructions, Settings, numberToGet):
 
     # loop until have requested number of non whitespace characters or
     # hit end of commands
-    while(len(s) < numberToGet and
-          Settings["DATASTRINGPOS"] < len(instructions)):
+    while len(s) < numberToGet and \
+          Settings["DATASTRINGPOS"] < len(instructions):
         c = instructions[Settings["DATASTRINGPOS"]]
 
         # if found comment, move to end of line
-        if(c == '%' and len(instructions) > Settings["DATASTRINGPOS"] + 1 and
+        if (c == '%' and len(instructions) > Settings["DATASTRINGPOS"] + 1 and
            instructions[Settings["DATASTRINGPOS"] + 1] == "#"):
             # check just incase have %%# which is display %#
             escapes = 1
             # see how far back escapes go back
-            while(escapes > Settings["DATASTRINGPOS"] and
-                  instructions[Settings["DATASTRINGPOS"]-escapes] == "%"):
+            while escapes > Settings["DATASTRINGPOS"] and \
+                  instructions[Settings["DATASTRINGPOS"]-escapes] == "%":
                 escapes += 1
 
             # should have an odd number of escapes if this a comment
-            if(escapes & 1 == 1):
+            if escapes & 1 == 1:
                 # move position to new line character
                 Settings["DATASTRINGPOS"] = instructions.find(
                     "\n", Settings["DATASTRINGPOS"])
                 # if newline not found,
-                if(Settings["DATASTRINGPOS"] == -1):
+                if Settings["DATASTRINGPOS"] == -1:
                     # set to end of line
                     Settings["DATASTRINGPOS"] = len(instructions)
 
@@ -6127,7 +6087,7 @@ def _getnextcharacters(instructions, Settings, numberToGet):
 
             # otherwise is a hash to display
 
-        if(c != ' ' and c != '\t' and c != '\n'):
+        if c != ' ' and c != '\t' and c != '\n':
             s += c
         Settings["DATASTRINGPOS"] += 1
 
@@ -6139,30 +6099,30 @@ def _movetoblockend(instructions, Vars, Settings, commandstart):
 
     # for each line go through commands instructions character by
     # chracter
-    while(Settings["DATASTRINGPOS"] < len(instructions)):
+    while Settings["DATASTRINGPOS"] < len(instructions):
         # get next char
         s = _getnextcharacters(instructions, Settings, 1)
 
-        if(s == ""):
+        if s == "":
             break
 
         # skip non-control characters first
-        if(s != "%"):
+        if s != "%":
             continue
 
         # get next char
         s = _getnextcharacters(instructions, Settings, 1)
 
-        if(s == ""):
+        if s == "":
             break
 
         # what command is it?
-        if(s[0] == "("):
+        if s[0] == "(":
             # move to end of nested block
             _movetoblockend(instructions, Vars, Settings, commandstart)
 
         # return if found end of block
-        elif(s[0] == ')'):
+        elif s[0] == ')':
             return
 
         # otherwise skip command
@@ -6185,8 +6145,8 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
     # nested functions needed by _processcommandblock
     def inc_var_if_needed(var_num, Vars, inc_amount):
         """increment variable if apropriate"""
-        if((var_num & 0x40) == 0 and ((var_num & 0x3F) < 0x0A or
-           (var_num & 0x3F) == 0x0C or (var_num & 0x3F) == 0x0F)):
+        if ((var_num & 0x40) == 0 and ((var_num & 0x3F) < 0x0A or
+           (var_num & 0x3F) in [0x0C, 0x0F])):
             Vars[0x0C if ((var_num & 0x3F) == 0x0F) else
                  var_num & 0x3F] += inc_amount
 
@@ -6200,20 +6160,20 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
         # get next char
         s = _getnextcharacters(instructions, Settings, 1)
 
-        if(s == ""):
+        if s == "":
             raise _newSpectrumTranslateError(
                 Vars[0x0A], commandstart, instructions,
                 "Invalid variable or number definition")
 
         # first check if is a number
-        if(s[0] != "%"):
+        if s[0] != "%":
             # restore pointer to where it was
             Settings["DATASTRINGPOS"] = pos
 
             # extract number
             i = int(_getnextcharacters(instructions, Settings, 4), 16)
             # deal with error
-            if(i < 0):
+            if i < 0:
                 raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "number must be 4 digit hexadecimal number")
@@ -6223,11 +6183,11 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
         # get next char
         s = _getnextcharacters(instructions, Settings, 1)
 
-        if(s[0] == "V"):
+        if s[0] == "V":
             # get variable number
             i = int(_getnextcharacters(instructions, Settings, 2), 16)
             # deal with invalid variable number
-            if(i < 0 or i > 0x0F):
+            if i < 0 or i > 0x0F:
                 raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions, "invalid variable")
 
@@ -6235,7 +6195,7 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
             return Vars[0x0A] + Vars[0x0C] if (i == 0x0F) else Vars[i]
 
         # should now be 'M', handle if not
-        if(s[0] != "M"):
+        if s[0] != "M":
             raise _newSpectrumTranslateError(
                 Vars[0x0A], commandstart, instructions,
                 "argument must be number, variable, or memory content")
@@ -6246,7 +6206,7 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
         s = _getnextcharacters(instructions, Settings, 1)
 
         # if next char is 'W' then need to get 2 bytes
-        if(s[0] == "W"):
+        if s[0] == "W":
             # make note we need word not byte
             getByte = False
 
@@ -6258,11 +6218,11 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
         # now get into i address of where to extract data from
 
         # if next char is 'V' then variable pointing to memory address
-        if(s[0] == "V"):
+        if s[0] == "V":
             # get variable number
             i = int(_getnextcharacters(instructions, Settings, 2), 16)
             # deal with invalid variable number
-            if(i < 0 or i > 0x0F):
+            if i < 0 or i > 0x0F:
                 raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "invalid variable number for memory address")
@@ -6279,7 +6239,7 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
             # extract number
             i = int(_getnextcharacters(instructions, Settings, 4), 16)
             # deal with error
-            if(i < 0):
+            if i < 0:
                 raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "should be 4 digit hexadecimal number for memory address")
@@ -6287,7 +6247,7 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
         # now have address we need to extract in i, and if we want byte
         # or not in getByte
         # deal with byte
-        if(getByte):
+        if getByte:
             return data[i-Settings["ORIGIN"]]
 
         # deal with word taking into account endedness of number we want
@@ -6296,11 +6256,11 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
                      1-Settings["NUMBERWORDORDER"]]
 
     def combineresults(mode, a, b):
-        if(mode == 0):
+        if mode == 0:
             return a and b
-        if(mode == 1):
+        if mode == 1:
             return a or b
-        if(mode == 2):
+        if mode == 2:
             return a ^ b
 
     # end of _processcommandblock's nested functions
@@ -6311,23 +6271,23 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
 
     # for each line go through commands instructions character by
     # character
-    while(Settings["DATASTRINGPOS"] < len(instructions)):
+    while Settings["DATASTRINGPOS"] < len(instructions):
         # make note of where command starts in case we have error
         commandstart = Settings["DATASTRINGPOS"]
 
         # get next char
         s = _getnextcharacters(instructions, Settings, 1)
 
-        if(s == ""):
+        if s == "":
             break
 
         # deal with non-control characters first
-        if(s[0] != '%'):
+        if s[0] != '%':
             soutput += getspectrumchar(s[0], Settings["HexForNonASCII"])
             continue
 
         # space after % will get missed by _getnextcharacters so handle
-        if(instructions[Settings["DATASTRINGPOS"]] == ' '):  # output space
+        if instructions[Settings["DATASTRINGPOS"]] == ' ':  # output space
             soutput += ' '
             continue
 
@@ -6335,46 +6295,46 @@ def _processcommandblock(instructions, Vars, Settings, data, inBrackets,
         s = _getnextcharacters(instructions, Settings, 1)
 
         # what command is it?
-        if(s[0] == 'F'):  # //format settings
+        if s[0] == 'F':  # //format settings
             # get sub command & which format
             i = int(_getnextcharacters(instructions, Settings, 4), 16)
-            if((i >> 8) == 0):  # format hex/decimal/octal/binary
-                if((i & 0xFF) > 6):
+            if (i >> 8) == 0:  # format hex/decimal/octal/binary
+                if (i & 0xFF) > 6:
                     raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "Number format argument must be 0 to 6")
 
-                if((i & 0xFF) == 4):
+                if (i & 0xFF) == 4:
                     Settings["NUMBERFORMAT"] = Settings["ADDRESSOUTPUT"]
 
-                elif((i & 0xFF) == 5):
+                elif (i & 0xFF) == 5:
                     Settings["NUMBERFORMAT"] = Settings["NUMBEROUTPUT"]
 
-                elif((i & 0xFF) == 6):
+                elif (i & 0xFF) == 6:
                     Settings["NUMBERFORMAT"] = Settings["COMMANDOUTPUT"]
 
                 else:
                     Settings["NUMBERFORMAT"] = i & 0xFF
 
-            elif((i >> 8) == 1):  # number unsigned/signed
-                if((i & 0xFF) > 1):
+            elif (i >> 8) == 1:  # number unsigned/signed
+                if (i & 0xFF) > 1:
                     raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "Number sign argument must be 0 or 1")
 
                 Settings["NUMBERSIGNED"] = i & 0xFF
 
-            elif((i >> 8) == 2):  # word mode little/big endian
-                if((i & 0xFF) > 1):
+            elif (i >> 8) == 2:  # word mode little/big endian
+                if (i & 0xFF) > 1:
                     raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "Word endedness argument must be 0 or 1")
 
                 Settings["NUMBERWORDORDER"] = i & 0xFF
 
-            elif((i >> 8) == 3):  # display line address every X line
+            elif (i >> 8) == 3:  # display line address every X line
                 k = int(_getnextcharacters(instructions, Settings, 2), 16)
-                if(k < 0 or k > 255):
+                if k < 0 or k > 255:
                     raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "Display line address every X line argument must be 2 \
@@ -6382,29 +6342,29 @@ digit hexadecimal number")
 
                 Settings["DISPLAYEVERYXLINES"] = k + ((i & 0xFF) << 8)
 
-            elif((i >> 8) == 4):  # separator to space/tab/default
-                if((i & 0xFF) > 2):
+            elif (i >> 8) == 4:  # separator to space/tab/default
+                if (i & 0xFF) > 2:
                     raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "Seperator setting argument must be 0 to 2")
 
-                if((i & 0xFF) == 0):
+                if (i & 0xFF) == 0:
                     Settings["SEPERATOR"] = "  "
 
-                elif((i & 0xFF) == 1):
+                elif (i & 0xFF) == 1:
                     Settings["SEPERATOR"] = "\t"
 
                 else:
                     Settings["SEPERATOR"] = Settings["ORIGIONALSEPERATOR"]
 
-            elif((i >> 8) == 5):  # blank line after data default/always/never
-                if((i & 0xFF) > 2):
+            elif (i >> 8) == 5:  # blank line after data default/always/never
+                if (i & 0xFF) > 2:
                     raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "line after data setting argument must be 0 to 2")
 
-                if((i & 0xFF) == 0):
-                    if("LINEAFTERDATA" in Settings):
+                if (i & 0xFF) == 0:
+                    if "LINEAFTERDATA" in Settings:
                         del Settings["LINEAFTERDATA"]
                 else:
                     Settings["LINEAFTERDATA"] = (i & 0xFF) == 1
@@ -6414,25 +6374,25 @@ digit hexadecimal number")
                     Vars[0x0A], commandstart, instructions,
                     "unrecognised format setting")
 
-        elif(s[0] == '!'):  # process predefined routine
+        elif s[0] == '!':  # process predefined routine
                 raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "Predefined routines not allowed inside instructions. Use \
 predefined Functions instead.")
 
-        elif(s[0] == 'P'):  # process predefined function
+        elif s[0] == 'P':  # process predefined function
             # get details of command and it's arguments
             details = _ProcessFunctionDetails(
                 instructions[Settings["DATASTRINGPOS"]:])
-            if(isinstance(details, str)):
+            if isinstance(details, str):
                 raise _newSpectrumTranslateError(Vars[0x0A], commandstart,
                                                  instructions, details)
 
             # check is valid command
-            if(details[0] not in DisassembleInstruction.PredefinedFunctions):
+            if details[0] not in DisassembleInstruction.PredefinedFunctions:
                 raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
-                    'function "{0}" not defined'.format(details[0]))
+                    'function "{}" not defined'.format(details[0]))
 
             # process function and combine result
             args = [data, Settings, Vars] + details[1]
@@ -6440,27 +6400,27 @@ predefined Functions instead.")
             result = DisassembleInstruction.PredefinedFunctions[details[0]](
                 *args, **keyargs)
             # extract text and logic from result
-            if(isinstance(result, (str, (_unistr, str)))):
+            if isinstance(result, str):
                 txt = result
                 logic = None
-            elif(isinstance(result, (bool, int))):
+            elif isinstance(result, (bool, int)):
                 txt = None
                 logic = result
-            elif(isinstance(result, (list, tuple)) and len(result) > 1 and
-                 isinstance(result[1], (str, (_unistr, str))) and
+            elif (_isarray(result) and len(result) > 1 and
+                 isinstance(result[1], str) and
                  isinstance(result[0], (bool, int))):
                 txt = result[1]
                 logic = result[0]
-            elif(isinstance(result, (list, tuple)) and len(result) > 1 and
-                 isinstance(result[0], (str, (_unistr, str))) and
+            elif (_isarray(result) and len(result) > 1 and
+                 isinstance(result[0], str) and
                  isinstance(result[1], (bool, int))):
                 txt = result[0]
                 logic = result[1]
-            elif(isinstance(result, (list, tuple)) and len(result) > 0 and
-                 isinstance(result[0], (str, (_unistr, str)))):
+            elif (_isarray(result) and len(result) > 0 and
+                 isinstance(result[0], str)):
                 txt = result[0]
                 logic = None
-            elif(isinstance(result, (list, tuple)) and len(result) > 0 and
+            elif (_isarray(result) and len(result) > 0 and
                  isinstance(result[0], (bool, int))):
                 txt = None
                 logic = result[0]
@@ -6472,33 +6432,33 @@ predefined Functions instead.")
             Settings["DATASTRINGPOS"] += details[3]
 
             # process text and logic
-            if(txt):
+            if txt:
                 soutput += txt
-            if(logic is not None and isinstance(logic, bool)):
+            if logic is not None and isinstance(logic, bool):
                 boolState = combineresults(boolMode, boolState, logic)
-            elif(logic is not None and isinstance(logic, int)):
+            elif logic is not None and isinstance(logic, int):
                 boolState = combineresults(boolMode, boolState,
                                            (logic & 1) == 1)
             # if break or continue, leave, this will be False for bool
-            if(isinstance(logic, int) and logic & 6 != 0):
+            if isinstance(logic, int) and logic & 6 != 0:
                 # leave block
                 return (logic & 6) + (1 if boolState else 0), soutput
 
-        elif(s[0] == 'B'):  # ouput byte
+        elif s[0] == 'B':  # ouput byte
             # get info
             i = int(_getnextcharacters(instructions, Settings, 2), 16)
-            if((i & 0x3F) == 0x3F):  # dealing with addresses
+            if (i & 0x3F) == 0x3F:  # dealing with addresses
                 # get address
                 k = int(_getnextcharacters(instructions, Settings, 4), 16)
                 # getbyte at address, adjust for offset
                 k = data[k-Settings["ORIGIN"]]
 
-            elif((i & 0x3F) < 0x10):
+            elif (i & 0x3F) < 0x10:
                 # get variable content
                 k = Vars[0x0A] + \
                     Vars[0x0C] if ((i & 0x3F) == 0x0F) else Vars[i & 0x3F]
                 # get content of memory address if this is a reference
-                if((i & 0x80) == 0):
+                if (i & 0x80) == 0:
                     k = data[k-Settings["ORIGIN"]]
                 # increment if apropriate
                 inc_var_if_needed(i, Vars, 1)
@@ -6509,17 +6469,17 @@ predefined Functions instead.")
                     "invalid byte output argument")
 
             # handle negative number if signed and not an address
-            if(Settings["NUMBERSIGNED"] == 1 and (i & 0x80) == 0x80):
+            if Settings["NUMBERSIGNED"] == 1 and (i & 0x80) == 0x80:
                 k = 0x100-k
                 soutput += "-"
 
             # output byte
             soutput += _numbertostring(k, 8, Settings["NUMBERFORMAT"], False)
 
-        elif(s[0] == 'W'):  # output word
+        elif s[0] == 'W':  # output word
             # get info
             i = int(_getnextcharacters(instructions, Settings, 2), 16)
-            if((i & 0x3F) == 0x3F):  # dealing with addresses
+            if (i & 0x3F) == 0x3F:  # dealing with addresses
                 # get address
                 k = int(_getnextcharacters(instructions, Settings, 4), 16)
                 # getbyte, adjust for offset
@@ -6528,12 +6488,12 @@ predefined Functions instead.")
                     256*data[k-Settings["ORIGIN"] +
                              1-Settings["NUMBERWORDORDER"]]
 
-            elif((i & 0x3F) < 0x10):
+            elif (i & 0x3F) < 0x10:
                 # get variable content
                 k = Vars[0x0A] + \
                     Vars[0x0C] if ((i & 0x3F) == 0x0F) else Vars[i & 0x3F]
                 # get content of memory address if this is a reference
-                if((i & 0x80) == 0):
+                if (i & 0x80) == 0:
                     k = data[k-Settings["ORIGIN"] +
                              Settings["NUMBERWORDORDER"]] + \
                         256*data[k-Settings["ORIGIN"] +
@@ -6548,20 +6508,20 @@ predefined Functions instead.")
                     "invalid number output argument")
 
             # handle negative number if signed and not an addrss
-            if(Settings["NUMBERSIGNED"] == 1 and (i & 0x80) == 0x80):
+            if Settings["NUMBERSIGNED"] == 1 and (i & 0x80) == 0x80:
                 k = 0x100-k
                 soutput += "-"
 
             # output word
             soutput += _numbertostring(k, 16, Settings["NUMBERFORMAT"], False)
             # remember number incase it is line number
-            if("ReferencedLineNumbers" in Settings):
+            if "ReferencedLineNumbers" in Settings:
                 Settings["ReferencedLineNumbers"] += [k]
 
-        elif(s[0] == 'A'):  # output address
+        elif s[0] == 'A':  # output address
             # get info
             i = int(_getnextcharacters(instructions, Settings, 2), 16)
-            if((i & 0x3F) == 0x3F):  # dealing with addresses
+            if (i & 0x3F) == 0x3F:  # dealing with addresses
                 # get address
                 k = int(_getnextcharacters(instructions, Settings, 4), 16)
                 # getbyte, adjust for offset
@@ -6570,12 +6530,12 @@ predefined Functions instead.")
                     256*data[k-Settings["ORIGIN"] +
                              1-Settings["NUMBERWORDORDER"]]
 
-            elif((i & 0x3F) < 0x10):
+            elif (i & 0x3F) < 0x10:
                 # get variable content
                 k = Vars[0x0A] + \
                     Vars[0x0C] if ((i & 0x3F) == 0x0F) else Vars[i & 0x3F]
                 # get content of memory address if this is a reference
-                if((i & 0x80) == 0):
+                if (i & 0x80) == 0:
                     k = data[k-Settings["ORIGIN"] +
                              Settings["NUMBERWORDORDER"]] + \
                         256*data[k-Settings["ORIGIN"] +
@@ -6589,33 +6549,33 @@ predefined Functions instead.")
                     "invalid address output argument")
 
             # output address
-            if(Settings["XMLOutput"] == 1):
+            if Settings["XMLOutput"] == 1:
                 soutput += _numbertostring(k, 16, Settings["NUMBERFORMAT"],
                                            False)
 
             else:
                 i = Settings["ADDRESSOUTPUT"] + 4
-                if(Settings["SEPERATOR"] != "  "):
+                if Settings["SEPERATOR"] != "  ":
                     i += 1 << 5
                 soutput += "\0" + chr(i) + chr(Settings["DISPLAYEVERYXLINES"])
                 soutput += _numbertostring(k, 16, 0, False)
 
         # output char, defaults to unsigned byte if not printable
-        elif(s[0] == 'C'):
+        elif s[0] == 'C':
             # get info
             i = int(_getnextcharacters(instructions, Settings, 2), 16)
-            if((i & 0x3F) == 0x3F):  # dealing with addresses
+            if (i & 0x3F) == 0x3F:  # dealing with addresses
                 # get address
                 k = int(_getnextcharacters(instructions, Settings, 4), 16)
                 # getbyte, adjust for offset
                 k = data[k-Settings["ORIGIN"]]
 
-            elif((i & 0x3F) < 0x10):
+            elif (i & 0x3F) < 0x10:
                 # get variable content
                 k = Vars[0x0A] + \
                     Vars[0x0C] if ((i & 0x3F) == 0x0F) else Vars[i & 0x3F]
                 # get content of memory address if this is a reference
-                if((i & 0x80) == 0):
+                if (i & 0x80) == 0:
                     k = data[k-Settings["ORIGIN"]]
                 # increment if apropriate
                 inc_var_if_needed(i, Vars, 1)
@@ -6628,22 +6588,22 @@ predefined Functions instead.")
             # output character
             soutput += getspectrumchar(k, Settings["HexForNonASCII"])
 
-        elif(s[0] == 'G'):  # output 5 byte floating point number
+        elif s[0] == 'G':  # output 5 byte floating point number
             # get info
             i = int(_getnextcharacters(instructions, Settings, 2), 16)
-            if((i & 0x3F) == 0x3F):  # dealing with addresses
+            if (i & 0x3F) == 0x3F:  # dealing with addresses
                 # get address
                 k = int(_getnextcharacters(instructions, Settings, 4), 16)
                 # get and output floating point number
                 soutput += str(SpectrumNumber(data[k-Settings["ORIGIN"]:
                                                    k-Settings["ORIGIN"] + 5]))
 
-            elif((i & 0x3F) < 0x10):
+            elif (i & 0x3F) < 0x10:
                 # get variable content
                 k = Vars[0x0A] + \
                     Vars[0x0C] if ((i & 0x3F) == 0x0F) else Vars[i & 0x3F]
                 # has to be a memory address that holds 5 byte number
-                if((i & 0x80) != 0):
+                if (i & 0x80) != 0:
                     raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "invalid floating point number output argument")
@@ -6659,26 +6619,26 @@ predefined Functions instead.")
                     Vars[0x0A], commandstart, instructions,
                     "invalid floating point number output argument")
 
-        elif(s[0] == '%'):  # output '%'
+        elif s[0] == '%':  # output '%'
             soutput += '%'
 
-        elif(s[0] == 'S'):  # output seperator
+        elif s[0] == 'S':  # output seperator
             # only output if not in xml mode
-            if(Settings["XMLOutput"] == 0):
+            if Settings["XMLOutput"] == 0:
                 soutput += Settings["SEPERATOR"]
 
-        elif(s[0] == 'N'):  # output newline
+        elif s[0] == 'N':  # output newline
             soutput += '\n'
 
-        elif(s[0] == 'T'):  # output tab
+        elif s[0] == 'T':  # output tab
             soutput += '\t'
 
         # maths
-        elif(s[0] == 'X'):
+        elif s[0] == 'X':
             # get sub command
             i = int(_getnextcharacters(instructions, Settings, 2), 16)
             # check if valid command
-            if(i < 0 or i > 9):
+            if i < 0 or i > 9:
                 raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "invalid arithmetic operation. Must be 0 to 9")
@@ -6686,7 +6646,7 @@ predefined Functions instead.")
             # where to store result
             result = int(_getnextcharacters(instructions, Settings, 2), 16)
             # check is valid resultlocation
-            if(result < 0 or (result > 9 and result != 0x0C and
+            if (result < 0 or (result > 9 and result != 0x0C and
                result != 0x0E and result != 0x0F)):
                 raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
@@ -6700,23 +6660,23 @@ predefined Functions instead.")
                                             commandstart) if (i != 1) else 0
 
             # now process variables
-            if(i == 1):    # let
+            if i == 1:    # let
                 k = arga
-            elif(i == 2):  # add
+            elif i == 2:  # add
                 k = arga + argb
-            elif(i == 3):  # subtract
+            elif i == 3:  # subtract
                 k = arga - argb
-            elif(i == 4):  # multiply
+            elif i == 4:  # multiply
                 k = arga * argb
-            elif(i == 5):  # divide
+            elif i == 5:  # divide
                 k = arga // argb
-            elif(i == 6):  # modulus
+            elif i == 6:  # modulus
                 k = arga % argb
-            elif(i == 7):  # binary and
+            elif i == 7:  # binary and
                 k = arga & argb
-            elif(i == 8):  # binary or
+            elif i == 8:  # binary or
                 k = arga | argb
-            elif(i == 9):  # binary xor
+            elif i == 9:  # binary xor
                 k = arga ^ argb
             else:
                 k = 0
@@ -6725,13 +6685,13 @@ predefined Functions instead.")
             k &= 0xFFFF
 
             # save variable
-            if(result == 0x0F):
+            if result == 0x0F:
                 Vars[0x0C] = k-Vars[0x0A]
             else:
                 Vars[result] = k
 
         # flow
-        elif(s[0] == '('):
+        elif s[0] == '(':
             # process contents of brackets and combine result
             i, txt = _processcommandblock(instructions, Vars, Settings, data,
                                           True, InTest)
@@ -6739,15 +6699,15 @@ predefined Functions instead.")
             boolState = combineresults(boolMode, boolState, (i & 1) == 1)
             i = i & 6
             # if break or continue, leave
-            if(i != 0):
+            if i != 0:
                 # move to end of current block
                 _movetoblockend(instructions, Vars, Settings, commandstart)
                 # leave block
                 return i + (1 if boolState else 0), soutput
 
-        elif(s[0] == ')'):
+        elif s[0] == ')':
             # if not in brackets  then error
-            if(not inBrackets):
+            if not inBrackets:
                 raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "Closing brackets without opening brackets")
@@ -6755,9 +6715,9 @@ predefined Functions instead.")
             # otherwise ought to return from command
             return 1 if boolState else 0, soutput
 
-        elif(s[0] == 'I'):  # if then block
+        elif s[0] == 'I':  # if then block
             # should have brackets afterwards
-            if(_getnextcharacters(instructions, Settings, 2) != "%("):
+            if _getnextcharacters(instructions, Settings, 2) != "%(":
                 raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "bracket bound test must follow if statement")
@@ -6769,7 +6729,7 @@ predefined Functions instead.")
             soutput += txt
 
             # should have brackets afterwards for instruction block
-            if(_getnextcharacters(instructions, Settings, 2) != "%("):
+            if _getnextcharacters(instructions, Settings, 2) != "%(":
                 raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "bracket bound action must follow if test")
@@ -6777,7 +6737,7 @@ predefined Functions instead.")
             # signal no break or continue
             k = 0
             # if contition met then process block
-            if(bTest):
+            if bTest:
                 k, txt = _processcommandblock(instructions, Vars, Settings,
                                               data, True, InTest)
                 soutput += txt
@@ -6790,9 +6750,9 @@ predefined Functions instead.")
             # following
             i = Settings["DATASTRINGPOS"]
             # see if is an else block
-            if(_getnextcharacters(instructions, Settings, 2) == "%J"):
+            if _getnextcharacters(instructions, Settings, 2) == "%J":
                 # should have brackets afterwards for instruction block
-                if(_getnextcharacters(instructions, Settings, 2) != "%("):
+                if _getnextcharacters(instructions, Settings, 2) != "%(":
                     raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "bracket bound action must follow else statement")
@@ -6800,7 +6760,7 @@ predefined Functions instead.")
                 # process block
                 k, txt = _processcommandblock(instructions, Vars, Settings,
                                               data, True, InTest)
-                if(not bTest):
+                if not bTest:
                     soutput += txt
 
             # otherwise reset string position
@@ -6809,15 +6769,15 @@ predefined Functions instead.")
 
             # if break or continue happened inside if or else block then
             # leave
-            if((k & 6) != 0):
+            if (k & 6) != 0:
                 # move to end of current block
                 _movetoblockend(instructions, Vars, Settings, commandstart)
                 # leave block
                 return k, soutput
 
-        elif(s[0] == 'L'):  # while do loop
+        elif s[0] == 'L':  # while do loop
             # should have brackets afterwards
-            if(_getnextcharacters(instructions, Settings, 2) != "%("):
+            if _getnextcharacters(instructions, Settings, 2) != "%(":
                 raise _newSpectrumTranslateError(
                     Vars[0x0A], commandstart, instructions,
                     "bracket bound test must follow loop statement")
@@ -6828,7 +6788,7 @@ predefined Functions instead.")
             bTest = True
 
             # loop until test condition is false;
-            while(bTest):
+            while bTest:
                 # set where while do loop starts
                 Settings["DATASTRINGPOS"] = i
 
@@ -6839,18 +6799,18 @@ predefined Functions instead.")
                 soutput += txt
 
                 # should have brackets afterwards for instruction block
-                if(_getnextcharacters(instructions, Settings, 2) != "%("):
+                if _getnextcharacters(instructions, Settings, 2) != "%(":
                     raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "bracket bound action must follow loop test")
 
                 # if contition met then process block
-                if(bTest):
+                if bTest:
                     result, txt = _processcommandblock(instructions, Vars,
                                                        Settings, data, True,
                                                        InTest)
                     soutput += txt
-                    if((result & 2) == 2):
+                    if (result & 2) == 2:
                         # if break from routine then break out of loop
 
                         # move to end of current block
@@ -6860,12 +6820,12 @@ predefined Functions instead.")
                         break
 
                 # otherwise move past command block
-                if(not bTest):
+                if not bTest:
                     _movetoblockend(instructions, Vars, Settings,
                                     commandstart)
 
         # end data block
-        elif(s[0] == 'Q'):
+        elif s[0] == 'Q':
             # setting end of data block as current position, then ending
             # line will quit data block
             Vars[0x0E] = Vars[0x0A] + Vars[0x0C] - 1
@@ -6876,34 +6836,34 @@ predefined Functions instead.")
             return 1 if boolState else 0, soutput
 
         # end line
-        elif(s[0] == 'E'):
+        elif s[0] == 'E':
             # by setting position to end of data string and returning,
             # this will end line
             Settings["DATASTRINGPOS"] = len(instructions)
             return 1 if boolState else 0, soutput
 
         # break;
-        elif(s[0] == 'Y'):
+        elif s[0] == 'Y':
             # return
             return 3 if boolState else 2, soutput
 
         # continue
-        elif(s[0] == 'Z'):
+        elif s[0] == 'Z':
             # return
             return 5 if boolState else 4, soutput
 
         # comparitors
-        elif(s[0] == '?'):
+        elif s[0] == '?':
             # get next chars
             comp = _getnextcharacters(instructions, Settings, 2)
 
             # check if mode change
-            if(comp[0] == 'B'):
-                if(comp[1] == 'A'):  # and
+            if comp[0] == 'B':
+                if comp[1] == 'A':  # and
                     boolMode = 0
-                elif(comp[1] == 'O'):  # or
+                elif comp[1] == 'O':  # or
                     boolMode = 1
-                elif(comp[1] == 'X'):  # xor
+                elif comp[1] == 'X':  # xor
                     boolMode = 2
                 else:  # unrecognised mode command
                     raise _newSpectrumTranslateError(
@@ -6915,7 +6875,7 @@ predefined Functions instead.")
             # have we tested enough already?
             # can we end testing based on results so far without further
             # testing?
-            if(InTest and (    # are we in a test situation?
+            if (InTest and (    # are we in a test situation?
                # are we anding with false: answer will be false
                (boolMode == 0 and not boolState) or
                # are we oring with true: answer will be true
@@ -6945,21 +6905,21 @@ predefined Functions instead.")
                                             commandstart)
 
             # now do text
-            if(i == 0):  # less than
+            if i == 0:  # less than
                 boolState = combineresults(boolMode, boolState, arga < argb)
-            elif(i == 1):  # more than
+            elif i == 1:  # more than
                 boolState = combineresults(boolMode, boolState, arga > argb)
-            elif(i == 2):  # equal
+            elif i == 2:  # equal
                 boolState = combineresults(boolMode, boolState, arga == argb)
-            elif(i == 3):  # less than or equal
+            elif i == 3:  # less than or equal
                 boolState = combineresults(boolMode, boolState, arga <= argb)
-            elif(i == 4):  # more than or equal
+            elif i == 4:  # more than or equal
                 boolState = combineresults(boolMode, boolState, arga >= argb)
-            elif(i == 5):  # not equal
+            elif i == 5:  # not equal
                 boolState = combineresults(boolMode, boolState, arga != argb)
 
         # XML tags
-        elif(s[0] == '$'):
+        elif s[0] == '$':
             # default to normal tag
             emptytag = False
             closetag = False
@@ -6968,46 +6928,46 @@ predefined Functions instead.")
             nextchar = _getnextcharacters(instructions, Settings, 1)
 
             # check & handle empty tag
-            if(nextchar == '$'):
+            if nextchar == '$':
                 emptytag = True
                 nextchar = _getnextcharacters(instructions, Settings, 1)
 
             # check and handle closeing tag
-            elif(nextchar == '-'):
+            elif nextchar == '-':
                 closetag = True
                 nextchar = _getnextcharacters(instructions, Settings, 1)
 
             # now figure out command
-            if(nextchar == 'A'):
+            if nextchar == 'A':
                 tag = 'address'
 
-            elif(nextchar == 'B'):
+            elif nextchar == 'B':
                 tag = 'bytes'
 
-            elif(nextchar == 'C'):
+            elif nextchar == 'C':
                 tag = 'comment'
 
-            elif(nextchar == 'D'):
+            elif nextchar == 'D':
                 tag = 'data'
 
-            elif(nextchar == 'F'):
+            elif nextchar == 'F':
                 tag = 'flags'
 
-            elif(nextchar == 'I'):
+            elif nextchar == 'I':
                 tag = 'instruction'
 
-            elif(nextchar == 'L'):
+            elif nextchar == 'L':
                 tag = 'line'
 
-            elif(nextchar == 'T'):
+            elif nextchar == 'T':
                 tag = 'timeing'
 
-            elif(nextchar == '<'):
+            elif nextchar == '<':
                 # get position of closeing bracket
                 closepos = instructions.find(">", Settings["DATASTRINGPOS"])
 
                 # handle no closeing bracket
-                if(closepos == -1):
+                if closepos == -1:
                     raise _newSpectrumTranslateError(
                         Vars[0x0A], commandstart, instructions,
                         "no closeing bracket on XML tag")
@@ -7023,24 +6983,24 @@ predefined Functions instead.")
                     "unrecognised predefined XML tag")
 
             # if in xml mode then output tag
-            if(Settings["XMLOutput"] == 1):
-                if(not closetag and tag == 'line'):
+            if Settings["XMLOutput"] == 1:
+                if not closetag and tag == 'line':
                     sputput += "  "
 
                 soutput += '<'
 
-                if(closetag):
+                if closetag:
                     soutput += '/'
 
                 soutput += tag
 
-                if(emptytag):
+                if emptytag:
                     soutput += '/'
 
                 soutput += '>'
 
         # add comment
-        elif(s[0] == ';'):
+        elif s[0] == ';':
             commentstart = get_number_var_or_memory(instructions, Vars,
                                                     Settings, data,
                                                     commandstart)
@@ -7049,13 +7009,13 @@ predefined Functions instead.")
 
             # get what comment is to be
             nextchar = _getnextcharacters(instructions, Settings, 1)
-            if(nextchar == "0"):
+            if nextchar == "0":
                 commentinstruction = DisassembleInstruction.\
                     DISASSEMBLE_CODES["Comment"]
-            elif(nextchar == "1"):
+            elif nextchar == "1":
                 commentinstruction = DisassembleInstruction.\
                     DISASSEMBLE_CODES["Comment Before"]
-            elif(nextchar == "2"):
+            elif nextchar == "2":
                 commentinstruction = DisassembleInstruction.\
                     DISASSEMBLE_CODES["Comment After"]
             else:
@@ -7067,11 +7027,11 @@ predefined Functions instead.")
             nextchar = _getnextcharacters(instructions, Settings, 1)
 
             # check if comment is text to end of line
-            if(nextchar == "1"):
+            if nextchar == "1":
                 # find end of line
                 endofline = instructions.find("\n", Settings["DATASTRINGPOS"])
                 # if newline not found, set to end of line
-                if(endofline == -1):
+                if endofline == -1:
                     endofline = len(instructions)
 
                 # set comment to be text to end of line
@@ -7082,7 +7042,7 @@ predefined Functions instead.")
                 Settings["DATASTRINGPOS"] = endofline
 
             # if is text so far
-            elif(nextchar == "0"):
+            elif nextchar == "0":
                 commenttext = soutput
 
             # otherwise has been incorrect value
@@ -7108,8 +7068,8 @@ def _ProcessFunctionDetails(txt):
     # get function name, arguments, and offset to end of call
 
     # get function name or fail
-    x = re.match("([a-zA-Z_][a-zA-Z_0-9]*)[(]", txt)
-    if(not x):
+    x = re.match(r"([a-zA-Z_][a-zA-Z_0-9]*)[(]", txt)
+    if not x:
         return "Invalid function name"
     function_name = x.group(1)
     # remove function name from text
@@ -7117,25 +7077,25 @@ def _ProcessFunctionDetails(txt):
     txt = txt[length:]
 
     args = []
-    argmatch = re.compile("\s*(?:([a-zA-Z_][a-zA-Z_0-9]*)(?:\s*[=]\s*))?\
-(\"[^\"]*\"|\'[^\']*\'|\-?#[0-9a-fA-F]+|-?0[xX][0-9a-fA-F]+|-?o[0-7]+|\
--?[0-9]+|-?b[0-1]+|[Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee])\s*,?", re.DOTALL)
+    argmatch = re.compile(r"\s*(?:([a-zA-Z_][a-zA-Z_0-9]*)(?:\s*[=]\s*))?"
+r"(\"[^\"]*\"|\'[^\']*\'|\-?#[0-9a-fA-F]+|-?0[xX][0-9a-fA-F]+|-?o[0-7]+|"
+r"-?[0-9]+|-?b[0-1]+|[Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee])\s*,?", re.DOTALL)
     keywordsused = 0
     # cycle through the arguments
-    while(True):
+    while True:
         # return error if end text without closing bracket
-        if(not txt):
+        if not txt:
             return "No closing bracket"
         # end loop if have hit end bracket
-        if(txt[0] == ')'):
+        if txt[0] == ')':
             break
         # match string, boolean or number
         x = argmatch.match(txt)
-        if(not x or len(x.groups()) != 2):
+        if not x or len(x.groups()) != 2:
             return "Invalid argument: " + txt
-        if(keywordsused == 1 and not x.group(1)):
+        if keywordsused == 1 and not x.group(1):
             return "Can't declare non-keyword argument after keyword argument"
-        if(x.group(1)):
+        if x.group(1):
             keywordsused = 1
             args += [[x.group(1), x.group(2)]]
         else:
@@ -7149,35 +7109,35 @@ def _ProcessFunctionDetails(txt):
     keys = {}
     nonkeys = []
     for a in args:
-        arg = a[1] if isinstance(a, list) else a
+        arg = a[1] if _isarray(a) else a
         c = arg[0]
-        if(c == '-'):
+        if c == '-':
             isminus = True
             arg = arg[1:]
             c = arg[0]
         else:
             isminus = False
-        if(c == '"' or c == "'"):
+        if c in ['"', "'"]:
             arg = str(arg[1:-1])
-        elif(c == 'T' or c == 't'):
+        elif c in ['T', 't']:
             arg = True
-        elif(c == 'F' or c == 'f'):
+        elif c in ['F', 'f']:
             arg = False
-        elif(c == '#'):
+        elif c == '#':
             arg = int(arg[1:], 16)
-        elif(c == '0' and len(arg) > 1 and (arg[1] == 'x' or arg[1] == 'X')):
+        elif c == '0' and len(arg) > 1 and arg[1] in ['x', 'X']:
             arg = int(arg[2:], 16)
-        elif(c == 'o'):
+        elif c == 'o':
             arg = int(arg[1:], 8)
-        elif(c == 'b'):
+        elif c == 'b':
             arg = int(arg[1:], 2)
         else:
             arg = int(arg)
 
-        if(isminus):
+        if isminus:
             arg *= -1
 
-        if(isinstance(a, list)):
+        if _isarray(a):
             keys[a[0]] = arg
         else:
             nonkeys += [arg]
@@ -7191,9 +7151,9 @@ def _newSpectrumTranslateError(address, pos, instructions, details):
     bits = instructions[:pos].rpartition('\n')
     pos = pos - len(bits[0] + bits[1])
     # generate exception
-    return SpectrumTranslateError('Data Format error processing "{0}" after \
-character {1} on line {2}, starting at address {3:04X}\n{4}\
-'.format(instructions, pos, line, address, details))
+    return SpectrumTranslateError('Data Format error processing "{}" after \
+character {} on line {}, starting at address {:04X}\n{}'.format(
+instructions, pos, line, address, details))
 
 
 def get_custom_format_string(AddressOutput, NumberOutput, CommandOutput,
@@ -7268,14 +7228,14 @@ def get_custom_format_string(AddressOutput, NumberOutput, CommandOutput,
     i += ((ShowFlags & 1) << 0x18) + ((MarkUndocumenedCommand & 1) << 0x19)
     i += ((XMLOutput & 1) << 0x1A) + ((HexForNonASCII & 1) << 0x1B)
 
-    if(isinstance(Seperator, str)):
+    if isinstance(Seperator, str):
         sep = Seperator
 
-    elif(isinstance(Seperator, int) and
-         (Seperator == DisassembleInstruction.DISASSEMBLE_CODES[
-             "Seperators Tab"] or
-          Seperator == DisassembleInstruction.DISASSEMBLE_CODES[
-            "Seperators Space"])):
+    elif (isinstance(Seperator, int) and
+         (Seperator in [DisassembleInstruction.DISASSEMBLE_CODES[
+             "Seperators Tab"],
+             DisassembleInstruction.DISASSEMBLE_CODES[
+             "Seperators Space"]])):
         sep = "  " if Seperator == DisassembleInstruction.DISASSEMBLE_CODES[
             "Seperators Space"] else "\t"
 
@@ -7283,7 +7243,7 @@ def get_custom_format_string(AddressOutput, NumberOutput, CommandOutput,
     else:
         raise SpectrumTranslateError("invalid seperator")
 
-    return "{0:07X}{1}".format(i, sep)
+    return "{:07X}{}".format(i, sep)
 
 
 def get_custom_format_values(data, bWantInstructionCode=False):
@@ -7351,7 +7311,7 @@ def get_custom_format_values(data, bWantInstructionCode=False):
         }
 
     # convert results to instruction codes if requested
-    if(bWantInstructionCode):
+    if bWantInstructionCode:
         ret["AddressOutput"] |= DisassembleInstruction.DISASSEMBLE_CODES[
             "Address Output Format Hex"]
         ret["NumberOutput"] |= DisassembleInstruction.DISASSEMBLE_CODES[
@@ -7397,7 +7357,7 @@ def get_comment_displacement_string(displacement, flag, comment):
     comment is a string use as the comment when the displacement and
     flag are matched.
     """
-    return "{0:02X}{1:01X}{2}".format(displacement & 0xFF, flag & 0x3, comment)
+    return "{:02X}{:01X}{}".format(displacement & 0xFF, flag & 0x3, comment)
 
 
 def get_comment_displacement_values(data):
@@ -7436,7 +7396,7 @@ def get_comment_reference_string(reference, flag, comment):
     comment is a string use as the comment when the reference and flag
     are matched.
     """
-    return "{0:04X}{1:02X}{2}".format(reference & 0xFFFF, flag & 0x1F, comment)
+    return "{:04X}{:02X}{}".format(reference & 0xFFFF, flag & 0x1F, comment)
 
 
 def get_comment_reference_values(data):
@@ -7447,15 +7407,18 @@ def get_comment_reference_values(data):
     try:
         reference = int(data[:4], 16)
     except:
-        reference = None
+        raise SpectrumTranslateError('Invalid comment reference: no reference \
+in first 4 characters. "{}"'.format(data))
     try:
         flag = int(data[4:6], 16)
     except:
-        flag = None
+        raise SpectrumTranslateError('Invalid comment reference: no flag \
+in characters 4 and 5. "{}"'.format(data))
     try:
         comment = data[6:]
     except:
-        comment = None
+        raise SpectrumTranslateError('Invalid comment reference: comment \
+in characters 6 onwards. "{}"'.format(data))
 
     return (reference, flag, comment)
 
@@ -7474,22 +7437,22 @@ def getpartsofpatterndatablock(pdb):
 
         # loop until have next 2 characters of non whitespace characters
         # or hit end of commands, or end of line
-        while(len(s) < 2 and Settings["DATASTRINGPOS"] < len(instructions)):
+        while len(s) < 2 and Settings["DATASTRINGPOS"] < len(instructions):
             c = instructions[Settings["DATASTRINGPOS"]]
 
             # ignore whitespace but not newline
-            if(c != ' ' and c != '\t'):
+            if c != ' ' and c != '\t':
                 s += c
 
             Settings["DATASTRINGPOS"] += 1
 
         # is next thing a comment?
-        if(s == "%#"):
+        if s == "%#":
             # if so move past it
             Settings["DATASTRINGPOS"] = instructions.find(
                 "\n", Settings["DATASTRINGPOS"])
             # if newline not found,
-            if(Settings["DATASTRINGPOS"] == -1):
+            if Settings["DATASTRINGPOS"] == -1:
                 # set to end of line
                 Settings["DATASTRINGPOS"] = len(instructions)
 
@@ -7508,7 +7471,7 @@ def getpartsofpatterndatablock(pdb):
 
         # first check is valid test block & record where
         s = _getnextcharacters(pdb, Settings, 2)
-        if(s != "%("):
+        if s != "%(":
             return (test, prep, action)
 
         # record test start
@@ -7522,7 +7485,7 @@ def getpartsofpatterndatablock(pdb):
 
         # now check is valid preperation block & record where
         s = _getnextcharacters(pdb, Settings, 2)
-        if(s != "%("):
+        if s != "%(":
             return (test, prep, action)
 
         # record preperation block start
@@ -7557,17 +7520,17 @@ def createfindandcomment(test, comment, commandlength, position):
     return """\
 %(                   %#start test block
   %(                 %#start test code
-{0}
+{}
   %)                 %#end test code
 
   %?BA
   %?EQ00000000       %#test to ensure that false test fails now
 
-  %X0200%V0F{1:04X}     %#var0 is position of code to check + length of command
+  %X0200%V0F{:04X}     %#var0 is position of code to check + length of command
                      %#start comment text
-{2}
+{}
                      %#end comment text
-  %;%V0F%V00{3:X}0       %#Create comment instruction
+  %;%V0F%V00{:X}0       %#Create comment instruction
 
   %?BA
   %?EQ00000001       %#Force fail test otherwise will be processed as pattern
@@ -7591,10 +7554,10 @@ def detailsfromfindandcomment(code):
     """
 
     try:
-        match = re.search(".*%\(\s*%#start test code\n(.*)\n  %\)\s*%#end test\
- code.*%X0200%V0F([0-9A-F]{4})\s*%#var0 is position of code to check \+ length\
- of command.*%#start comment text\n(.*)\n\s*%#end comment text.*%;%V0F%V00([0-\
-2])0\s*%#Create comment instruction", code, re.DOTALL)
+        match = re.search(r".*%\(\s*%#start test code\n(.*)\n  %\)\s*%#end "
+r"test code.*%X0200%V0F([0-9A-F]{4})\s*%#var0 is position of code to check \+ "
+r"length of command.*%#start comment text\n(.*)\n\s*%#end comment text.*%;"
+r"%V0F%V00([0-2])0\s*%#Create comment instruction", code, re.DOTALL)
         return [match.group(1), match.group(3), int(match.group(2), 16) + 1,
                 int(match.group(4), 16)]
     except:
@@ -7642,7 +7605,7 @@ def get_disassemblecodename_from_value(value):
 
     for instructionname, code in list(DisassembleInstruction.
                                       DISASSEMBLE_CODES.items()):
-        if(code == value):
+        if code == value:
             return instructionname
 
     return None
@@ -7655,18 +7618,15 @@ def get_disassembleblockname_from_value(value):
     DisassemblePatternBlockCode.
     """
 
-    if(value in list(DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES.
-                     values())):
-        for blockname, code in list(DisassembleInstruction.
-                                    DISASSEMBLE_DATABLOCK_CODES.items()):
+    if value in DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES.values():
+        for blockname, code in DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES.items():
             if(code == value):
                 return blockname
 
-    if(value in list(DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES.
-                     values())):
-        for blockname, code in list(DisassembleInstruction.
-                                    DISASSEMBLE_PATTERNBLOCK_CODES.items()):
-            if(code == value):
+    if value in DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES.values():
+        for blockname, code in DisassembleInstruction.\
+                                    DISASSEMBLE_PATTERNBLOCK_CODES.items():
+            if code == value:
                 return blockname
 
     return None
@@ -7836,38 +7796,36 @@ def _commandline(args):
         return int(x, 16 if x.lower().startswith("0x") else 10)
 
     # handle no arguments
-    if(len(args) == 1):
+    if len(args) == 1:
         mode = 'help'
 
     # go through arguments analysing them
-    while(i < len(args) - 1):
+    while i < len(args) - 1:
         i += 1
 
         arg = args[i]
-        if(arg == 'basic' or arg == 'array' or arg == 'text' or
-           arg == 'screen' or arg == 'code' or arg == 'instruction' or
-           arg == 'help'):
-            if(mode is not None):
+        if arg in ['basic', 'array', 'text', 'screen', 'code', 'instruction', 'help']:
+            if mode is not None:
                 raise SpectrumTranslateError(
                     "Can't have multiple formats to convert into.")
 
             mode = arg
             continue
 
-        if(not mode):
+        if not mode:
             raise SpectrumTranslateError('No translateing mode (basic, code, \
 screen, array, text, or instruction) specified.')
 
         # chack for multiple flags in one arg and split them
-        if(arg[0] == '-' and len(arg) > 2 and arg[1] != '-'):
+        if arg[0] == '-' and len(arg) > 2 and arg[1] != '-':
             args = args[0:i] + ['-' + x for x in arg[1:]] + args[i + 1:]
             arg = args[i]
 
-        if(arg == '-x' or arg == '--xml'):
+        if arg in ['-x', '--xml']:
             xml = True
             continue
 
-        if(arg == '-s' or arg == '--start'):
+        if arg in ['-s', '--start']:
             try:
                 i += 1
                 start = getint(args[i])
@@ -7876,7 +7834,7 @@ screen, array, text, or instruction) specified.')
                 raise SpectrumTranslateError(
                     "Missing or invalid autostart line number.")
 
-        if(arg == '-v' or arg == '--variableoffset'):
+        if arg in ['-v', '--variableoffset']:
             try:
                 i += 1
                 varoff = getint(args[i])
@@ -7885,25 +7843,25 @@ screen, array, text, or instruction) specified.')
                 raise SpectrumTranslateError(
                     "Missing or invalid offset to variables.")
 
-        if(arg == '-t' or arg == '--type'):
+        if arg in ['-t', '--type']:
             try:
                 i += 1
                 opt = args[i]
 
-                if(opt == 'number' or opt == 'numberarray'):
+                if opt in ['number', 'numberarray']:
                     descriptor = 128
 
-                elif(opt == 'character' or opt == 'characterarray'):
+                elif opt in ['character', 'characterarray']:
                     descriptor = 192
 
-                elif(opt == 'string'):
+                elif opt == 'string':
                     descriptor = 64
 
                 else:
                     descriptor = getint(opt)
                     # am only interested in bits 6 and 7.
                     # Only invalid if they are both 0
-                    if(descriptor & 192 == 0):
+                    if descriptor & 192 == 0:
                         raise SpectrumTranslateError("Invalid array \
 description. Must have integer with bits 6 and 7 as 64, 128, or 192, or be \
 number, character, or string.")
@@ -7915,23 +7873,23 @@ number, character, or string.")
                 raise SpectrumTranslateError(
                     "Missing or invalid array description.")
 
-        if(arg == '-d' or arg == '--dimensions'):
+        if arg in ['-d', '--dimensions']:
             wantarraydimensions = True
             continue
 
-        if(arg == '-i' or arg == '--fromstandardinput'):
+        if arg in ['-i', '--fromstandardinput']:
             fromstandardinput = True
             continue
 
-        if(arg == '-o' or arg == '--tostandardoutput'):
+        if arg in ['-o', '--tostandardoutput']:
             tostandardoutput = True
             continue
 
-        if(arg == '-h' or arg == '--help'):
+        if arg in ['-h', '--help']:
             mode = 'help'
             break
 
-        if(arg == '-f' or arg == '--flashrate'):
+        if arg in ['-f', '--flashrate']:
             try:
                 i += 1
                 flashrate = getint(args[i])
@@ -7940,11 +7898,11 @@ number, character, or string.")
                 raise SpectrumTranslateError(
                     "Missing or invalid image flash rate.")
 
-        if(arg == '-g' or arg == '--gif'):
+        if arg in ['-g', '--gif']:
             imageFormat = "GIF"
             continue
 
-        if(arg == '-b' or arg == '--baseaddress' or arg == '--base'):
+        if arg in ['-b', '--baseaddress', '--base']:
             try:
                 i += 1
                 baseaddress = getint(args[i])
@@ -7953,16 +7911,16 @@ number, character, or string.")
                 raise SpectrumTranslateError(
                     "Missing or invalid base code address.")
 
-        if(arg == '-c' or arg == '--commands'):
+        if arg in ['-c', '--commands']:
             try:
                 i += 1
-                if(args[i] != 'f' and args[i] != 's' and args[i] != 'si'):
+                if args[i] != 'f' and args[i] != 's' and args[i] != 'si':
                     raise SpectrumTranslateError("Missing or invalid input \
 source descriptor for special instructions.")
 
                 commandsource = 'f' if args[i] == 'f' else 's'
 
-                if(commandsource == 'f'):
+                if commandsource == 'f':
                     i += 1
                     commandsourcefile = args[i]
 
@@ -7973,28 +7931,28 @@ source descriptor for special instructions.")
                 raise SpectrumTranslateError(
                     "Missing or invalid commands information.")
 
-        if(arg == '-m' or arg == '--multiline'):
+        if arg in ['-m', '--multiline']:
             multilinein = True
             multilineout = True
             continue
 
-        if(arg == '--mi' or arg == '--multilinein'):
+        if arg in ['--mi', '--multilinein']:
             multilinein = True
             continue
 
-        if(arg == '--mo' or arg == '--multilineout'):
+        if arg in ['--mo', '--multilineout']:
             multilineout = True
             continue
 
-        if(arg == '-n' or arg == '--namewanted'):
+        if arg in ['-n', '--namewanted']:
             wantinstructionname = True
             continue
 
-        if(arg == '-a' or arg == '--ascii'):
+        if arg in ['-a', '--ascii']:
             hexfornonascii = True
             continue
 
-        if(arg == '-k' or arg == '--skip'):
+        if arg in ['-k', '--skip']:
             try:
                 i += 1
                 skipbytes = getint(args[i])
@@ -8003,7 +7961,7 @@ source descriptor for special instructions.")
                 raise SpectrumTranslateError(
                     "Missing or invalid number of bytes to skip.")
 
-        if(arg == '-l' or arg == '--len' or arg == '--length'):
+        if arg in ['-l', '--len', '--length']:
             try:
                 i += 1
                 usebytes = getint(args[i])
@@ -8013,49 +7971,49 @@ source descriptor for special instructions.")
                     "Missing or invalid bytes length number.")
 
         # have unrecognised argument.
-        if(arg[0] == '-' or arg[0:2] == '--'):
+        if arg[0] == '-' or arg[0:2] == '--':
             raise SpectrumTranslateError(
-                '{0} is not a recognised flag.'.format(arg))
+                '{} is not a recognised flag.'.format(arg))
 
         # check if is input or output file
         # will be inputfile if not already defined, and
         # fromstandardinput is False
-        if(inputfile is None and not fromstandardinput and i >= len(args) -
+        if (inputfile is None and not fromstandardinput and i >= len(args) -
            (2 if outputfile is None and not tostandardoutput else 1)):
             inputfile = arg
             continue
 
         # will be outputfile if not already defined, tostandardoutput is
         # False, and is last argument
-        if(outputfile is None and not tostandardoutput and i == len(args) - 1):
-            if(inputfile is None and not fromstandardinput):
+        if (outputfile is None and not tostandardoutput and i == len(args) - 1):
+            if inputfile is None and not fromstandardinput:
                 raise SpectrumTranslateError('No input file specified.')
             outputfile = arg
             continue
 
         raise SpectrumTranslateError(
-            '"{0}" is unrecognised argument.'.format(arg))
+            '"{}" is unrecognised argument.'.format(arg))
 
     # finished processing arguments now.
     # Check we've got what we need
-    if(inputfile is None and not fromstandardinput and mode != 'help'):
+    if inputfile is None and not fromstandardinput and mode != 'help':
         raise SpectrumTranslateError('No input file specified.')
 
-    if(outputfile is None and not tostandardoutput and mode != 'help'):
+    if outputfile is None and not tostandardoutput and mode != 'help':
         raise SpectrumTranslateError('No output file specified.')
 
-    if(mode == 'array' and descriptor is None):
+    if mode == 'array' and descriptor is None:
         raise SpectrumTranslateError("Missing array type.")
 
     # if help is needed display it
-    if(mode == 'help'):
+    if mode == 'help':
         sys.stdout.write(usage())
         return
 
     # get special instructions if needed
     specialInstructions = None
-    if(mode == 'code' and commandsource is not None):
-        if(commandsource == 'f'):
+    if mode == 'code' and commandsource is not None:
+        if commandsource == 'f':
             # get instructions from file
             try:
                 fo = open(commandsourcefile, "r")
@@ -8064,24 +8022,24 @@ source descriptor for special instructions.")
                 fo.close()
             except:
                 raise SpectrumTranslateError('Failed to read instructions \
-from "{0}".'.format(commandsourcefile))
+from "{}".'.format(commandsourcefile))
 
         else:
             try:
                 # if there is only the commands commeing from standard
                 # input then no blank lines
-                if(not fromstandardinput):
+                if not fromstandardinput:
                     specialInstructions = [DisassembleInstruction(
                         line.rstrip('\n')) for line in sys.stdin]
 
                 # otherwise will be blank line terminated
                 else:
-                    while(True):
+                    while True:
                         line = sys.stdin.readline()
-                        if(line is None or line == '\n'):
+                        if line is None or line == '\n':
                             break
 
-                        if(specialInstructions is None):
+                        if specialInstructions is None:
                             specialInstructions = [DisassembleInstruction(
                                 line.rstrip('\n'))]
 
@@ -8094,49 +8052,49 @@ from "{0}".'.format(commandsourcefile))
 from standard input.')
 
     # get data
-    if(not fromstandardinput):
+    if not fromstandardinput:
         with open(inputfile, 'rb') as infile:
             data = infile.read()
 
     else:
-        if(sys.hexversion > 0x03000000 and mode != 'instruction'):
+        if mode != 'instruction':
             data = sys.stdin.buffer.read()
         else:
             data = sys.stdin.read()
 
     # apply skip and length options if needed
-    if(skipbytes):
-        if(skipbytes < 0 or skipbytes > len(data)):
+    if skipbytes:
+        if skipbytes < 0 or skipbytes > len(data):
             raise SpectrumTranslateError('Invalid skip value.')
         data = data[skipbytes:]
-    if(usebytes):
+    if usebytes:
         data = data[:usebytes]
-        if(usebytes < 1 or usebytes > len(data)):
+        if usebytes < 1 or usebytes > len(data):
             raise SpectrumTranslateError('Invalid length value.')
 
     # now translate the data
-    if(mode == 'basic'):
-        if(xml):
+    if mode == 'basic':
+        if xml:
             retdata = basictoxml(data, start, varoff, hexfornonascii)
 
         else:
             retdata = basictotext(data, start, varoff, hexfornonascii)
 
-    elif(mode == 'text'):
+    elif mode == 'text':
         retdata = getspectrumstring(data, hexfornonascii)
 
-    elif(mode == 'array'):
-        if(wantarraydimensions):
+    elif mode == 'array':
+        if wantarraydimensions:
             retdata = str(getarraydepth(data, descriptor))
 
-        elif(xml):
+        elif xml:
             retdata = arraytoxml(data, descriptor, hexfornonascii)
 
         else:
             retdata = arraytotext(data, descriptor, hexfornonascii)
 
-    elif(mode == 'screen'):
-        if(imageFormat == "GIF"):
+    elif mode == 'screen':
+        if imageFormat == "GIF":
             retdata = getgiffromscreen(data, flashrate)
 
         else:
@@ -8145,9 +8103,9 @@ from standard input.')
             retdata = rgbdata[iwanted]
             retdata = bytearray([x[i] for x in retdata for i in (0, 1, 2)])
 
-    elif(mode == 'code'):
-        if(xml):
-            if(specialInstructions is None):
+    elif mode == 'code':
+        if xml:
+            if specialInstructions is None:
                 specialInstructions = [DisassembleInstruction("XML Output On")]
 
             else:
@@ -8157,9 +8115,9 @@ from standard input.')
         retdata = disassemble(data, 0, baseaddress, len(data),
                               specialInstructions)
 
-    if(mode == 'instruction'):
+    if mode == 'instruction':
         # get instructions
-        if(not multilinein):
+        if not multilinein:
             # instructions in non-multiline can be on multiple lines
             di = [DisassembleInstruction(line) for line in data.splitlines()]
 
@@ -8168,7 +8126,7 @@ from standard input.')
 
             # if argument is string for instruction type then get
             # code
-            if(lines[0] in DisassembleInstruction.DISASSEMBLE_CODES):
+            if lines[0] in DisassembleInstruction.DISASSEMBLE_CODES:
                 di = DisassembleInstruction(lines[0])
 
             else:
@@ -8177,14 +8135,12 @@ from standard input.')
             di.start = getint(lines[1])
             di.end = getint(lines[2])
             lines = '\n'.join(lines[3:])
-            if(lines in list(
-               DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES.keys())):
+            if lines in DisassembleInstruction.DISASSEMBLE_DATABLOCK_CODES.keys():
                 di.data = DisassembleInstruction.\
                               DISASSEMBLE_DATABLOCK_CODES[lines]
 
-            elif(lines in
-                 list(DisassembleInstruction.
-                      DISASSEMBLE_PATTERNBLOCK_CODES.keys())):
+            elif (lines in
+                 DisassembleInstruction.DISASSEMBLE_PATTERNBLOCK_CODES.keys()):
                 di.data = DisassembleInstruction.\
                               DISASSEMBLE_PATTERNBLOCK_CODES[lines]
 
@@ -8194,19 +8150,19 @@ from standard input.')
             di = [di]
 
         # now prepare them for output
-        if(not multilineout):
+        if not multilineout:
             retdata = '\n'.join([str(x) for x in di])
 
         else:
-            if(wantinstructionname):
+            if wantinstructionname:
                 def nameornumber(c):
-                    if(get_disassemblecodename_from_value(c) is None):
-                        return "{0:X}".format(c)
+                    if get_disassemblecodename_from_value(c) is None:
+                        return "{:X}".format(c)
 
                     return get_disassemblecodename_from_value(c)
 
                 def nameorcode(c):
-                    if(get_disassembleblockname_from_value(c) is None):
+                    if get_disassembleblockname_from_value(c) is None:
                         return c
 
                     return get_disassembleblockname_from_value(c)
@@ -8225,30 +8181,20 @@ from standard input.')
                     x, '' if x.data is None else x.data) for x in di)
 
     # output data
-    if(not tostandardoutput):
-        if(mode == "screen"):
+    if not tostandardoutput:
+        if mode == "screen":
             fo = open(outputfile, "wb")
             fo.write(retdata)
         else:
-            if(sys.hexversion > 0x03000000):
-                fo = open(outputfile, "w")
-                fo.write(retdata)
-            else:
-                fo = open(outputfile, "wb")
-                fo.write(retdata.encode('utf-8'))
+            fo = open(outputfile, "w")
+            fo.write(retdata)
         fo.close()
 
     else:
-        if(mode == "screen"):
-            if(sys.hexversion > 0x03000000):
-                sys.stdout.buffer.write(retdata)
-            else:
-                sys.stdout.write("".join([chr(x) for x in retdata]))
+        if mode == "screen":
+            sys.stdout.buffer.write(retdata)
         else:
-            if(sys.hexversion > 0x03000000):
-                sys.stdout.write(retdata)
-            else:
-                sys.stdout.write(retdata.encode('utf-8'))
+            sys.stdout.write(retdata)
 
 
 if __name__ == "__main__":

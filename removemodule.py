@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     for packagedir in getsitepackages():
         dirname = os.path.join(packagedir, "SpectrumTranslate")
-        if(os.path.exists(dirname)):
+        if os.path.exists(dirname):
             shutil_rmtree(dirname)
 
     print("Done")

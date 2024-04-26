@@ -45,12 +45,11 @@
 from pip import main as pip_main
 from site import getusersitepackages
 from shutil import copy as shutil_copy
-from sys import hexversion as sys_hexversion
 import os
 import tempfile
 
 if __name__ == "__main__":
-    #set up getch to return keypress in windows or unix like system (linux/mac)
+    # set up getch to return keypress in windows or unix like system (linux/mac)
     try:
         from msvcrt import getch
     except ImportError:
@@ -65,77 +64,71 @@ if __name__ == "__main__":
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
             return ch
 
-    #function to copy files
+    # function to copy files
     def copyfile(src, dest):
-        # python 3 needed to import module files localy
-        if(sys_hexversion >= 0x03000000):
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                with open(src) as src_file:
-                    for line in src_file:
-                        if(line.startswith("import spectrumtranslate")):
-                            line = "from . import spectrumtranslate\n"
-                        elif(line.startswith("import spectrumnumber")):
-                            line = "from . import spectrumnumber\n"
-                        temp_file.write(line.encode())
-                temp_file.close()
-                shutil_copy(temp_file.name, os.path.join(dest, src))
-                os.remove(temp_file.name)
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            with open(src) as src_file:
+                for line in src_file:
+                    if line.startswith("import spectrumtranslate"):
+                        line = "from . import spectrumtranslate\n"
+                    elif line.startswith("import spectrumnumber"):
+                        line = "from . import spectrumnumber\n"
+                    temp_file.write(line.encode())
+            temp_file.close()
+            shutil_copy(temp_file.name, os.path.join(dest, src))
+            os.remove(temp_file.name)
 
-        # python 2 doesn't
-        else:
-            shutil_copy(src, dest)
-
-    #set up PyQt5?
+    # set up PyQt5?
     print("Do You want to install PyQt5 (latest version of Qt needed to run \
 graphical interface to SpectrumTranslate) and PyQtWebEngine? (y/n/q)")
-    while(True):
+    while True:
         c = getch()
-        if(c == b'n' or c == b'N' or c == 'n' or c == 'N'):
+        if c in [b'n', b'N', 'n', 'N']:
             break
-        if(c == b'q' or c == b'Q' or c == 'q' or c == 'Q'):
+        if c in [b'q', b'Q', 'q', 'Q']:
             quit()
-        if(c == b'y' or c == b'Y' or c == 'y' or c == 'Y'):
+        if c in [b'y', b'Y', 'y', 'Y']:
             print()
             pip_main(['install', 'PyQt5'])
             pip_main(['install', 'PyQtWebEngine'])
             break
 
-    #set up packages needed for development?
+    # set up packages needed for development?
     print("\nDo You want to install pycodestyle and pillow (Only required if \
 running development tests)? (y/n/q)")
-    while(True):
+    while True:
         c = getch()
-        if(c == b'n' or c == b'N' or c == 'n' or c == 'N'):
+        if c in [b'n', b'N', 'n', 'N']:
             break
-        if(c == b'q' or c == b'Q' or c == 'q' or c == 'Q'):
+        if c in [b'q', b'Q', 'q', 'Q']:
             quit()
-        if(c == b'y' or c == b'Y' or c == 'y' or c == 'Y'):
+        if c in [b'y', b'Y', 'y', 'Y']:
             print()
             pip_main(['install', 'pycodestyle'])
             pip_main(['install', 'pillow'])
             break
 
-    #work out where to copy files to
+    # work out where to copy files to
     ST_dir = os.path.join(getusersitepackages(), "SpectrumTranslate")
-    #install as module?
+    # install as module?
     print("\nDo You want to install SpectrumTranslate as a module that you can \
 import from any project for this user? (y/n/q)")
-    while(True):
+    while True:
         c = getch()
-        if(c == b'n' or c == b'N' or c == 'n' or c == 'N'):
+        if c in [b'n', b'N', 'n', 'N']:
             break
-        if(c == b'q' or c == b'Q' or c == 'q' or c == 'Q'):
+        if c in [b'q', b'Q', 'q', 'Q']:
             quit()
-        if(c == b'y' or c == b'Y' or c == 'y' or c == 'Y'):
-            #ensure module directory exists
-            if(not os.path.exists(ST_dir)):
+        if c in [b'y', b'Y', 'y', 'Y']:
+            # ensure module directory exists
+            if not os.path.exists(ST_dir):
                 os.makedirs(ST_dir)
-            #copy files across
+            # copy files across
             files = ["licence.txt",
                      "__init__.py",
                      "disciplefile.py",
                      "spectrumnumber.py",
-                     "spectrumtapblock.py",
+                     "spectrumtape.py",
                      "spectrumtranslate.py"]
             for f in files:
                 copyfile(f, ST_dir)

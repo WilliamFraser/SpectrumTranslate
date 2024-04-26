@@ -10,7 +10,7 @@
     </head>
     <body>
 <center><h1>SpectrumTranslate</h1></center>
-<p>Welcome to the documentation of SpectrumTranslate. It is a module written in python that is designed to allow the user to translate files from a Spectrum computer into more useful formats. It is designed to be used by other python software as an imported module, but can also be used as a stand-alone command line program, or as a stand-alone graphical program that will work on any computer and opperating system that runs Python version 2.6 and later (including version 3). For the graphical program PyQt 4 or 5 is also required.</p>
+<p>Welcome to the documentation of SpectrumTranslate. It is a module written in python that is designed to allow the user to translate files from a Spectrum computer into more useful formats. It is designed to be used by other python software as an imported module, but can also be used as a stand-alone command line program, or as a stand-alone graphical program that will work on any computer and opperating system that runs Python version 3. For the graphical program PyQt 4 or 5 is also required.</p>
 <h2>Index:</h2>
 <ul>
     <li><strong><a href="#overview">Overview</a></strong> - Details of the module and what it does.</li>
@@ -21,14 +21,14 @@
             <li><a href="#command_line">Command line usage</a>
                 <ul>
                     <li><a href="#command_line_disciplefile">disciplefile.py usage</a></li>
-                    <li><a href="#command_line_spectrumtapblock">spectrumtapblock.py usage</a></li>
+                    <li><a href="#command_line_spectrumtape">spectrumtape.py usage</a></li>
                     <li><a href="#command_line_spectrumtranslate">spectrumtranslate.py usage</a></li>
                 </ul>
             </li>
             <li><a href="#python_usage">Python programming usage</a>
                 <ul>
                     <li><a href="#python_usage_disciplefile">disciplefile.py usage</a></li>
-                    <li><a href="#python_usage_spectrumtapblock">spectrumtapblock.py usage</a></li>
+                    <li><a href="#python_usage_spectrumtape">spectrumtape.py usage</a></li>
                     <li><a href="#python_usage_spectrumtranslate">spectrumtranslate.py usage</a></li>
                     <li><a href="#python_usage_spectrumnumber">spectrumnumber.py usage</a></li>
                 </ul>
@@ -41,7 +41,7 @@
         <ul>
             <li><a href="#gui_example">Graphical Interface examples</a></li>
             <li><a href="#cli_disciplefile_example">Command line disciplefile examples</a></li>
-            <li><a href="#cli_spectrumtapblock_example">Command line spectrumtapblock examples</a></li>
+            <li><a href="#cli_spectrumtape_example">Command line spectrumtape examples</a></li>
             <li><a href="#cli_spectrumtranslate_example">Command line spectrumtranslate examples</a></li>
             <li><a href="#cli_advanced_examples">Advanced command line examples</a></li>
             <li><a href="#python_usage_examples">Python programming examples</a></li>
@@ -55,49 +55,49 @@
     <li><strong>disciplefile.py</strong> - Contains classes and functions to handle disciple or +D disk images (reading or writing sectors, reading, writing, deleting files, iterating through files in a disk image, validating a disk image, creating a disk image). It also contains classes and functions to handle interaction with files contained in a disciple or +D disk image (extracting all the file details, and all details contained in a file individually). It also contains functions to use this as a command to do most of these tasks from the command line.</li>
     <li><strong>spectrumfiletranslategui.py</strong> - This module provides a graphical program that allows the user to manipulate data and files contained in disciple disk images, tap files, or to extract them from raw binary files. It offers a multitude of options as to how the data is extracted and presented, allowing the user to view the data, and save it off as a text or binary file, or even back to a container file such as a tap file or disciple disk image. It essentially acts as a graphical interface to the other modules.</li>
     <li><strong>spectrumnumber.py</strong> - This module gives a basic emulation of a spectrum floating point number. It is not a complete emulation of a 5 byte spectrum number, but has most basic functions implemented faithfully to the origional format. It was done to provide acurate translation of spectrum numbers.</li>
-    <li><strong>spectrumtapblock.py</strong> - This module contains classes and functions to handle spectrum .tap files which hold data stored on tape. The class and functions allow the user to iterate through the entries in a .tap file, and create new entries in a .tap file. It also allows the user to extract details from the files contained in a tap file.  It also contains functions to use this as a command to do most of these tasks from the command line.</li>
+    <li><strong>spectrumtape.py</strong> - This module contains classes and functions to handle spectrum .tap and .tzx files which hold data stored on tape. The classes and functions allow the user to iterate through the entries in a file, create new entries in a file, and also allows the user to extract details from the files contained in a file.  It allows a user to convert some .tap file blocks to .tzx and back again. It also contains functions to use this as a command to do most of these tasks from the command line.</li>
     <li><strong>spectrumtranslate.py</strong> - This module contains the data, classes, and functions to translate text, basic progams, machine code, data arrays, screens, and disciple snapshots from spectrum formats into formats such as text, XML, gif, or data arrays. Converting a raw machine code file to easily human readable data is a complex task, and to facilitate this this module also contains classes and functions to handle all sorts of usage cases. It also contains functions to use this as a command to do most of these tasks from the command line.</li>
 </ul>
 <p>SpectrumTranslate also contains a directory called test that consists of several modules and files that together test any changes to SpectrumTranslate and are used to develop it. Unless you're developing or making changes to the code you shouldn't need them.</p>
-<p>There are 3 other python files in SpectrumTranslate. <strong>__init_.py</strong> is used to make SpectrumTranslate usable as an importable module. <strong>setup.py</strong> is a python program that will setup a few bits that can be useful. Run it with python and it can install PyQt5 for you in windows (needed to run SpectrumTranslate graphically), pep8 & pillow (needed to run tests of any changes to code if you're developing SpectrumTranslate), and can install the code files of SpectrumTranslate so that they can be imported easily by any python program (it won't install <strong>spectrumfiletranslategui.py</strong>, or the test modules for global useage though). It will only set things up for whichever version of python (2 or 3) is used to run it. Also on some platforms with strong file security (like Linux) some functions will need to be run with raised privalages. <strong>removemodule.py</strong> is a python program that will remove any version of SpectrumTranslate installed as a globally importable module for the version or python it was run with. Again you will need to run it with raised privalages on some platforms.</p>
+<p>There are 3 other python files in SpectrumTranslate. <strong>__init_.py</strong> is used to make SpectrumTranslate usable as an importable module. <strong>setup.py</strong> is a python program that will setup a few bits that can be useful. Run it with python and it can install PyQt5 for you in windows (needed to run SpectrumTranslate graphically), pep8 & pillow (needed to run tests of any changes to code if you're developing SpectrumTranslate), and can install the code files of SpectrumTranslate so that they can be imported easily by any python program (it won't install <strong>spectrumfiletranslategui.py</strong>, or the test modules for global useage though). On some platforms with strong file security (like Linux) some functions will need to be run with raised privalages. <strong>removemodule.py</strong> is a python program that will remove any version of SpectrumTranslate installed as a globally importable module for the version or python it was run with. Again you will need to run it with raised privalages on some platforms.</p>
 
 <a id="install"></a><h2>Instalation</h2>
 <h3>Instalation of SpectrumTranslate</h3>
-<p>For all these modules you will need a working python environment. I have tested this code on python versions 2.6.5, 2.7.10, 2.7.11, 3.1.2, 3.4.3, 3.5.3, and 3.8.5 so it should work on most non-ancient versions of python. I have deliberately and painstakingly tried to ensure that it will run on versions 2 and 3 in the same way despite the variations between the versions. Unfortunately time has moved on, and as of 2021, some python2 libraries aren't easy to install, and while not removing python2 code, some features may not work anymore.</p>
-<p>If you run Linux then you probably will have python installed by default. If not then it almost certainly will be in your software package management system. If not go to the python.org site for instructions on how to install it. For python 3 I'd also recomend installing the <code>python3-pip</code> package package (or <code>python-pip</code> package if you're running python 2 although I've not been able to install this on my latest system as it's no longer available) if not already installed.</p>
+<p>For all these modules you will need a working python environment. I have tested the current version of this code on python version 3.8.10. It may run on older versions, but I have removed support for python 2 now.</p>
+<p>If you run Linux then you probably will have python installed by default. If not then it almost certainly will be in your software package management system. If not go to the python.org site for instructions on how to install it. For python 3 I'd also recomend installing the <code>python3-pip</code> package package if not already installed.</p>
 <p>If you run on windows then you probably won't have python installed, and will need to download the version apropriate to your computer from python.org. When installing I would recomend ensuring that pip is set to install in the customizing python section, and that add python.exe to path is also set. It will make life easier all round.</p>
 <p>If you use apple software, I see no reason why it should not work, but I have no way of testing it and telling people about it. I would search the internet for how to install python.</p>
 <p>Once you have python installed the basic modules and command line usage should just work in the directory you have downloaded them. If you want to include theses modules into other python programs, you can simply place them in the same directory as the files that are going to include them, or simply run the <code>setup.py</code> python script which will install it as a module imoprtable from other python programs. If you are using it as a standalone program it does not matter where you place it.</p>
 <p>To run the Graphical interface (ie not via the command line, or writing software), you will also need to install PyQt.</p>
-<p>There are two versions of PyQt available: 4 and 5, and spectrumfiletranslategui works with both so it should not matter which you have. If you have neither then you will need to install this also (also it needs a component called QtWebKit that is not installed by default in Linux with the some earlier versions of PyQt5 untill it was replacedby QtWebEngine so if you are in Linux and are getting messages about being unable to find PyQt4 modules this might be the reason).</p>
-<p>In Linux you need to install PyQt from your software center or repository. There will be several available, and you want the version that you want that matches the version of python you intend to use. The package names are basically python major version-qt major version. The version number of python comes after python (although it is usually ommited for version 2), and the PyQt version number always comes after the qt bit, although this can be qt or pyqt. For example in my system the PyQt5.5 package for python 2.7.10 is called python-pyqt5. If you are installing PyQt5 version prior to about 5.4 you will also need to install QtWebKit as well. The module name should be the same as for PyQt but have .qtwebkit at the end. So for Python 3.4.3, PyQt5.5, it would be python3-pyqt5.qtwebkit.</p>
+<p>There are two versions of PyQt available: 4 and 5, and spectrumfiletranslategui works with both so it should not matter which you have. If you have neither then you will need to install this also (also it needs a component called QtWebKit that is not installed by default in Linux with the some earlier versions of PyQt5 untill it was replacedby QtWebEngine so if you are in Linux and are getting messages about being unable to find PyQt4 modules this might be the reason). QtWebEngine is also not always installed by default in Windows version.</p>
+<p>The simplest way to setup the required dependencies to run is to run the <code>setup.py</code> program. It will give you options to install PyQt5 (for the graphical version), test modules, and install the modules for use by other python programs.</p>
+<p>In Linux you need to install PyQt from your software center or repository. There will be several available, and you want the version that you want that matches the version of python you intend to use. The package names are basically python major version-qt major version. The version number of python comes after python (although it is usually ommited for version 2), and the PyQt version number always comes after the qt bit, although this can be qt or pyqt. If you are installing PyQt5 version prior to about 5.4 you will also need to install QtWebKit as well. The module name should be the same as for PyQt but have .qtwebkit at the end. So for Python 3.4.3, PyQt5.5, it would be python3-pyqt5.qtwebkit.</p>
 <p>For Windows users, head to <a href="https://www.riverbankcomputing.com/software/pyqt/download">https://www.riverbankcomputing.com/software/pyqt/download</a> the official website for PyQt, or <a href="https://sourceforge.net/projects/pyqt/">https://sourceforge.net/projects/pyqt/</a> where the files are hosted and served from. You need to choose the download that gives you the instalation method you want for your computer architecture, for the version of python you have, and the version of PyQt you want to use. Unless you want to build it from source, choose the binary packages. Download, install, and you should be good to go. To setup PyQt5, or packages needed for development, or to install SpectrumTranslate as a module, run the <code>setup.py</code> python program. It will prompt you as to what you want to do. Just type 'y' for yes, 'n' for no, or 'q' to quit.</p>
 <h3>Instalation of SpectrumTranslate test files</h3>
 <p>As well as a working python environment as described above, you will need 2 other modules not included by default with a standard python instalation: pep8 for code formatting checks, and python image library for checks on graphics conversions. Python Image Library has been replaced in later versions by pillow.</p>
-<p>Linux users can install them using pip if installed or using the software center or repository. If using pip then from the command line use <code>pip install pep8</code> and <code>pip install pillow</code>. If installing from the software center or respository the package depends on which version of python you are using. I would advise to install both python2 and python3 versions so you can test in both environments to ensure any change is fully compatible. The packages are named python major version number-module name. The version number is usually omitted for python 2. So pep8 for python2 it's python-pep8, and pil (lower case intitials of python image library) for python 3 it's python3-pil. On some old systems there is no python-pep8 package I could find, but the pep8 package seemed to work just fine. Alternatively, you could run <code>setup.py</code> and use this to install the needed packages. Note that it will install the packages for whichever version of python (2 or 3) it is used to run it.</p>
+<p>Linux users can install them using pip if installed or using the software center or repository. If using pip then from the command line use <code>pip install pep8</code> and <code>pip install pillow</code>. If installing from the software center or respository the package depends on which version of python you are using. I would advise to install the python3 version. The packages are named python major version number-module name. So pep8 for python 3 it's python3-pil. On some old systems there is no python-pep8 package I could find, but the pep8 package seemed to work just fine. Alternatively, you could run <code>setup.py</code> and use this to install the needed packages. Note that it will install the packages for whichever version of python (2 or 3) it is used to run it.</p>
 <p>Windows users will need to use pip to install the packages. You can figure out where pip is placed and use the full filename, or add it to the PATH environment variable. The <code>setup.py</code> program will do all this for you and I'd advise you to run this.</p>
-<p>Aditionally, <code>2to3</code> needs to be installed. This should be in the package repository for linux users.</p>
 <p>The test code needs to be in a subdirectory of the SpectrumTranslate code to run it's tests properly.</p>
-<p>The python scripts <code>test_disciplefile.py</code>, <code>test_spectrumnumber.py</code>, <code>test_spectrumtapblock.py</code>, and <code>test_spectrumtranslate.py</code> all test their respective modules. These run the unittest tests on the code to ensure they are working properly. You can also run subsets of tests (look up python unittest for more details). <code>test_all_linux</code> is a shell script that will run all tests in both python2 and python3 in Linux. <code>test_all_windows.bat</code> does the same under Windows. If you make any changes and want to submit them, please ensure that you have run the script for your opperating system as a final test. Please note that in Linux, python2 and python3 are usually installed in the search path for commands so you don't need to know the full path to the executables and can simply run the script. In Windows the python executables are not typically in a directory listed in the PATH variable. To get round this I would suggest creating a batch file which calls the python executable and is placed in a folder listed in the PATH variable. Failing this you could place the batch files in the test directory and it ought to work also. The details of what has to be in the batch file is listed in the first few lines of <code>test_all_windows.bat</code>. For example, my python2 executable file is <code>C:\Python27\python.exe</code> so I created a file called python2.bat with the following in it: <code>C:\Python27\python.exe %1 %2 %3 %4 %5 %6 %7 %8 %9</code>.</p>
+<p>The python scripts <code>test_disciplefile.py</code>, <code>test_spectrumnumber.py</code>, <code>test_spectrumtape.py</code>, and <code>test_spectrumtranslate.py</code> all test their respective modules. These run the unittest tests on the code to ensure they are working properly. You can also run subsets of tests (look up python unittest for more details). <code>test_all_linux</code> is a shell script that will run all tests in python3 in Linux. <code>test_all_windows.bat</code> does the same under Windows. If you make any changes and want to submit them, please ensure that you have run the script for your opperating system as a final test. Please note that in Linux, python3 is usually installed in the search path for commands so you don't need to know the full path to the executables and can simply run the script. In Windows the python executables are not typically in a directory listed in the PATH variable. To get round this I would suggest creating a batch file which calls the python executable and is placed in a folder listed in the PATH variable. Failing this you could place the batch files in the test directory and it ought to work also. The details of what has to be in the batch file is listed in the first few lines of <code>test_all_windows.bat</code>. For example, my python3 executable file is <code>C:\Python38\python.exe</code> so I created a file called python3.bat with the following in it: <code>C:\Python38\python.exe %1 %2 %3 %4 %5 %6 %7 %8 %9</code>.</p>
 
 <a id="usage"><h2>Using SpectrumTranslate</h2></a>
 <p>SpectrumTranslate is designed to be used 3 ways: imported into other python programs, accessed from the <a href="#command_line">command line</a>, or via a <a href="#gui">graphical interface</a>.</p>
 <a id="gui"><h3>Graphical Interface</h3></a>
-<p>The command <code>python spectrumfiletranslategui.py</code> should fire up the graphical interface on any system with python 2 or 3, and PyQt 4 or 5 installed. You can run this from the command line, but it would probably make more sense to create a shortcut to the python executable file with spectrumfiletranslategui.py as the argument. On Linux you can also run the graphical interface by just running the spectrumfiletranslategui.py code without the python instruction before it so long as the file has execute permission. See below for an <a href="#gui_example">example of how to use the graphical interface</a>. If set up correctly you chould be greeted with a window as below:</p>
+<p>The command <code>python spectrumfiletranslategui.py</code> should fire up the graphical interface on any system with python 3, and PyQt 4 or 5 installed. You can run this from the command line, but it would probably make more sense to create a shortcut to the python executable file with spectrumfiletranslategui.py as the argument. On Linux you can also run the graphical interface by just running the spectrumfiletranslategui.py code without the python instruction before it so long as the file has execute permission. See below for an <a href="#gui_example">example of how to use the graphical interface</a>. If set up correctly you chould be greeted with a window as below:</p>
 <img src="Documentation/gui_main.png" alt="Main GUI" width="690" height="461">
 <p>Most of the interface is fairly self explanatory, and I have tried to ensure helpful tool-tips wherever possible - just hover your mouse over a button or item in the interface to get these to pop up.</p>
 <p>The Source File text box is where you can enter the filename for thr source to translate. It can be a container file like .tap or a disciple disk image, or just raw binary file of the spectrum data. The Browse button to the right of the text box allows you to use a file browser to select the file you want to translate. If you select a file that is a disciple/+D image, it will automatically try and work out the sector layout. If it fails to work this out, you will be prompted what image format to open the file as. I would suggest choosing the format with the fewest errors listed in the details box. You could always open it in hexadecimal view. The image format with the fewest errors has it's button set as default, so it should be a simple matter of simply pressing enter when this dialog box pops up in most cases.</p>
-<p>Below the source file text box and browser, are two lines. The first line contains the data offset and Data End text boxes. For most files these indicate the offset in the selected file to the first byte to be translated, and the the last byte (inclusive) to be translated. If the source file is a disciple/+D image, the data might not be stored contiguously in the file, and the second line of text boxes is used to specify where to find the data to be translated. This specifies the filenumber to get data from, and the offset in the file data to start translating. Note that several file types in the disciple/+D disk format contain a 9 byte headder, which needs to be skipped, which is the purpose of the offset in image file box.</p>
-<p>Top right is the "Browse contents" Button, but it can change to "Browse TAP" or "Browse disk image" depending on the source file. It is greyed out if no source file is selected. It allows the user to browse the contents of a container file and either select a file, or part of a file as the source to translate. When a file or part of file is selected, the text boxes detailing the offset/end, or file number/offset are automatically filled in.</p>
+<p>Below the source file text box and browser, are two lines. The first line contains the data offset and Data End text boxes. For most files these indicate the offset in the selected file to the first byte to be translated, and the the last byte (inclusive) to be translated. If the source file is a disciple/+D image, the data might not be stored contiguously in the file, and the second line of text boxes is used to specify where to find the data to be translated. This specifies the filenumber to get data from, and the offset in the file data to start translating. Note that several file types in the disciple/+D disk format contain a 9 byte header, which needs to be skipped, which is the purpose of the offset in image file box.</p>
+<p>Top right is the "Browse contents" Button, but it can change to "Browse TAP", "Browse TZX",  or "Browse disk image" depending on the source file. It is greyed out if no source file is selected. It allows the user to browse the contents of a container file and either select a file, or part of a file as the source to translate. When a file or part of file is selected, the text boxes detailing the offset/end, or file number/offset are automatically filled in.</p>
 <p>Below this is the "Browse Hex" button. this is greyed out until a source file is selected. Clicking on this will open a window displaying the source file in hexadecimal and ASCII. On the left of the window is the offset to the current start of the line of bytes being displayed in Hexadecimal notation. In the center are the hexadecimal representations of the bytes of the source file, and on the right are the ASCII representations of the data. The data to be translated is highlighted in dark grey. To change the selection, select the select start radio button at the bottom, and click on the first byte you want to translate. Select the select end radio button at the bottom and click to select the last byte to be translated. Clicking Ok takes the start and end points and fills in the data offset, and Data End fields in the main window. Cancel exits without changeing the selected data.</p>
-<p>Below the lines where you specify the data you want to translate is the Extract As box. This allows you to select what you want to treat the data as when translating. This will be set automatically when the data to translate is chosen via the Browse TAP or Browse disk image windows. Otherwise you'll have to set it yourself. Of note is the Raw Data option. This simply takes the specified data and is usefull for copying a file from one container file to another or output of a compiler to a spectrum code file ina container.</p>
+<p>Below the lines where you specify the data you want to translate is the Extract As box. This allows you to select what you want to treat the data as when translating. This will be set automatically when the data to translate is chosen via the Browse TAP, Browse TZX, or Browse disk image windows. Otherwise you'll have to set it yourself. Of note is the Raw Data option. This simply takes the specified data and is usefull for copying a file from one container file to another or output of a compiler to a spectrum code file ina container.</p>
 <p>To the right of the Extract As option is the Number Format box. This specifies what format all the number in this program are displayed as. It defaults to Hexadecimal by default.</p>
 <p>In the center of the main window is the area that deals with any variables that are specific to the data you want to translate. These change depending on the Extract As setting above, and are automatically set when the source data is selected useing either the Browse Tap or Browse disk image windows. These are mostly self explanatory. The Variable offset option in a BASIC file specifies the offset into the selected data where the program listing finishes and the variable listing starts. Let the program fill this automatically or leave it blank unless you know what you are doing. The XML output option specifies that you want the translated output to be in XML format, otherwise it defaults to text output. The most notable option is the <a href="#customcommands">Custom Instructions</a> button for translating machine code, which is detailed after the rest of the details of the main window.</p>
 <p>At the bottom of the main window are option for saving the output of the translation. On the left are the checkboxes specifying whether you want to view the output, and whether you want to save it. This allows you to check the output of a translation before deciding if you want to save it or not. The Destination File text box, and the browse button allow you to specify where you want to save your output. At the bottom is the Translate button, but the text can vary depending on whether you're extracting data as raw data. Press this when you're happy with your settings, and are ready to translate the selected data.</p>
 <p>Lastly is the Export file to Container checkbox. This allows you to specify that you want the extracted data to be saved off to a contaner file. If selected, then the Export Settings button becomes active and allows you to edit your export options.</p>
-<img src="Documentation/gui_Export_Settings.png" alt="Editor for Export Settings" width="320" height="294">
-<p>At the top of the Export Settings window is what type of file type to save as: As a TAP file, as a disciple/+D image, or to determin the file type from the selected output file (it ignores the file extension, and works out the file type from it's contents). Below this are tabs for the options for the different container formats.</p>
-<p>For TAP files, you can specify if you want to overwrite an existing tap file, or append the new file to the end of the existing files in a tap file. You can save the data as a headderless data block in which case the data block flag is taken from the Block Flag box, or you can save it with a headder (as if you were loading or saveing from inside spectrum basic). In this case the filename to use is taken from the Filename text box, and any aditional file attributes (like autoload, code origin, variable name etc) are taken from the relavent boxes in the main window.</p>
+<img src="Documentation/gui_Export_Settings.png" alt="Editor for Export Settings" width="336" height="324">
+<p>At the top of the Export Settings window is what type of file type to save as: As a TZX file, as a TAP file, as a disciple/+D image, or to determine the file type from the selected output file (it ignores the file extension, and works out the file type from it's contents). Below this are tabs for the options for the different container formats.</p>
+<p>For tape files (TAP and TZX), you can specify if you want to overwrite an existing file, or append the new file to the end of the existing file. You can save the data as a headerless data block in which case the data block flag is taken from the Block Flag box, or you can save it with a header (as if you were loading or saveing from inside spectrum basic). In this case the filename to use is taken from the Filename text box, and any aditional file attributes (like autoload, code origin, variable name etc) are taken from the relavent boxes in the main window. The Make TZX header option makes a TZX header block that a TZX file needs at it's beginning. This is seperate to the header for the data you are exporting. Leave it checked unless you know what you're doing, otherwise a created TZX file might not work in an emulator.</p>
 <p>For +D/disciple disk images you must specify the filename. You can choose where to save the file with the top button: overwrite (if the filename doesn't exist it will save it to the first empty slot), save it at a specified directory entry position (as specified by the target slot box), or save it to the first empty slot regardless of whether the filename is already used by another file.</p>
 <a id="customcommands"></a><h4>Custom Disassemble Commands</h4>
 <p>This window allows the user to create and edit custom instructions for translating machine code into human readable text or xml. The default settings will work perfectly fine just to get a machine code listing. However if you need data displayed in a certain way within machine code, or need special formatting, or commenting then this window allows you to do this.</p>
@@ -132,10 +132,10 @@
 <li>Now click on translate, and go and make a cup of tea (with the extra processing involved in pattern instructions this can increase the time it takes to disassemble the code. Also we're disassembling about 20,000 machine code instructions, each on a line with it's own formatting, this all takes time).</li>
 <li>The astute among you might have realised that we could have used a Comment Pattern command or added code in the Patern Data Block code to insert a comment for each Call to C123, however using a Comment Reference command is more efficient.</li></ol>
 <a id="command_line"></a><h3>Command Line</h3>
-<p>Each of the <a href="#command_line_disciplefile">disciplefile.py</a>, <a href="#command_line_spectrumtapblock">spectrumtapblock.py</a>, and <a href="#command_line_spectrumtranslate">spectrumtranslate.py</a> can be run as commands from the command line using python. They all require extra arguments to do anything, and if run without arguments will list details of how they work. For example <code>python spectrumtranslate.py</code> will list details of how to use spectrumtranslate from the command line.</p>
-<p>Under linux, you can omit the <code>python</code> if you want and simply type <code>spectrumtranslate.py</code> as all the python module files that are runable from the command line have an instruction on their first line to tell linux to use python to run it automatically. If this doesn't work then open the python file in a text editor and ensure the name and path to your python command on the first line is correct, and that the execute permission is enabled for that file (for example use <code>chmod +x spectrumtranslate.py</code> to do this for spectrumtranslate.py. You might need root user privalages to do this). All examples here are listed with python before the module file as this will work on all platforms.</p>
+<p>Each of the <a href="#command_line_disciplefile">disciplefile.py</a>, <a href="#command_line_spectrumtape">spectrumtape.py</a>, and <a href="#command_line_spectrumtranslate">spectrumtranslate.py</a> can be run as commands from the command line using python. They all require extra arguments to do anything, and if run without arguments will list details of how they work. For example <code>python spectrumtranslate.py</code> will list details of how to use spectrumtranslate from the command line.</p>
+<p>Under linux, you can omit the <code>python</code> if you want and simply type <code>spectrumtranslate.py</code> as all the python module files that are runable from the command line have an instruction on their first line to tell linux to use python to run it automatically. If this doesn't work then try using './' in front of the command, or open the python file in a text editor and ensure the name and path to your python command on the first line is correct, and that the execute permission is enabled for that file (for example use <code>chmod +x spectrumtranslate.py</code> to do this for spectrumtranslate.py. You might need root user privalages to do this). All examples here are listed with python before the module file as this will work on all platforms.</p>
 <p>When using the command line, you must specify the command as the first argument after the python module. The last two arguments should be the source data file, and then the destination file unless you are getting information from the standard input, or sending it to the standard output. To specify that you are getting the input from the standard input rather than the input file, use the <code>-i</code> or <code>--fromstandardinput</code> flags. If you want to send the output to the standard output rather than an output file, then use the <code>-o</code> or <code>--tostandardoutput</code> flags.</p>
-<p>Example for the command line usage are: <a href="#cli_disciplefile_example">disciplefile examples</a>, <a href="#cli_spectrumtapblock_example">spectrumtapblock examples</a>, <a href="#cli_spectrumtranslate_example">spectrumtranslate examples</a>, and <a href="#cli_advanced_examples">advanced examples</a>.</p>
+<p>Example for the command line usage are: <a href="#cli_disciplefile_example">disciplefile examples</a>, <a href="#cli_spectrumtape_example">spectrumtape examples</a>, <a href="#cli_spectrumtranslate_example">spectrumtranslate examples</a>, and <a href="#cli_advanced_examples">advanced examples</a>.</p>
 
 <a id="command_line_disciplefile"></a><h4>disciplefile.py</h4>
 <p>To operate on disciple/+D image files use the disciplefile.py file. It has the following options one of which must be specified as the first argument:
@@ -267,18 +267,19 @@
   <dt><code>python disciplefile.py test -o -b disk.img</code></dt>
   <dd>When run, it will test the file disk.img, and return nothing if no errors found, or a one line error message if there are. Omit the -b flag if you want full details of the errors.</dd>
 </dl>
-<a id="command_line_spectrumtapblock"></a><h4>spectrumtapblock.py</h4>
-<p>To operate on tap files use the spectrumtapblock.py file. It moves data from infile which should be a tap file (or data to save as a file into a tap file) and outputs it to outfile. It has the following options one of which must be specified as the first argument:</p>
+<a id="command_line_spectrumtape"></a><h4>spectrumtape.py</h4>
+<p>To operate on tap files use the spectrumtape.py file. It moves data from infile which should be a tap or tzx file (or data to save as a file into a tap or tzx file) and outputs it to outfile. It has the following options one of which must be specified as the first argument:</p>
 <ul>
   <li><code>list</code> - this will list the contents of the specified tap file.</li>
   <li><code>extract</code> - extracts the data from the tap file entry to wherever you want.</li>
   <li><code>copy</code> - copies the specified file(s) from one tap file to another.</li>
   <li><code>delete</code> - will output a copy of the input tap file with the specified files deleted.</li>
-  <li><code>create</code> - creates a new tap entry (as well as a headder if needed) in outfile using the supplied file data.</li>
+  <li><code>create</code> - creates a new tap entry (as well as a header if needed) in outfile using the supplied file data.</li>
 </ul></p>
 <p>For the <code>extract</code> instruction, the index of the tap entry you want to extract must be specified before the filenames.</p>
 <p>For the <code>copy</code> and <code>delete</code> instructions, the index(s) of the tap entry(entries) you want to copy must be specified before the filename.  You do not need to do this if you have already specified which entries you want with the <code>-s</code> flag.</p>
 <p>If using the <code>create</code> instruction, you must specify what you are creating imediatly after the create instruction.  Valid options are <code>basic</code>, <code>code</code>, <code>array</code>, <code>screen</code>, and <code>block</code>.  You must also specify the filnename for the file with the <code>--filename</code> flag unless you are creating a data block.  If creating an array, you must also specify the name and type of array with the <code>--arraytype</code> and <code>--arrayname</code> flags.</p>
+<p>spectrumtape.py will pick an apropriate output file format (Tzx or Tap) if it can. If the output file exists and is being appended to, it will pick this as the file format to use. Otherwise it will pick the input format as the output format. You can specify what output format you want using the general flags (see below).</p>
 <h5>general flags:</h5>
 <dl>
   <dt><code>-o</code></dt>
@@ -295,11 +296,18 @@
   <dd>same as <code>-s</code>.</dd>
   <dt><code>--specificfiles</code></dt>
   <dd>same as <code>-s</code>.</dd>
+  <dt><code>--tap</code></dt>
+  <dd>specifies that you want the output in tap file format.</dd>
+  <dt><code>--tzx</code></dt>
+  <dd>specifies that you want the output in tzx file format.</dd>
+  <dt><code>--notzxheader</code></dt>
+  <dd>specifies that you don't want a tzx file header added to a tzx file. Otherwise one will automatically be generated. Most emulators will not load, or even recognise a tzx file without it's header.</dd>
+
 </dl>
 <h5>list flags:</h5>
 <dl>
   <dt><code>-d</code></dt>
-  <dd>specifies that we want all information about each tap file entry divided by tabs.  All entries begin with the index of the entry in the tap file, followed by either 'Headder' for a headder or 'Data' for data.  For Data entries, the flag value and then the data length is listed.  For Headders the data following this depends on the file type.</br>For Program headders, the data given is filename, 'Program', length of data in the coresponding data file, the autostart line number or -1 if there isn't one, and the offset in bytes to the atached variables (will be the same as the length if there are no variables).</br>For Byte headders there follows the file name, 'Bytes', the address where the code was saved from (and would automatically be loaded to), and then the length.</br>For array headders there follows the filename, 'Number array' or 'Character array', the length of the array data, the array letter, the array variable name, and the array descriptor specifying what sort of array it contains.</br>Finally for unknown file types, there follows the file name, 'Unknown', the file type number, and the length of the ascociated data.</dd>
+  <dd>specifies that we want all information about each file entry divided by tabs.  All entries begin with the index of the entry in the file, followed by either 'Header' for a header or 'Data' for data.  For Data entries, the flag value and then the data length is listed.  For Headers the data following this depends on the file type.</br>For Program headers, the data given is filename, 'Program', length of data in the coresponding data file, the autostart line number or -1 if there isn't one, and the offset in bytes to the atached variables (will be the same as the length if there are no variables).</br>For Byte headers there follows the file name, 'Bytes', the address where the code was saved from (and would automatically be loaded to), and then the length.</br>For array headers there follows the filename, 'Number array' or 'Character array', the length of the array data, the array letter, the array variable name, and the array descriptor specifying what sort of array it contains.</br>Finally for unknown file types, there follows the file name, 'Unknown', the file type number, and the length of the ascociated data.</dd>
   <dt><code>--details</code></dt>
   <dd>is the same as <code>-d</code>.</dd>
 </dl>
@@ -337,27 +345,27 @@
   <dt><code>--position</code></dt>
   <dd>same as <code>-p</code>.</dd>
 </dl>
-<a id="cli_spectrumtapblock_example"></a><h5>Examples:</h5>
+<a id="cli_spectrumtape_example"></a><h5>Examples:</h5>
 <dl>
-  <dt><code>python spectrumtapblock.py</code></dt>
-  <dd>This will list a summary of how to use spectrumtapblock.py.</dd>
-  <dt><code>python spectrumtapblock.py list -o games.tap</code></dt>
+  <dt><code>python spectrumtape.py</code></dt>
+  <dd>This will list a summary of how to use spectrumtape.py.</dd>
+  <dt><code>python spectrumtape.py list -o games.tap</code></dt>
   <dd>This will list the contents of the file games.tap to the standard output (the screen).</dd>
-  <dt><code>python spectrumtapblock.py list -d games.tap listing.tap</code></dt>
+  <dt><code>python spectrumtape.py list -d games.tap listing.tap</code></dt>
   <dd>This will list all the data on the contents of the file games.tap and save it in a file called listing.tap. The data for each entry in the tap file will be on one line seperated by tabs.</dd>
-  <dt><code>python spectrumtapblock.py delete 1 games.tap games.tap</code></dt>
-  <dd>This will delete the second entry in the games.tap file and save the changes back to the origional file. Note that this might only delete part of a file as most files consist of a headder block and a data block.</dd>
-  <dt><code>python spectrumtapblock.py delete -s 1-10,0x20 games.tap games2.tap</code></dt>
-  <dd>This will delete the entries in order 1 to 10 inclusive, as well as 32 (20 hexdecimal) in the file games.tap file, and save the changes to games2.tap. Note that the origional games.tap file will be unchanged. Also note that the indexes specified are zero based: the first entry in a tap file is 0, the second is 1 etc.</dd>
-  <dt><code>python spectrumtapblock.py extract 10 games.tap code.bin</code></dt>
+  <dt><code>python spectrumtape.py delete 1 games.tap games.tap</code></dt>
+  <dd>This will delete the second entry in the games.tap file and save the changes back to the origional file. Note that this might only delete part of a file as most files consist of a header block and a data block.</dd>
+  <dt><code>python spectrumtape.py delete -tzx -s 1-10,0x20 games.tap games2.tzx</code></dt>
+  <dd>This will delete the entries in order 1 to 10 inclusive, as well as 32 (20 hexdecimal) in the file games.tap file, and save the changes to games2.tzx in tzx format. Note that the origional games.tap file will be unchanged. Also note that the indexes specified are zero based: the first entry in a file is 0, the second is 1 etc.</dd>
+  <dt><code>python spectrumtape.py extract 10 games.tap code.bin</code></dt>
   <dd>This will extract the 11th entry in the games.tap file (remember it's zero based numbering) and save the contents as file code.bin.</dd>
-  <dt><code>python spectrumtapblock.py copy --pos 11 -s1-10 games1.tap games2.tap</code></dt>
+  <dt><code>python spectrumtape.py copy --pos 11 -s1-10 games1.tap games2.tap</code></dt>
   <dd>This will copy files from positions 1 to 10 inclusive in games1.tap and insert them at position 11 in games2.tap. If games2.tap exists and there are files at slots 11 or after, they will be pushed back so they are at later positions.</dd>
-  <dt><code>python spectrumtapblock.py create basic --filename TEST --autostart 10 basic.bin basic.tap</code></dt>
+  <dt><code>python spectrumtape.py create basic --filename TEST --autostart 10 basic.bin basic.tap</code></dt>
   <dd>This will create a basic file in basic.tap that can be loaded in an emulator. The file is called TEST, it will be set to autorun if loaded to line 10, and the data of the basic code is to be taken from the file basic.bin.</dd>
-  <dt><code>python spectrumtapblock.py create code -a --filename TEST --origin 0x8000 code.bin basic.tap</code></dt>
-  <dd>This will create a code file entry in basic.tap, appending it to the existing file so that the code file comes after any existing files. The file is called TEST. The Origin of the code file will be set as 32768 (8000 hexadecimal). The data of the code file is to be taken from the file code.bin.</dd>
-  <dt><code>python spectrumtapblock.py create array --filename ARRAY -p 2 --arraytype string --arrayname S -i basic.tap</code></dt>
+  <dt><code>python spectrumtape.py create code -tzx -a --filename TEST --origin 0x8000 code.bin basic.tzx</code></dt>
+  <dd>This will create a code file entry in tzx format in basic.tzx, appending it to the existing file so that the code file comes after any existing files. The file is called TEST. The Origin of the code file will be set as 32768 (8000 hexadecimal). The data of the code file is to be taken from the file code.bin.</dd>
+  <dt><code>python spectrumtape.py create array --filename ARRAY -p 2 --arraytype string --arrayname S -i basic.tap</code></dt>
   <dd>When run, it will wait for input from the standard input (ie the keyboard). Type some message like "This is a test" and then press CTRL-D twice to end the input (I'm not sure why you have to press CTRL-D twice and not just once...). This will then create a string array file at position 2 called ARRAY. It will use the text inputed as the data for the string array.</dd>
 </dl>
 <a id="command_line_spectrumtranslate"></a><h4>spectrumtranslate.py</h4>
@@ -476,7 +484,7 @@
   <dt><code>python spectrumtranslate.py array -t character --xml array.bin array.xml</code></dt>
   <dd>This will translate the character array held in array.bin to xml format in the array.xml file.</dd>
   <dt><code>python spectrumtranslate.py array -d -t character -o --skip 0x18 array.tap</code></dt>
-  <dd>This will print the number of dimensions in the character array held in array.tap to the screen.  Note the <code>--skip</code> flag is used to bypass the file headder data in the tap file as well as the tap file entry length, and flag for the array data, jumping to the actual data in the file.  Also note that I've not needed to use the <code>-l</code> flag to specify how many bytes of data to use as the length of an array can be worked out from first few bytes of the array data, so supplying more data than needed isn't a problem.</dd>
+  <dd>This will print the number of dimensions in the character array held in array.tap to the screen.  Note the <code>--skip</code> flag is used to bypass the file header data in the tap file as well as the tap file entry length, and flag for the array data, jumping to the actual data in the file.  Also note that I've not needed to use the <code>-l</code> flag to specify how many bytes of data to use as the length of an array can be worked out from first few bytes of the array data, so supplying more data than needed isn't a problem.</dd>
   <dt><code>python spectrumtranslate.py text -o -a array.bin</code></dt>
   <dd>This will translate the array.bin file as text and print it to the screen. Any non-printable characters will be output as control codes. So the first byte which is the number of dimensions in an array, and then the 2 byte lengths of each array dimension will be printed as characters of control codes, followed by the text in the array. Any non-ASCII characters will be output as control codes (displayed as ^ followed by it's 2 digit hexadecimal value).</dd>
   <dt><code>python spectrumtranslate.py screen -g screen.bin screen.gif</code></dt>
@@ -500,14 +508,14 @@
 <a id="cli_advanced_examples"></a><h2>Advanced Command line Examples:</h2>
 <p>These exmples combine the various command line commands with concepts like pipes, and are only available on systems with advanced shells like linux.  I gather MacOS has a shell that could do something similar, and there are instalable shells for windows that emulate pipes.</p>
 <dl>
-  <dt><code>python spectrumtapblock.py extract -o 1 basic.tap | python spectrumtranslate.py basic -i -o</code></dt>
-  <dd>This will extract the second entry in the basic.tap file (the first entry will be the headder file for the basic program, and the second is the data for the basic program) and send it to the standard output, which is connected via the pipe opperator (|) to the standard input for spectrumtranslate.</dd>
+  <dt><code>python spectrumtape.py extract -o 1 basic.tap | python spectrumtranslate.py basic -i -o</code></dt>
+  <dd>This will extract the second entry in the basic.tap file (the first entry will be the header file for the basic program, and the second is the data for the basic program) and send it to the standard output, which is connected via the pipe opperator (|) to the standard input for spectrumtranslate.</dd>
   <dt><code>python disciplefile.py list -o -d diskimage.img | awk 'BEGIN{FS="\t"}{sub(/[ ]*$/,"",$2); printf "python disciplefile.py extract %i diskimage.img \"%02i%s.bin\"\n", $1, $1, $2;}' | bash</code></dt>
-  <dd>This command is a bit of a monster but it extracts the contents of every file in diskimage.img and saves it as it's own file.  Going through this, it lists all the files in the disk image, one per line with the data seperated by a tab. This is passed to the awk command which is a powerful text processing function available by default on most versions linux.  awk splits the input into fields ($1 for the first, $2 for the second etc). The BEGIN{FS="\t"} bit tells awk to split fields by tab, and not any whitespace (such as spaces which are quite possible in spectrum filenames thus stopping a filename from being split over more than one field).  The bit between { and } without the BEGIN in front of it first substitutes and trailing spaces in the filename field for nothing (so trimming it), and then prints out a command to extract the file using the disciplefile.py command line option. The escaped quotes around the filename part are needed as the filename may still contain spaces.  Lastly the output is piped to bash which is a shell.  This will execute the command.  Leave out the "| bash" at the end to see the commands as they should be executed.</dd>
+  <dd>This command is a bit of a monster but it extracts the contents of every file in diskimage.img and saves it as it's own file.  Going through this, it lists all the files in the disk image, one per line with the data seperated by a tab. This is passed to the awk command which is a powerful text processing function available by default on most versions of linux.  awk splits the input into fields ($1 for the first, $2 for the second etc). The BEGIN{FS="\t"} bit tells awk to split fields by tab, and not any whitespace (such as spaces which are quite possible in spectrum filenames thus stopping a filename from being split over more than one field).  The bit between { and } without the BEGIN in front of it first substitutes and trailing spaces in the filename field for nothing (so trimming it), and then prints out a command to extract the file using the disciplefile.py command line option. The escaped quotes around the filename part are needed as the filename may still contain spaces.  Lastly the output is piped to bash which is a shell.  This will execute the command.  Leave out the "| bash" at the end to see the commands as they should be executed.</dd>
 </dl>
 
 <a id="python_usage"></a><h2>Python programming usage</h2>
-<p><a href="#python_usage_disciplefile">disciplefile.py</a>, <a href="#python_usage_spectrumtapblock">spectrumtapblock.py</a>, <a href="#python_usage_spectrumtranslate">spectrumtranslate.py</a>, and <a href="#python_usage_spectrumnumber">spectrumnumber.py</a> are designed to be used in the python programming language by including them in any other software. They either need to be in the python sys.path list or in the same directory as the code that's including it. I won't go into detailed explanation of each function as this is available in the source code at the start of each function, or by using <code>help(module.functionname)</code> either at the interactive python shell, or by printing this in a program. You can also use the <code>dir</code> function to list all the functions in a module or a class. I will only list an overview of the functions below. There are some <a href="#python_usage_examples">examples</a> below the function overview. I have also omited functions and classes designed for the internal usage of this package.</p>
+<p><a href="#python_usage_disciplefile">disciplefile.py</a>, <a href="#python_usage_spectrumtape">spectrumtape.py</a>, <a href="#python_usage_spectrumtranslate">spectrumtranslate.py</a>, and <a href="#python_usage_spectrumnumber">spectrumnumber.py</a> are designed to be used in the python programming language by including them in any other software. They either need to be in the python sys.path list or in the same directory as the code that's including it. I won't go into detailed explanation of each function as this is available in the source code at the start of each function, or by using <code>help(module.functionname)</code> either at the interactive python shell, or by printing this in a program. You can also use the <code>dir</code> function to list all the functions in a module or a class. I will only list an overview of the functions below. There are some <a href="#python_usage_examples">examples</a> below the function overview. I have also omited functions and classes designed for the internal usage of this package.</p>
 <a id="python_usage_disciplefile"></a><h3>disciplefile.py functions, and classes</h3>
 <dl>
   <h4>Module functions:</h4>
@@ -533,8 +541,8 @@
     <dt><code>getautostartline([headderdata])</code></dt>
     <dd>Returns the autostart line of a basic file.</dd>
     <dt><code>getcodestart([headderdata])</code></dt>
-    <dd>Returns the start address of saved code as detailed in the file headder.</dd>
-    <dt><code>getdisciplefiledetails([headderdata])</code></dt>
+    <dd>Returns the start address of saved code as detailed in the file header.</dd>
+    <dt><code>getdisciplefiledetails([headerdata])</code></dt>
     <dd>Returns full file details, including all sectors used, and the file sector chain.</dd>
     <dt><code>getfiledata([wantheadder [,headderdata]])</code></dt>
     <dd>Returns the file data for this file.</dd>
@@ -625,77 +633,95 @@
   </dl>
 </dl>
 
-<a id="python_usage_spectrumtapblock"></a><h3>spectrumtapblock.py functions, and classes</h3>
+<a id="python_usage_spectrumtape"></a><h3>spectrumtape.py functions, and classes</h3>
 <dl>
   <h4>Module functions:</h4>
   <dl>
-    <dt><code>createarrayheadder(filename, VariableDescriptor, ArrayLength)</code></dt>
-    <dd>Returns a SpectrumTapBlock object holding data for an array file headder.</dd>
-    <dt><code>createbasicheadder(filename, VariableOffset, ProgLength[, AutoStart])</code></dt>
-    <dd>Returns a SpectrumTapBlock object holding data for a BASIC file headder.</dd>
-    <dt><code>createcodeheadder(filename, Origin, Codelength)</code></dt>
-    <dd>Returns a SpectrumTapBlock object holding data for a CODE file headder.</dd>
+    <dt><code>createarrayheader(filename, VariableDescriptor, ArrayLength)</code></dt>
+    <dd>Returns a SpectrumTapeBlock object holding data for an array file header.</dd>
+    <dt><code>createbasicheader(filename, VariableOffset, ProgLength[, AutoStart])</code></dt>
+    <dd>Returns a SpectrumTapeBlock object holding data for a BASIC file header.</dd>
+    <dt><code>createcodeheader(filename, Origin, Codelength)</code></dt>
+    <dd>Returns a SpectrumTapeBlock object holding data for a CODE file header.</dd>
     <dt><code>createdatablock(data[, flag])</code></dt>
-    <dd>Returns a SpectrumTapBlock object holding data for a data block.</dd>
-    <dt><code>createscreenheadder(filename)</code></dt>
-    <dd>Returns a SpectrumTapBlock object holding data for a CODE file headder for a screen.</dd>
-    <dt><code>gettapblockfrombytes(data[, position])</code></dt>
-    <dd>Gets a SpectrumTapBlock object from the specified data.</dd>
-    <dt><code>gettapblockfromfile(tapfile[, position])</code></dt>
-    <dd>Gets a SpectrumTapBlock object from the specified file where tapfile is a file handle.</dd>
-    <dt><code>gettapblocks(tapfile[, position])</code></dt>
-    <dd>Returns a list of SpectrumTapBlock objects from the specified file where tapfile is a file handle.</dd>
-    <dt><code>tapblockfrombytes(data[, position])</code></dt>
-    <dd>Returns a list of SpectrumTapBlock objects from the specified data.</dd>
-    <dt><code>tapblockfromfile(filename[, position])</code></dt>
-    <dd>Returns an itterator of SpectrumTapBlock objects from the specified file where filename is the name of the file to read.</dd>
+    <dd>Returns a SpectrumTapeBlock object holding data for a data block.</dd>
+    <dt><code>createscreenheader(filename)</code></dt>
+    <dd>Returns a SpectrumTapeBlock object holding data for a CODE file header for a screen.</dd>
+    <dt><code>nexttapblock(source)</code></dt>
+    <dd>a generator function that will supply SpectrumTapBlock objects from a tap file. source can be a file object, a bytearray, a bytes object, or a list or tuple of ints.</dd>
+    <dt><code>nexttzxblock(source)</code></dt>
+    <dd>a generator function that will supply SpectrumTzx* objects from a tzx file. source can be a file object, a bytearray, a bytes object, or a list or tuple of ints.</dd>
+    <dt><code>convertblockformat(block, formatwanted)</code></dt>
+    <dd>returns a block that is the supplied block converted to the requested format. Acceptable formats are 'Tap, 'Tzx', and None (the origional block will be returned in this case). It will raise an error if the block cannot be converted.</dd>
+    <dt><code>getfiletypeandblocksfromsource(source)</code></dt>
+    <dd>Returns a tuple consisting of (filetype, list of blocks). source can be a bytearray, a bytes object, or a list or tuple of ints. the returned filetype is 'Tap', 'Tzx', or 'unknown'.</dd>
   </dl>
-  <h4><code>SpectrumTapBlock</code> class</h4>
-  <p>A class to handle individual entries in a tap file. Create with: <code>SpectrumTapBlock([flag[, data[, filePosition]])</code>.</p>
+  <a id="class_SpectrumTapeBlock"></a><h4><code>SpectrumTapeBlock</code> class</h4>
+  <p>A generic class to handle individual entries in a tape file. It is not intended for general use, but is inherited by classes used to describe Tap and Tzx file blocks, and it's attributes and methods can be used by the child classes.</p>
   <h5>Attributes:</h5>
   <dl>
-    <dt><code>data</code></dt>
-    <dd>This is a bytearray holding the data contained in the tap block.</dd>
     <dt><code>filePosition</code></dt>
-    <dd>If the tapblock is created from a file, this is the offset to the start of the tapblock in the origional file.</dd>
-    <dt><code>flag</code></dt>
-    <dd>This is the flag to indicate the type of tap block (0 for headder, 255 for data).</dd>
+    <dd>If the tapeblock is created from a file, this is the offset in bytes to the start of the tapeblock in the origional file.</dd>
+    <dt><code>blockPosition</code></dt>
+    <dd>If the tapeblock is created from a file, this is the index of the block in the origional file.</dd>
   </dl>
   <h5>Methods:</h5>
   <dl>
-    <dt><code>getdatastartoffset()</code></dt>
-    <dd>Returns the offset in bytes from the start of a tap file to where the actual data represented in a tap block is stored. This is not acurate if filePosition was wrong when creating the SpectrumTapBlock object.</dd>
-    <dt><code>getfiledetailsstring()</code></dt>
-    <dd>Returns a string giving an overview of the file described in this headder block.</dd>
-    <dt><code>getfilename()</code></dt>
-    <dd>Returns a string of the filename inside this headder block.</dd>
-    <dt><code>getfiletypestring()</code></dt>
-    <dd>Returns a string specifying what type of file is detailed in this headder block.</dd>
-    <dt><code>getheadderarraydescriptor()</code></dt>
-    <dd>Returns the descriptor for the array described by this headder block.</dd>
-    <dt><code>getheadderautostartline()</code></dt>
-    <dd>Returns the auto-start line for a BASIC file as described in this headder block.</dd>
-    <dt><code>getheaddercodestart()</code></dt>
-    <dd>Returns the address for a piece of code saved as described in this headder block.</dd>
-    <dt><code>getheadderdescribeddatalength()</code></dt>
-    <dd>Returns the length of the date described in this headder block. This will usually be the length of the following tap file block.</dd>
-    <dt><code>getheaddervariableletter()</code></dt>
-    <dd>Returns the character name of the array described by this headder block.</dd>
-    <dt><code>getheaddervariablename()</code></dt>
-    <dd>Returns a string for the array name described by this headder block.</dd>
-    <dt><code>getheaddervariableoffset()</code></dt>
-    <dd>Returns the offset in bytes from the start of a BASIC file to where the variables are stored as described in this headder block.</dd>
-    <dt><code>getpackagedforfile()</code></dt>
-    <dd>Returns a bytearray of this block ready to be saved off to a tap file.</dd>
-    <dt><code>getrawfilename()</code></dt>
-    <dd>Returns a bytearray of the characters in a filename in this headder block.</dd>
-    <dt><code>isheadder()</code></dt>
-    <dd>Returns true if this tap file block appears to be a headder.</dd>
-    <dt><code>savetofile(filename[, append])</code></dt>
-    <dd>Saves this block to the named file.</dd>
+    <dt><code>blocktype</code></dt>
+    <dd>This returns the type for this block for use in listing.</dd>
+    <dt><code>getblockinfo</code></dt>
+    <dd>This gets a String respresentation of the file information. If the block describes a header, then the format of the returned string is similar to that displayed by the spectrum as it loads a file. For data block, the flag and length are returned. Other blocks have information about that type of block.</dd>
+    <dt><code>getdetailslist</code></dt>
+    <dd>Returns info in this block in a tab seperated string.</dd>
+    <dt><code>getfilename</code></dt>
+    <dd>This gets the filename from a header block. Note that the filename is always 10 spectrum characters long and will be padded with spaces to make the length up to 10 characters. Also be aware that spectrum characters can contain control codes, or names of spectrum BASIC commands, so the resultant extracted string could be more than 10 characters in length. Returns a String holding the filename, or None if this object isn't a header.</dd>
+    <dt><code>getfiletypestring</code></dt>
+    <dd>What type of data does this header block describe? Returns a string holding the file type, or None if it is not a header block.</dd>
+    <dt><code>getheaderarraydescriptor</code></dt>
+    <dd>This returns the array descriptor of an array Header block. The descriptor is an 8 bit number. The lower 6 bits hold the ASCII lower 6 bits of the variable name (must be a letter of the alphabet). Bits 6 and 7 describe what type of array the Header block describes. They are 64 for a character array, 128 for a number array, and 192 for a string array. Returns the array descriptor of the array described by a header block, or None if this object is not a number or character array header block.</dd>
+    <dt><code>getheaderautostartline</code></dt>
+    <dd>This returns the Autostart line number for a BASIC file header block. Returns the line number to automatically start at when a BASIC file is loaded. Returns None if no Autostart line is specified, or if this object is not a BASIC header block.</dd>
+    <dt><code>getheadercodestart</code></dt>
+    <dd>This returns the address where a code file was saved from, and is the sugested address to load it to. Returns the code address for a code block, or None if this object is not a code header block.</dd>
+    <dt><code>getheaderdescribeddatalength</code></dt>
+    <dd>This returns the length of the data block that this Header block details. Returns the data block block length, or None if this object is not a header block.</dd>
+    <dt><code>getheadervariableletter</code></dt>
+    <dd>This returns the character of the variable described by an array Header block. Returns the character value of a variable described by a header block, or None if this object is not a number or character array header block.</dd>
+    <dt><code>getheadervariablename</code></dt>
+    <dd>This returns the name of the variable described by an array Header block. This is the letter name of the array, followed by '$' if it is a character array. Returns the name of a variable described by a header block, or None if this object is not a number or character array header block.</dd>
+    <dt><code>getheadervariableoffset</code></dt>
+    <dd>This returns the offset to the start of the variable area in a BASIC file. This is the same as the length in bytes of the BASIC program. If this is the same as the length of the BASIC file then there are no variables saved with the program. Returns the byte offset to the start of the variables in the file, or None if this object is not a BASIC header block. This is the same as the length of the BASIC program without any variables.</dd>
+    <dt><code>getpackagedforfile</code></dt>
+    <dd>returns this TapeBlock packaged up as a bytearray for output to a file.</dd>
+    <dt><code>getpayload</code></dt>
+    <dd>Returns the actual data that the block this describes would hold (without flag or checksum). Returns None if block doesn't have data in it.</dd>
+    <dt><code>getpayloadstartoffset</code></dt>
+    <dd>Returns the position in the file of the data described by this block.</dd>
+    <dt><code>getpayloadlength</code></dt>
+    <dd>Returns the length of the data described by this block. Note that the actual length of a block is longer as it often contains details such as the length of a block, a flag, and a checksum.</dd>
+    <dt><code>getrawfilename</code></dt>
+    <dd>This returns the 10 character file name as a bytearray. Returns None if not a header.</dd>
+    <dt><code>isdatablock</code></dt>
+    <dd>Is this Block object probably a data block? of a file. Returns True if this is probably a data, or False if probably not.</dd>
+    <dt><code>isheader</code></dt>
+    <dd>Is this Block object probably a header block? Header blocks come before the blocks holding the actual file data and contain information such as the filename, the file type, length, and other information depending on the file type. Returns True if this is probably a header, or False if probably not.</dd>
+  </dl>
+  <h4><code>SpectrumTapBlock</code> class</h4>
+  <p>A class that holds information about a block of data from a Spectrum Tap file format. These can be used to extract data from a tap file. It inherits methods and attributes from <code>SpectrumTapeBlock</code>.</p>
+  <h5>Attributes (in addition to those from <a href="#class_SpectrumTapeBlock">SpectrumTapeBlock</a>:</h5>
+  <dl>
+    <dt><code>flag</code></dt>
+    <dd>This is the flag byte of the spectrum file that this block represents (0 for a header, 255 for a data block).</dd>
+  </dl>
+
+  <h4><code>SpectrumTZXStandardSpeedDataBlock</code>, <code>SpectrumTZXTurboSpeedDataBlock</code>, <code>SpectrumTZXPureToneBlock</code>, <code>SpectrumTZXPulseSequenceBlock</code>, <code>SpectrumTZXPureDataBlock</code>, <code>SpectrumTZXDirectRecordingBlock</code>, <code>SpectrumTZXCSWRecording</code>, <code>SpectrumTZXGeneralizedDataBlock</code>, <code>SpectrumTZXPauseOrStopBlock</code>, <code>SpectrumTZXGroupStartBlock</code>, <code>SpectrumTZXGroupEndBlock</code>, <code>SpectrumTZXJumpToBlock</code>, <code>SpectrumTZXLoopStartBlock</code>, <code>SpectrumTZXLoopEndBlock</code>, <code>SpectrumTZXCallSequenceBlock</code>, <code>SpectrumTZXReturnFromSequenceBlock</code>, <code>SpectrumTZXSelectBlock</code>, <code>SpectrumTZXStopTapeIf48KBlock</code>, <code>SpectrumTZXSetSignalLevelBlock</code>, <code>SpectrumTZXTextDescriptionBlock</code>, <code>SpectrumTZXMessageBlock</code>, <code>SpectrumTZXArchiveInfoBlock</code>, <code>SpectrumTZXHardwareTypeBlock</code>, <code>SpectrumTZXCustomInfoBlock</code>, and <code>SpectrumTZXHeaderBlock</code> classs</h4>
+  <p>These classes that holds information about blocks of data from a Spectrum Tzx file format. These can be used to extract data from a tzx file. They inherits methods and attributes from <code>SpectrumTapeBlock</code>.</p>
+  <h5>Attributes in available in <code>SpectrumTZXStandardSpeedDataBlock</code>, <code>SpectrumTZXTurboSpeedDataBlock</code>, and <code>SpectrumTZXPureDataBlock</code> (in addition to those from <a href="#class_SpectrumTapeBlock">SpectrumTapeBlock</a>:</h5>
+  <dl>
+    <dt><code>flag</code></dt>
+    <dd>This is the flag byte of the spectrum file that this block represents (0 for a header, 255 for a data block).</dd>
   </dl>
 </dl>
-
 <a id="python_usage_spectrumtranslate"></a><h3>spectrumtranslate.py functions, and classes</h3>
 <dl>
   <h4>Significant Variables:</h4>
@@ -972,82 +998,90 @@ False
 <p>Line 8 and 11 show that you can use standard operators on SpectrumNumbers.</p>
 <p>Line 9 and 13 show SpectrumNumber being interprated by the python interpreter as inputs to other standard functiuons.</p>
 <h3>Example 2</h3>
-<p>This one could be run as a program but this example is from the interactive python shell as started by <code>python</code>. The '>>>' and '...' simply represent the interpreter command prompt and don't need to be copied in.</p>
+<p>This one could be run as a program but this example is from the interactive python shell as started by <code>python</code>. The '&gt;&gt;&gt;' and '...' simply represent the interpreter command prompt and don't need to be copied in.</p>
 <div style="background-color: lightgrey; display: block; width: auto;"><code><ol>
-<li>&gt;&gt;&gt;import spectrumtapblock as STB</li>
-<li>&gt;&gt;&gt;import spectrumtranslate as ST</li>
-<li>&gt;&gt;&gt;</li>
-<li>&gt;&gt;&gt;for stb in STB.tapblockfromfile("test/arraytest_number.tap"):</li>
-<li>...&nbsp;&nbsp;&nbsp;&nbsp;if(stb.isheadder()):</li>
-<li>...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;print (str(stb) + " = headder containing " + stb.getfiledetailsstring())</li>
-<li>...&nbsp;&nbsp;&nbsp;&nbsp;else:</li>
-<li>...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;print (stb)</li>
-<li>...
-<li>Flag:0, block length:17 = headder containing "x         " Number array X</li>
-<li>Flag:255, block length:1005</li>
-<li>&gt;&gt;&gt;blocks = STB.gettapblocks("test/arraytest_number.tap")</li>
-<li>&gt;&gt;&gt;array = ST.extractarray(blocks[1].data, blocks[0].getheadderarraydescriptor())</li>
-<li>&gt;&gt;&gt;print(type(array))</li>
-<li>&lt;type 'list'&gt;</li>
-<li>&gt;&gt;&gt;print(len(array))</li>
+
+<li>&gt;&gt;&gt; import spectrumtape as STB</li>
+<li>&gt;&gt;&gt; import spectrumtranslate as ST</li>
+<li>&gt;&gt;&gt; </li>
+<li>&gt;&gt;&gt; with open("test/arraytest_number.tap", "rb") as f:</li>
+<li>... &nbsp;&nbsp;&nbsp;&nbsp;for tb in STB.nexttapblock(f):</li>
+<li>... &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if tb.isheader():</li>
+<li>... &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;print(str(tb) + " = header containing " + tb.getblockinfo())</li>
+<li>... &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else:</li>
+<li>... &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;print(str(tb))</li>
+<li>... </li>
+<li>Tap file block. Flag:0, block length:17 = header containing "x&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" Number array X</li>
+<li>Tap file block. Flag:255, block length:1005</li>
+<li>&gt;&gt;&gt; with open("test/arraytest_number.tap", "rb") as f:</li>
+<li>... &nbsp;&nbsp;&nbsp;&nbsp;blocks = [*STB.nexttapblock(f)]</li>
+<li>... </li>
+<li>&gt;&gt;&gt; array = ST.extractarray(blocks[1].data, blocks[0].getheaderarraydescriptor())</li>
+<li>&gt;&gt;&gt; print(type(array))</li>
+<li>&lt;class 'list'&gt;</li>
+<li>&gt;&gt;&gt; print(len(array))</li>
 <li>20</li>
-<li>&gt;&gt;&gt;print(type(array[0]))</li>
-<li>&lt;type 'list'&gt;</li>
-<li>&gt;&gt;&gt;print(len(array[0]))</li>
+<li>&gt;&gt;&gt; print(type(array[0]))</li>
+<li>&lt;class 'list'&gt;</li>
+<li>&gt;&gt;&gt; print(len(array[0]))</li>
 <li>10</li>
-<li>&gt;&gt;&gt;print(type(array[0][0]))</li>
-<li>&lt;type 'instance'&gt;</li>
-<li>&gt;&gt;&gt;print(array[0][0])</li>
+<li>&gt;&gt;&gt; print(type(array[0][0]))</li>
+<li>&lt;class 'spectrumnumber.SpectrumNumber'&gt;</li>
+<li>&gt;&gt;&gt; print(array[0][0])</li>
 <li>0.1</li>
 </ol></code></div>
-<p>Lines 1 and 2 are where the relavent modules are imported us ing the as keyword to slightly shorter names.</p>
-<p>Line 4 is where an itterator is created to iterate through the tap blocks in the tap file.</p>
-<p>Lines 5 to 9 are what to do with each itteration: print out the basic details of the tab block or also the details if it represents a headder. Line 9 is an empty line there to tell the interactive interpreter that we have come out of an indented declaration.</p>
-<p>Lines 10 and 11 are the output from itterating through the tap file. It shows that we have a headder entry to a number array, followed by a data block that is the data of that array.</p>
-<p>Line 12 shows how all tap block entries can be extracted in one go, in this case saved in a variable called blocks.</p>
-<p>Line13 is where we extract the data to a variable called array. The raw data of the array in the data tap block is extracted with the data attribute, and the array descriptor is in the headder tap block.</p>
-<p>Line 14 tells you what array it is. It is possible if there has been a string saved as an array that this could be a string object rather than a list.</p>
-<p>Lines 16 to 22 delve deeper into the list and any sub-lists until we reach an object or number. The output on line 23 informs us that we have reached a SpectrumNumber object. You could have used the <code>getarraydepth</code> function in the spectrumtranslate module to work out how deep this array would be.</p>
-<p>Line 24 print out the content of one of the array entries.</p>
+<p>Lines 1 and 2 are where the relavent modules are imported using the as keyword to slightly shorter names.</p>
+<p>Line 4 opens the tap file ready for processing.</p>
+<p>Line 5 is where an iterator is created to iterate through the tap blocks in the tap file.</p>
+<p>Lines 6 to 10 are what to do with each iteration: print out the basic details of the tab block or also the details if it represents a header. Line 10 is an empty line there to tell the interactive interpreter that we have come out of an indented declaration.</p>
+<p>Lines 11 and 12 are the output from iterating through the tap file. It shows that we have a header entry to a number array, followed by a data block that is the data of that array.</p>
+<p>Line 13 opens the file again ready for more processing. You could load it into an array if you're going to process it several times.</p>
+<p>Line 14 shows how all tap block entries can be extracted in one go, in this case saved in a variable called blocks.</p>
+<p>Line16 is where we extract the data to a variable called array. The raw data of the array in the data tap block is extracted with the data attribute, and the array descriptor is in the header tap block.</p>
+<p>Line 17 tells you what array it is. It is possible if there has been a string saved as an array that this could be a string object rather than a list.</p>
+<p>Lines 19 to 25 delve deeper into the list and any sub-lists until we reach an object or number. The output on line 26 informs us that we have reached a SpectrumNumber object. You could have used the <code>getarraydepth</code> function in the spectrumtranslate module to work out how deep this array would be.</p>
+<p>Line 27 print out the content of one of the array entries.</p>
 
 <h3>Example 3</h3>
-<p>This example shows how this module can be used to move files from a disk image to a .tap file.</p>
+<p>This example shows how this module can be used to move files from a disk image to a .tzx file.</p>
 <div style="background-color: lightgrey; display: block; width: auto;"><code><ol>
-<li>import spectrumtapblock as STB</li>
+<li>import spectrumtape as ST</li>
 <li>import disciplefile as DF</li>
 <li></li>
 <li>di = DF.DiscipleImage("test/diskimagetest.img")</li>
 <li></li>
-<li>for df in di.iteratedisciplefiles():</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;if(df.isempty()):</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue</li>
-<li></li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;filename = df.getrawfilename()</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;data = df.getfiledata()</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;if(df.getfiletypestring() == "Basic"):</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tapheadder = STB.createbasicheadder(filename, df.getvariableoffset(), len(data), df.getautostartline())</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;elif(df.getfiletypestring() == "Number Array" or df.getfiletypestring() == "String Array"):</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tapheadder = STB.createarrayheadder(filename, df.getarraydescriptor(), len(data))</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;elif(df.getfiletypestring() == "Code"):</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tapheadder = STB.createcodeheadder(filename, df.getcodestart(), len(data))</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;elif(df.getfiletypestring() == "SCREEN$"):</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tapheadder = STB.createscreenheadder(filename)</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;else:</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;print("Can't convert {0} file in entry {1}.".format(df.getfiletypestring(),df.filenumber))</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue</li>
-<li></li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;tapheadder.savetofile("copy.tap", append=True)</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;tapdata = STB.createdatablock(data)</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;tapheadder.savetofile("copy.tap", append=True)</li>
+<li>with open("copy.tzx", "wb") as f:</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;f.write(ST.SpectrumTZXHeaderBlock(1, 20).getpackagedforfile())</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;for df in di.iteratedisciplefiles():</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(df.isempty()):</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;filename = df.getrawfilename()</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data = df.getfiledata()</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(df.getfiletypestring() == "Basic"):</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;header = ST.createbasicheader(filename, df.getvariableoffset(), len(data), df.getautostartline())</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;elif(df.getfiletypestring() == "Number Array" or df.getfiletypestring() == "String Array"):</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;header = ST.createarrayheader(filename, df.getarraydescriptor(), len(data))</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;elif(df.getfiletypestring() == "Code"):</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;header = ST.createcodeheader(filename, df.getcodestart(), len(data))</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;elif(df.getfiletypestring() == "SCREEN$"):</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;header = ST.createscreenheader(filename)</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else:</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;print("Can't convert {} file in entry {}.".format(df.getfiletypestring(),df.filenumber))</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;continue</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;f.write(ST.convertblockformat(header, 'Tzx').getpackagedforfile())</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tapedata = ST.createdatablock(data)</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;f.write(ST.convertblockformat(tapedata, 'Tzx').getpackagedforfile())</li>
 </ol></code></div>
 <p>Lines 1 and 2 import the needed modules.</p>
 <p>Line 4 creates a DiscipleImage to work from.</p>
-<p>Line 6 itterates through the DiscipleFile entries in the disk image.</p>
-<p>Lines 7 and 8 skip empty entries.</p>
-<p>Lines 10 to 19 get the data from the DiscipleFile entry and generate an apropriate headder SpectrumTapBlock object.</p>
-<p>Line 20 to 22 handle files that can't be saved to a tap file.</p>
-<p>Line 24 appends the headder to the file copy.tap.</p>
-<p>Lines 25 and 26 generate the data part of the file and appends this tap block also.</p>
+<p>Line 6 opens a tzx file to write to.</p>
+<p>Line 7 creates a Tzx file header and writes it to the file.</p>
+<p>Line 8 iterates through the DiscipleFile entries in the disk image.</p>
+<p>Lines 9 and 10 skip empty disk directory entries.</p>
+<p>Lines 11 to 20 get the data from the DiscipleFile entry and generate an apropriate header SpectrumTapBlock object.</p>
+<p>Line 21 and 22 handle files that can't be saved to a tzx file.</p>
+<p>Line 24 appends the header to the file copy.tzx by converting it to a Tzx format header, and then converting this to a bytearray to pass to file.write.</p>
+<p>Lines 25 and 26 generate the data part of the file and appends this block also.</p>
 
 <h3>Example 4</h3>
 <p>This example shows how to save a screen image off as a jpeg file.</p>
@@ -1076,18 +1110,18 @@ False
 <p>This big example shows how to interact with the diasassemble function using python. This will disasseble the machine code for the Colony game, and comment in more detail the routine at 0xD641 that displays the status area at the top of the screen. You will need the Colony.tap file from the GUI example to run this example.</p>
 <div style="background-color: lightgrey; display: block; width: auto;"><code><ol>
 <li>import spectrumtranslate as ST</li>
-<li>import spectrumtapblock as STB</li>
+<li>import spectrumtape as STB</li>
 <li></li>
 <li>def Createcomments(address, comment):</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;return [ST.DisassembleInstruction("Comment", address, address, comment),</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ST.DisassembleInstruction("Comment Reference", 0, 0xFFFF, "{0:04X}C{1}".format(address, comment))]</li>
-<li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ST.DisassembleInstruction("Comment Reference", 0, 0xFFFF, "{0:04X}0C{1}".format(address, comment))]</li>
+<li></li>
 <li>def CreateComment(address, comment, before=False):</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;return [ST.DisassembleInstruction("Comment" if not before else "Comment Before", address, address, comment)]</li>
-<li>
+<li></li>
 <li>def CreateDataBlock(start, end, datatype, form=0):</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;return [ST.DisassembleInstruction("Data Block", start, end, "%!{0}(Format={1})".format(datatype, form))]</li>
-<li>
+<li></li>
 <li>def CreateDataList(start, end, maxperline=1, datatype=0):</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;return [ST.DisassembleInstruction("Data Block", start, end, "%!DefineByte(Format={0},FormatIdentifyer=False,MaxPerLine={1})".format(datatype, maxperline))]</li>
 <li></li>
@@ -1096,94 +1130,78 @@ False
 <li>&nbsp;&nbsp;&nbsp;&nbsp;origin = Settings["ORIGIN"]</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;l = len(data)</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;args = bytearray([0xCD, 0X23, 0xC1])</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;while(pos &lt;= Vars[0x0E] and pos - origin < l):</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;while(pos <= Vars[0x0E] and pos - origin < l):</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;n = pos - origin</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(data[n:n + 3] == args):</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if data[n:n + 3] == args:</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Settings["InstructionsToAdd"] += [</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ST.DisassembleInstruction("Comment", pos, pos, "Print Text"),</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ST.DisassembleInstruction("Data Block", pos + 3, pos + 3, "%PDefineMessage(DataType='0',Noncharoutofquotes=True)%F0502")]</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pos += 1</li>
-<li></li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;return []</li>
 <li></li>
 <li>ST.DisassembleInstruction.PredefinedRoutines["X"] = FindAndCommentAndDM0</li>
+<li></li>
 <li>instructions = []</li>
+<li></li>
 <li>instructions += [ST.DisassembleInstruction("Pattern Data Block", 0, 0xFFFF, "%(%!X()%)%(%)")]</li>
 <li>instructions += CreateComment(0x8000, "Run at #B732", True)</li>
 <li>instructions += [ST.DisassembleInstruction("Empty Line After Data Off", 0xB30A, 0xB30D)]</li>
-<li></li>
 <li>instructions += CreateComment(0x9276, '"SHIELD/LASER"', True)</li>
 <li>instructions += CreateDataList(0x9276, 0x92B5, maxperline=4, datatype=3)</li>
-<li></li>
 <li>instructions += CreateComment(0x92B8, 'bitmap for "Time/E.T.A."', True)</li>
 <li>instructions += CreateDataList(0x92B8, 0x92E7, maxperline=3, datatype=3)</li>
-<li></li>
 <li>instructions += CreateComment(0x92EA, 'bitmap for beacon "OFF"', True)</li>
 <li>instructions += CreateDataList(0x92EA, 0x92F9, maxperline=2, datatype=3)</li>
 <li>instructions += CreateComment(0x92FC, 'bitmap for beacon "ON"', True)</li>
 <li>instructions += CreateDataList(0x92FC, 0x930B, maxperline=2, datatype=3)</li>
-<li></li>
 <li>instructions += CreateComment(0x930E, 'bitmap for "Credits/Beacon"', True)</li>
 <li>instructions += CreateDataList(0x930E, 0x935D, maxperline=5, datatype=3)</li>
-<li></li>
 <li>instructions += Createcomments(0xAF80, "HL=address of colour data for char just printed")</li>
 <li>instructions += Createcomments(0xAF89, "Reverse bits in A")</li>
 <li>instructions += Createcomments(0xAF94, "move HL down a pixel")</li>
 <li>instructions += Createcomments(0xAFA3, "move HL up a pixel")</li>
-<li>instructions += Createcomments(0xAFBB, "HL: pixel address-&gt;colour address")</li>
+<li>instructions += Createcomments(0xAFBB, "HL: pixel address->colour address")</li>
 <li>instructions += CreateComment(0xAFF1, "create Bold font from spectrum font")</li>
-<li>instructions += CreateComment(0xB010, "B(Y),C(X)-&gt;HL=screen address &amp; A is bitmap for pixel at address")</li>
-<li>instructions += Createcomments(0xB01B, "B(Y),C(X)-&gt;HL=screen address &amp; A pixels in address")</li>
+<li>instructions += CreateComment(0xB010, "B(Y),C(X)->HL=screen address & A is bitmap for pixel at address")</li>
+<li>instructions += Createcomments(0xB01B, "B(Y),C(X)->HL=screen address & A pixels in address")</li>
 <li>instructions += Createcomments(0xB04D, "print B(bytes) by C(pixels) from DE to screen HL")</li>
 <li>instructions += Createcomments(0xB05F, "Move HL along A characters in screen")</li>
 <li>instructions += Createcomments(0xB287, "Print Text at HL to screen until hit 0")</li>
 <li>instructions += Createcomments(0xB299, "print A to screen saving HL'")</li>
 <li>instructions += Createcomments(0xB2CE, "Print A to screen")</li>
-<li></li>
 <li>instructions += CreateComment(0xB30A, "Print position")</li>
 <li>instructions += CreateComment(0xB30C, "Print colour position")</li>
 <li>instructions += CreateDataBlock(0xB30A, 0xB30D, "DefineWord")</li>
 <li>instructions += CreateComment(0xB30E, "Print colour")</li>
 <li>instructions += CreateDataBlock(0xB30E, 0xB30E, "DefineByte")</li>
-<li></li>
 <li>instructions += Createcomments(0xB30F, "Print pattern at DE to screen at HL")</li>
-<li>                                                              </li>
 <li>instructions += CreateComment(0xB326, "print AT")</li>
 <li>instructions += CreateComment(0xB332, "Set print colour")</li>
 <li>instructions += CreateComment(0xB33B, "Move to new line")</li>
 <li>instructions += CreateComment(0xB34C, "Set print pos to X,Y in BC")</li>
 <li>instructions += Createcomments(0xB388, "Print HL as decimal")</li>
-<li></li>
 <li>instructions += CreateDataBlock(0xB40A, 0xB40B, "DefineWord")</li>
-<li></li>
 <li>instructions += Createcomments(0xB40C, "convert char X(H),Y(L) to screen position in HL")</li>
-<li></li>
-<li>instructions += CreateComment(0xC109, "Clear black line above &amp; below shiled &amp; laser bars")</li>
-<li></li>
+<li>instructions += CreateComment(0xC109, "Clear black line above & below shiled & laser bars")</li>
 <li>instructions += CreateComment(0xD112, "setup font")</li>
-<li></li>
 <li>instructions += CreateComment(0xD612, 'bitmap for info area borders', True)</li>
 <li>instructions += CreateDataBlock(0xD612, 0xD619, "DefineByte", form=3)</li>
 <li>instructions += CreateDataBlock(0xD61A, 0xD621, "DefineByte", form=3)</li>
 <li>instructions += CreateDataBlock(0xD622, 0xD629, "DefineByte", form=3)</li>
 <li>instructions += CreateDataBlock(0xD62A, 0xD631, "DefineByte", form=3)</li>
 <li>instructions += CreateDataBlock(0xD632, 0xD639, "DefineByte", form=3)</li>
-<li></li>
-<li>instructions += CreateComment(0xD63A, "Set shield &amp; laser bar colours")</li>
-<li></li>
+<li>instructions += CreateComment(0xD63A, "Set shield & laser bar colours")</li>
 <li>instructions += Createcomments(0xD641, "setup info area at top of screen")</li>
 <li>instructions += CreateComment(0xD64C, "Set info area on screen to bright yellow on black")</li>
-<li>instructions += CreateComment(0xD64E, "Set shield &amp; laser bar colours")</li>
-<li>instructions += CreateComment(0xD669, "Clear black line above &amp; below shiled &amp; laser bars")</li>
+<li>instructions += CreateComment(0xD64E, "Set shield & laser bar colours")</li>
+<li>instructions += CreateComment(0xD669, "Clear black line above & below shiled & laser bars")</li>
 <li>instructions += CreateComment(0xD66C, "set colours of held item boxes")</li>
-<li></li>
 <li>instructions += CreateComment(0xD697, 'print info area border')</li>
 <li>instructions += CreateComment(0xD6D9, 'print "droid power"')</li>
 <li>instructions += CreateComment(0xD71C, 'print "Credits/Beacon"')</li>
 <li>instructions += CreateComment(0xD73F, 'print "TIME/E.T.A."')</li>
 <li>instructions += CreateComment(0xD76F, 'print beacon status')</li>
 <li>instructions += Createcomments(0xD79C, "set HL,B to A")</li>
-<li></li>
 <li>instructions += CreateComment(0xD7A1, 'bitmap for "droid power"', True)</li>
 <li>instructions += CreateDataBlock(0xD7A1, 0xD7A8, "DefineByte", form=3)</li>
 <li>instructions += CreateDataBlock(0xD7A9, 0xD7B0, "DefineByte", form=3)</li>
@@ -1192,53 +1210,47 @@ False
 <li>instructions += CreateDataBlock(0xD7C1, 0xD7C8, "DefineByte", form=3)</li>
 <li>instructions += CreateDataBlock(0xD7C9, 0xD7D0, "DefineByte", form=3)</li>
 <li>instructions += CreateComment(0xD7D1, "print data at DE to HL, move right, next data")</li>
-<li></li>
-<li>instructions += Createcomments(0xD825, "print pattern DE to H,L &amp; H+5,L, inc L")</li>
-<li></li>
+<li>instructions += Createcomments(0xD825, "print pattern DE to H,L & H+5,L, inc L")</li>
 <li>instructions += CreateDataBlock(0xF01E, 0xF01F, "DefineWord")</li>
 <li>instructions += CreateComment(0xF01E, "Credits")</li>
 <li>instructions += CreateDataBlock(0xF511, 0xF511, "DefineByte")</li>
 <li>instructions += CreateComment(0xF511, "Beacon: 0=Off, 1=On")</li>
-<li>instructions += [ST.DisassembleInstruction("Comment Reference", 0, 0xFFFF, "F5113Beacon: 0=Off, 1=On")]</li>
+<li>instructions += [ST.DisassembleInstruction("Comment Reference", 0, 0xFFFF, "F51103Beacon: 0=Off, 1=On")]</li>
 <li></li>
 <li>doing = ""</li>
 <li>def progress(job, jobdone, jobtodo, alldone, alltodo):</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;global doing</li>
-<li></li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;if(job != doing):</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(doing !=""):</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;print(doing + " Done")</li>
-<li></li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;if job != doing:</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if doing !="":</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;print(doing + " Done  ")</li>
 <li>&nbsp;&nbsp;&nbsp;&nbsp;doing = job</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;print "{0} {1}%\r".format(doing, (jobdone*100)/jobtodo),</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;#python3 will be this line instead</li>
-<li>&nbsp;&nbsp;&nbsp;&nbsp;#print ("{0} {1}%".format(doing, (jobtodo*100)/jobtodo, end="\r")</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;print ("{0} {1}%".format(doing, (jobtodo*100)/jobtodo), end="\r")</li>
 <li></li>
-<li>blocks = [stb.data for stb in STB.tapblockfromfile("COLONY.TAP")]</li>
+<li>with open("COLONY.TAP", 'rb') as f:</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;blocks = [stb.getpayload() for stb in STB.nexttapblock(f)]</li>
 <li></li>
-<li>f = open("code.txt", "wb")</li>
-<li>f.write(ST.disassemble(blocks[5],0,0x8000,len(blocks[5]),instructions,progress).encode('utf-8'))</li>
-<li>f.close()</li>
+<li>with open("code.txt", "wb") as f:</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;f.write(ST.disassemble(blocks[5],0,0x8000,len(blocks[5]),instructions,progress).encode('utf-8'))</li>
 </ol></code></div>
 <p>Lines 1 and 2 import the modules using abreviations for ease of use.</p>
 <p>Lines 4 to 6 defines a function that will add a comment to an address, and any calls or jumps to that address.</p>
 <p>Lines 8 and 9 define a function that will add a comment at the specified address.</p>
 <p>Lines 11 and 12 define a function that will add a simple datablock at the required address, and of the desired number base.</p>
 <p>Lines 14 and 15 defines a function that will add a datablock of the desired number base with potentially more than one entry per line.</p>
-<p>Lines 17 to 30 defines a function that can be used as the test block routine in a <code>Pattern Data Block</code>. A couple things to note:<ul>
+<p>Lines 17 to 29 defines a function that can be used as the test block routine in a <code>Pattern Data Block</code>. A couple things to note:<ul>
   <li>The sequence of bytes to find must be in a bytearray (this is what line 21 does), as otherwise it will not match it because a list or tupple is not equal to a bytearray (even if the values are the same).</li>
   <li>For any matches this function adds the new DisassembleCommands to the list held in Settings["InstructionsToAdd"] which will be added to the instructions to process while disassembling.</li>
   <li>It returns an empty array meaning that it returns no addresses that matched the pattern for a <code>CALL 0xC123</code> machine code command. This is important as this routine has already added the instructions for any match itself.</li>
 </ul></p>
-<p>Line 32 adds the function defined in lines 17 to 30 to the list of Predefined Routines that the disassembler can call on.</p>
-<p>Line 34 adds the Pattern Data Block that runs the above function. The preparation and code to run blocks are empty as they are not needed (but the open and closed brackets on the preperation block still has to be there otherwise it will fail).</p>
-<p>Line 36 ensures no blank lines between data blocks.</p>
-<p>Lines 35 to 124 add instructions mostly using the defined functions for convinience to comment and more clearly disassemble the code.</p>
-<p>Line 125 adds a Comment reference that deals with references to an address that's being used to store a value as opposed to one that has a function that can be called.</p>
-<p>Lines 128 to 138 define a call-back function that is kept apraised of the progress of the disasseble function. This will print on the screen how far the function has progressed. the '\r' is an escape code that instructs most terminals to go back to the start of the current line. Using it instead of a line end in python 3, or bu not adding a newline by using a comma with nothing after it in a print instruction in python 2 stops the next text being printed on the line bellow. This ensures that the next text overwrites what was there before. The line on 133 will automatically print a newline when the end of a section of the disassembly has been done. The variable doing is used to keep track of what is being done at any one time, and when the disassembly function moves from one section to another. It's value has to remain from one call of the function to the next and so it's defined in the main script and referenced from the function using the global prefix.</p>
-<p>Line 140 loads all the tap blocks in the Colony.tap file. There are 8 of them representing 4 files each with a headder block and a data block. The data block for the main machine code file is the 6th tap block (or 5 using zero referencing).</p>
-<p>Lines 142 and 144 open and close the file to save the disassembly output to.</p>
-<p>Line 143 is where all the work happens. It disassembles the data block, using the instructions defined, and using the progress function. This returns text which has to be encoded as UTF8 so that any non-ascii characters can be written to the file.</p>
+<p>Line 31 adds the function defined in lines 17 to 30 to the list of Predefined Routines that the disassembler can call on.</p>
+<p>Line 35 adds the Pattern Data Block that runs the above function. The preparation and code to run blocks are empty as they are not needed (but the open and closed brackets on the preperation block still has to be there otherwise it will fail).</p>
+<p>Line 37 ensures no blank lines between data blocks.</p>
+<p>Lines 35 to 107 add instructions mostly using the defined functions for convinience to comment and more clearly disassemble the code.</p>
+<p>Line 107 adds a Comment reference that deals with references to an address that's being used to store a value as opposed to one that has a function that can be called.</p>
+<p>Lines 109 to 116 define a call-back function that is kept apraised of the progress of the disasseble function. This will print on the screen how far the function has progressed. the '\r' is an escape code that instructs most terminals to go back to the start of the current line. Using it instead of a line end in python 3, or bu not adding a newline by using a comma with nothing after it in a print instruction in python 2 stops the next text being printed on the line bellow. This ensures that the next text overwrites what was there before. The line on 133 will automatically print a newline when the end of a section of the disassembly has been done. The variable doing is used to keep track of what is being done at any one time, and when the disassembly function moves from one section to another. It's value has to remain from one call of the function to the next and so it's defined in the main script and referenced from the function using the global prefix.</p>
+<p>Lines 118 and 119 load all the tap blocks in the Colony.tap file. There are 8 of them representing 4 files each with a header block and a data block. The data block for the main machine code file is the 6th tap block (or 5 using zero referencing).</p>
+<p>Lines 121 opens the file to save the disassembly output to.</p>
+<p>Line 122 is where all the work happens. It disassembles the data block, using the instructions defined, and using the progress function. This returns text which has to be encoded as UTF8 so that any non-ascii characters can be written to the file.</p>
 <p>This is not actually in my oppinion the best way to do this job. I have used a custom Predefined Routine to demonstrate how the system works, and it is slightly faster than the system I would advise. However by using existing predefined routines, the instructions are completely portable from one person to another (the custom routine is not easily saved off to a text file using <code>str(disassemblyinstruction)</code> to convert each instuction to a single line of text that can be saved off and then imported either from the command line or into the GUI). I would advise replacing the custom predefined routine and the calling <code>Pattern Data Block</code> with a Comment Reference instruction to comment any calls to the address 0xC123, and then the following code to find and convert the zero terminated strings. Note that as Zero ended string data blocks carry on until they hit a zero, the end address of the data block can be the same as the start address without any problems. The %F0502 ensures that there is no empty line after the string definition.</p>
 <div style="background-color: lightgrey; display: block; width: auto;"><code><ol>
 <li>%(</li>
@@ -1261,9 +1273,7 @@ False
 <h3>Disciple non-standard files</h3>
 <p>I have yet to add create support for disciple files that are basicly not disk versions of tape files (snap, opentype, execute etc)</p>
 <h3>More human accessable scripting</h3>
-<p>I have thought of adopting lua as the scripting language for the disassembler. This would be easier for most people to interpret. The thought came very late in the day, long after the basic scripting language had been in use for many iterations of my code. I curently don't plan to implement this as life is just too short to change such a big chunk of fundamental code given all the other more pressing things I have in my life.</p>
-<h3>Support for other file formats</h3>
-<p>I would like to add support for the TZX spectrum format, but it's quite complex and I've not had the time to devote to working out how it works to the extent where I can write a good interface. It is quite high up on my wish list should I have the time.</p>
+<p>I have thought of adopting lua as the scripting language for the disassembler. This would be easier for most people to interpret. The thought came very late in the day, long after the basic scripting language had been in use for many iterations of my code. I have written a lua parser for other reasons, but I curently don't plan to implement this as life is just too short to write lua run environment, and change such a big chunk of fundamental code given all the other more pressing things I have in my life.</p>
 <h3>Completing SpectrumNumber</h3>
 <p>It would be nice to make SpectrumNumber fully complete with all functions available in spectrum, implemented. However, I just don't have the time, and if you need perfect implementation, using the origional spectrum code in an emulator would be more reliable.</p>
 

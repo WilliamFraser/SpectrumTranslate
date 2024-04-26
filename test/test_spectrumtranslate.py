@@ -54,74 +54,44 @@ import sys
 import os
 import pycodestyle
 from PIL import Image
-from sys import hexversion as _PYTHON_VERSION_HEX
-from codecs import unicode_escape_decode as _UED
-from io import BytesIO
+from io import BytesIO, StringIO
 from os import remove as os_remove
 # import modules from parent directory
-pathtemp = sys.path
-sys.path += [os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]
+import addparentmodules
 import spectrumtranslate
 import spectrumnumber
-# restore system path
-sys.path = pathtemp
+
 
 # change to current directory in cae being run from elsewhere
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-if(_PYTHON_VERSION_HEX > 0x03000000):
-    from io import StringIO
-
-    WIN_CONSOLE_PYTHON3 = (os.name == 'nt')
-
-    def _u(x):
-        return x
-
-    def _getfile(name):
-        with open(name, 'r') as f:
-            return f.read()
-
-else:
-    # 2to3 will complain but won't cause problems in real life
-    from StringIO import StringIO
-
-    WIN_CONSOLE_PYTHON3 = False
-
-    def _u(x):
-        return _UED(x)[0]
-
-    def _getfile(name):
-        with open(name, 'r') as f:
-            return f.read().decode('utf8')
+WIN_CONSOLE_PYTHON3 = (os.name == 'nt')
 
 
-if(os.name == 'posix'):
-    cmd2to3 = ["/usr/bin/2to3"]
-elif(os.name == 'nt'):
-    cmd2to3 = [sys.executable,
-               os.path.dirname(sys.executable) + "\\Tools\\Scripts\\2to3.py"]
+def _getfile(name):
+    with open(name, 'r') as f:
+        return f.read()
 
 
-# 2to3 will complain but this code is python 2 & 3 compatible
-CHAR5E = _u("\u2191")
-CHAR60 = _u("\u00A3")
-CHAR7F = _u("\u00A9")
-CHAR80 = _u('\u2003')
-CHAR81 = _u('\u259D')
-CHAR82 = _u('\u2598')
-CHAR83 = _u('\u2580')
-CHAR84 = _u('\u2597')
-CHAR85 = _u('\u2590')
-CHAR86 = _u('\u259A')
-CHAR87 = _u('\u259C')
-CHAR88 = _u('\u2596')
-CHAR89 = _u('\u259E')
-CHAR8A = _u('\u258C')
-CHAR8B = _u('\u259B')
-CHAR8C = _u('\u2584')
-CHAR8D = _u('\u259F')
-CHAR8E = _u('\u2599')
-CHAR8F = _u('\u2588')
+CHAR5E = "\u2191"
+CHAR60 = "\u00A3"
+CHAR7F = "\u00A9"
+CHAR80 = '\u2003'
+CHAR81 = '\u259D'
+CHAR82 = '\u2598'
+CHAR83 = '\u2580'
+CHAR84 = '\u2597'
+CHAR85 = '\u2590'
+CHAR86 = '\u259A'
+CHAR87 = '\u259C'
+CHAR88 = '\u2596'
+CHAR89 = '\u259E'
+CHAR8A = '\u258C'
+CHAR8B = '\u259B'
+CHAR8C = '\u2584'
+CHAR8D = '\u259F'
+CHAR8E = '\u2599'
+CHAR8F = '\u2588'
 
 
 def _getfileasbytearray(name):
@@ -272,7 +242,6 @@ z$="testing"
 """)
 
         self.assertEqual(spectrumtranslate.basictoxml(
-            # 2to3 will complain but won't cause problems in real life
             data, hexfornonascii=True), """\
 <?xml version="1.0" encoding="UTF-8" ?>
 <basiclisting>
@@ -2481,17 +2450,17 @@ F00A3%)%)%)%?BO%(%?EQ%V000000%?BA%(%?MT%MV0F00A2%?BO%(%?MT%MV0F001F%?BA%?LT%MV\
 
     def test_predefined(self):
         def testfunction(data, Settings, Vars, txt=None, val=None, mode=0):
-            if(mode == 1):
-                if(Vars[0] == 4):
+            if mode == 1:
+                if Vars[0] == 4:
                     return 2
                 return 0
-            if(mode == 2):
-                if(Vars[0] == 4):
+            if mode == 2:
+                if Vars[0] == 4:
                     return 4
                 return 0
-            if(val and not txt):
+            if val and not txt:
                 return val
-            if(txt and not val):
+            if txt and not val:
                 return txt
             return val, txt
 
@@ -2984,9 +2953,9 @@ class Testformating(unittest.TestCase):
         output = output.getvalue()
 
         output = output.splitlines()
-        if(len(output) > 0 and isinstance(output[0], bytes)):
+        if len(output) > 0 and isinstance(output[0], bytes):
             output = [x.decode("utf-8") for x in output]
-        if(stdoutignore):
+        if stdoutignore:
             output = [x for x in output if x not in stdoutignore]
 
         return "\n".join(output)
@@ -2998,85 +2967,9 @@ class Testformating(unittest.TestCase):
 errors:\n" + output)
         """
 
-        output = self.runpycodestyle("test_spectrumtranslate.py", [
-            "test_spectrumtranslate.py:64:1: E402 module level import not at \
-top of file",
-            "test_spectrumtranslate.py:65:1: E402 module level import not at \
-top of file"])
+        output = self.runpycodestyle("test_spectrumtranslate.py", [])
         self.assertEqual(output, "", "test_spectrumtranslate.py pep8 \
 formatting errors:\n" + output)
-
-
-class Test2_3compatibility(unittest.TestCase):
-    def run2to3(self, py_file, errignore, stdoutignore):
-        p = subprocess.Popen(cmd2to3 + [py_file],
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output, error = p.communicate()
-
-        # remove refactoring info
-        output = output.splitlines()
-        if(len(output) > 0 and isinstance(output[0], bytes)):
-            output = [x.decode("utf-8") for x in output]
-        refactorignore = ["--- " + py_file + " (original)",
-                          "+++ " + py_file + " (refactored)",
-                          "--- " + py_file + "\t(original)",
-                          "+++ " + py_file + "\t(refactored)"]
-        output = "\n".join([x for x in output if x not in refactorignore])
-        # split into diffs
-        chunks = re.compile(
-            r"^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
-            re.MULTILINE).split(output)
-        chunks = [x for x in chunks if len(x) > 0]
-        # prepare matchers
-        m1 = re.compile(r"(^[^\-\+].*\n){1}[\-\+].*?\n", re.MULTILINE)
-        m2 = re.compile(r"^\s*# 2to3 will complain but.*?\n")
-        # filter out stuff want to ignore
-        output = []
-        for x in range(0, len(chunks), 2):
-            if(False in
-               [not m2.match(xx) for xx in m1.findall(chunks[x + 1])]):
-                continue
-            if(chunks[x + 1] not in stdoutignore):
-                output += [chunks[x], chunks[x + 1]]
-
-        error = error.splitlines()
-        if(len(error) > 0 and isinstance(error[0], bytes)):
-            error = [x.decode("utf-8") for x in error]
-        if(not errignore):
-            errignore = []
-        errignore += [
-            "AssertionError: {0} 2to3 check had errors:".format(py_file),
-            "RefactoringTool: Skipping implicit fixer: buffer",
-            "RefactoringTool: Skipping optional fixer: buffer",
-            "RefactoringTool: Skipping implicit fixer: idioms",
-            "RefactoringTool: Skipping optional fixer: idioms",
-            "RefactoringTool: Skipping implicit fixer: set_literal",
-            "RefactoringTool: Skipping optional fixer: set_literal",
-            "RefactoringTool: Skipping implicit fixer: ws_comma",
-            "RefactoringTool: Skipping optional fixer: ws_comma",
-            "RefactoringTool: Refactored {0}".format(py_file),
-            "RefactoringTool: Files that need to be modified:",
-            "RefactoringTool: {0}".format(py_file),
-            "RefactoringTool: No changes to {0}".format(py_file)]
-
-        error = [x for x in error if x not in errignore]
-        error = [x for x in error if x.find(
-            ": Generating grammar tables from ") == -1]
-
-        return output, "".join(error)
-
-    def test_2to3(self):
-        output, error = self.run2to3("../spectrumtranslate.py", [], [])
-        self.assertEqual(output, [], "../spectrumtranslate.py 2to3 errors:\n" +
-                         "".join(output))
-        self.assertEqual(error, "", "../spectrumtranslate.py 2to3 check had \
-errors:\n" + error)
-
-        output, error = self.run2to3("test_spectrumtranslate.py", [], [])
-        self.assertEqual(output, [], "test_spectrumtranslate.py 2to3 errors\
-:\n" + "".join(output))
-        self.assertEqual(error, "", "test_spectrumtranslate.py 2to3 check had \
-errors:\n" + error)
 
 
 class Testcommandline(unittest.TestCase):
@@ -3105,17 +2998,13 @@ class Testcommandline(unittest.TestCase):
         def __init__(self, data, avoidbuffer):
             StringIO.__init__(self)
             self.buffer = Testcommandline.Mystdin.bufferemulator()
-            if(sys.hexversion > 0x03000000):
-                if(isinstance(data, bytearray)):
-                    self.buffer.bytedata = data
-                elif(avoidbuffer):
-                    self.write(data)
-                    self.seek(0)
-                else:
-                    self.buffer.bytedata = bytearray([ord(x) for x in data])
-            else:
+            if isinstance(data, bytearray):
+                self.buffer.bytedata = data
+            elif avoidbuffer:
                 self.write(data)
                 self.seek(0)
+            else:
+                self.buffer.bytedata = bytearray([ord(x) for x in data])
 
     def runtest(self, command, stdindata, wantbytearrayreturned=False,
                 avoidbuffer=False):
@@ -3132,9 +3021,7 @@ class Testcommandline(unittest.TestCase):
             sys.stdin = saved_input
 
         out = output.getvalue()
-        if(sys.hexversion < 0x03000000 and not wantbytearrayreturned):
-            out = out.decode('utf8')
-        if(len(out) == 0 and len(output.buffer.bytedata) > 0):
+        if len(out) == 0 and len(output.buffer.bytedata) > 0:
             out = output.buffer.bytedata
         output.close()
         return out
@@ -3162,7 +3049,7 @@ class Testcommandline(unittest.TestCase):
 
     def test_basic(self):
         # unicode fails in python3 in windows console
-        if(WIN_CONSOLE_PYTHON3):
+        if WIN_CONSOLE_PYTHON3:
             warnings.warn("Can't test function using unicode in python3 in \
 windows console")
         else:
@@ -3192,7 +3079,6 @@ z$="testing"
             # tidy up
             os_remove("temp.txt")
 
-        # 2to3 will complain but won't cause problems in real life
         self.assertEqual(self.runtest("basic -o -a basictest.dat", ""), """\
 10 REM ^16^00^00^87^11^05^84^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
@@ -3432,7 +3318,7 @@ z$="testing"
             "text -i -o", '\x7F\x60\x5E\x01\x41\x80\xFF'),
             CHAR7F + CHAR60 + CHAR5E + '^01A' + CHAR80 + 'COPY ')
         # unicode fails in python3 in windows console
-        if(WIN_CONSOLE_PYTHON3):
+        if WIN_CONSOLE_PYTHON3:
             warnings.warn("Can't test function using unicode in python3 in \
 windows console")
         else:
@@ -3627,9 +3513,9 @@ code.dat temp.txt", ""), "")
             spectrumtranslate._commandline(["x.py"] + command.split())
             self.fail("No SpectrumTranslateError raised")
         except spectrumtranslate.SpectrumTranslateError as se:
-            if(se.value == message):
+            if se.value == message:
                 return
-            self.fail("Wrong exception message. Got:\n{0}\nExpected:\n{1}".
+            self.fail("Wrong exception message. Got:\n{}\nExpected:\n{}".
                       format(se.value, message))
 
     def test_invalidcommands(self):

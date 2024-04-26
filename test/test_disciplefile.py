@@ -52,57 +52,26 @@ import subprocess
 import re
 import os
 import pycodestyle
-# imported io/StringIO later so get python version specific one
+from io import StringIO
 # import modules from parent directory
-pathtemp = sys.path
-sys.path += [os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]
+import addparentmodules
 import disciplefile
 import spectrumtranslate
-# restore system path
-sys.path = pathtemp
+
 
 # change to current directory in cae being run from elsewhere
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-if(sys.hexversion > 0x03000000):
-    from io import StringIO
 
-    def _u(x):
-        return x
+def _getfile(name):
+    with open(name, 'r') as f:
+        return f.read()
 
-    def _getfile(name):
-        with open(name, 'r') as f:
-            return f.read()
 
-    # 2to3 will complain but this code is python 2 & 3 compatible
-    CHAR80 = '\u2003'.encode('utf-8')
-    CHAR81 = '\u259D'.encode('utf-8')
-    CHAR82 = '\u2598'.encode('utf-8')
-    CHAR83 = '\u2580'.encode('utf-8')
-
-else:
-    # 2to3 will complain but won't cause problems in real life
-    from StringIO import StringIO
-    from codecs import unicode_escape_decode as _UED
-
-    def _u(x):
-        return _UED(x)[0]
-
-    def _getfile(name):
-        with open(name, 'r') as f:
-            return f.read()
-
-    # 2to3 will complain but this code is python 2 & 3 compatible
-    CHAR80 = _u('\u2003').encode('utf-8')
-    CHAR81 = _u('\u259D').encode('utf-8')
-    CHAR82 = _u('\u2598').encode('utf-8')
-    CHAR83 = _u('\u2580').encode('utf-8')
-
-if(os.name == 'posix'):
-    cmd2to3 = ["/usr/bin/2to3"]
-elif(os.name == 'nt'):
-    cmd2to3 = [sys.executable,
-               os.path.dirname(sys.executable) + "\\Tools\\Scripts\\2to3.py"]
+CHAR80 = '\u2003'.encode('utf-8')
+CHAR81 = '\u259D'.encode('utf-8')
+CHAR82 = '\u2598'.encode('utf-8')
+CHAR83 = '\u2580'.encode('utf-8')
 
 
 def _getfileasbytes(name):
@@ -112,20 +81,10 @@ def _getfileasbytes(name):
 
 class Testutilityfunctions(unittest.TestCase):
     def test_checkisvalidbytes(self):
-        if(sys.hexversion > 0x03000000):
-            self.assertTrue(disciplefile._validateandpreparebytes(bytes(
-                                                                  b"Test"), 0))
-            self.assertRaises(spectrumtranslate.SpectrumTranslateError,
-                              disciplefile._validateandpreparebytes, "Wrong",
-                              0)
-        else:
-            self.assertTrue(disciplefile._validateandpreparebytes("Hello", 0))
-            # 2to3 will complain but is ok as won't run in python 3
-            self.assertTrue(disciplefile._validateandpreparebytes([long(1),
-                                                                   long(2)],
-                                                                  0))
-            # bytes is valid in python 2 as it looks like a string
-            # so not checked
+        self.assertTrue(disciplefile._validateandpreparebytes(bytes(b"Test"),
+                                                              0))
+        self.assertRaises(spectrumtranslate.SpectrumTranslateError,
+                          disciplefile._validateandpreparebytes, "Wrong", 0)
 
         self.assertTrue(disciplefile._validateandpreparebytes(bytearray(
                                                               b"Test"), 0))
@@ -142,18 +101,12 @@ class Testutilityfunctions(unittest.TestCase):
     def test_validbytestointlist(self):
         self.assertEqual(disciplefile._validateandpreparebytes([1, 2], ""),
                          bytearray([1, 2]))
-        if(sys.hexversion > 0x03000000):
-            self.assertEqual(disciplefile._validateandpreparebytes(bytearray(
-                                                                   b"Test"),
-                                                                   ""),
-                             bytearray([84, 101, 115, 116]))
-            self.assertEqual(disciplefile._validateandpreparebytes(bytes(
-                                                                   b"Test"),
-                                                                   ""),
-                             bytearray([84, 101, 115, 116]))
-        else:
-            self.assertEqual(disciplefile._validateandpreparebytes("Test", ""),
-                             bytearray([84, 101, 115, 116]))
+        self.assertEqual(disciplefile._validateandpreparebytes(bytearray(
+                                                               b"Test"), ""),
+                         bytearray([84, 101, 115, 116]))
+        self.assertEqual(disciplefile._validateandpreparebytes(bytes(
+                                                               b"Test"), ""),
+                         bytearray([84, 101, 115, 116]))
 
     def test_validateandconvertfilename(self):
         self.assertEqual(disciplefile._validateandconvertfilename(
@@ -168,11 +121,6 @@ class Testutilityfunctions(unittest.TestCase):
                           disciplefile._validateandconvertfilename, [0.1, 0.2])
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           disciplefile._validateandconvertfilename, 0.1)
-        if(sys.hexversion < 0x03000000):
-            self.assertEqual(disciplefile._validateandconvertfilename(
-                # 2to3 will complain but is ok as won't run in python 3
-                             [long(65), long(66), long(67)]),
-                             bytearray(b'ABC       '))
 
     def test_GetDirectoryEntryPosition(self):
         entry = 1
@@ -640,7 +588,7 @@ class TestDiscipleImage(unittest.TestCase):
                 for s in range(1, 11):
                     d1 = img1.getsector(f * 128 + t, s)
                     d2 = img2.getsector(f * 128 + t, s)
-                    if(d1 != d2):
+                    if d1 != d2:
                         diff += [[f * 128 + t, s, d1, d2]]
 
         return diff
@@ -678,7 +626,7 @@ class TestDiscipleImage(unittest.TestCase):
         self.assertEqual(diff[1][0:3], [4, 2, bytearray([1] * 512)])
 
         # tidy up
-        del(di)
+        del (di)
         os.remove("diskimagecopy.mgt")
 
         # test write to image in internal byte list
@@ -1062,9 +1010,9 @@ class Testformating(unittest.TestCase):
         output = output.getvalue()
 
         output = output.splitlines()
-        if(len(output) > 0 and isinstance(output[0], bytes)):
+        if len(output) > 0 and isinstance(output[0], bytes):
             output = [x.decode("utf-8") for x in output]
-        if(stdoutignore):
+        if stdoutignore:
             output = [x for x in output if x not in stdoutignore]
 
         return "\n".join(output)
@@ -1075,88 +1023,10 @@ class Testformating(unittest.TestCase):
                          "../disciplefile.py pep8 formatting errors:\n" +
                          output)
 
-        output = self.runpycodestyle("test_disciplefile.py", [
-            "test_disciplefile.py:59:1: E402 module level import not at top \
-of file",
-            "test_disciplefile.py:60:1: E402 module level import not at top \
-of file"])
+        output = self.runpycodestyle("test_disciplefile.py", [])
         self.assertEqual(output, "",
                          "test_disciplefile.py pep8 formatting errors:\n" +
                          output)
-
-
-class Test2_3compatibility(unittest.TestCase):
-    def run2to3(self, py_file, errignore, stdoutignore):
-        p = subprocess.Popen(cmd2to3 + [py_file],
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output, error = p.communicate()
-
-        # remove refactoring info and grammar table info
-        output = output.splitlines()
-        if(len(output) > 0 and isinstance(output[0], bytes)):
-            output = [x.decode("utf-8") for x in output]
-        refactorignore = ["--- " + py_file + " (original)",
-                          "+++ " + py_file + " (refactored)",
-                          "--- " + py_file + "\t(original)",
-                          "+++ " + py_file + "\t(refactored)"]
-        output = "\n".join([x for x in output if x not in refactorignore])
-        # split into diffs
-        chunks = re.compile(
-            r"^(@@\s[\-\+0-9]*,[0-9]*\s[\+\-0-9]+,[0-9]+\s@@$\n)",
-            re.MULTILINE).split(output)
-        chunks = [x for x in chunks if len(x) > 0]
-        # prepare matchers
-        m1 = re.compile(r"(^[^\-\+].*\n){1}[\-\+].*?\n", re.MULTILINE)
-        m2 = re.compile(r"^\s*# 2to3 will complain but.*?\n")
-        # filter out stuff want to ignore
-        output = []
-        for x in range(0, len(chunks), 2):
-            if(False in
-               [not m2.match(xx) for xx in m1.findall(chunks[x + 1])]):
-                continue
-            if(chunks[x + 1] not in stdoutignore):
-                output += [chunks[x], chunks[x + 1]]
-
-        error = error.splitlines()
-        if(len(error) > 0 and isinstance(error[0], bytes)):
-            error = [x.decode("utf-8") for x in error]
-        if(not errignore):
-            errignore = []
-        errignore += [
-            "AssertionError: {0} 2to3 check had errors:".format(py_file),
-            "RefactoringTool: Skipping implicit fixer: buffer",
-            "RefactoringTool: Skipping optional fixer: buffer",
-            "RefactoringTool: Skipping implicit fixer: idioms",
-            "RefactoringTool: Skipping optional fixer: idioms",
-            "RefactoringTool: Skipping implicit fixer: set_literal",
-            "RefactoringTool: Skipping optional fixer: set_literal",
-            "RefactoringTool: Skipping implicit fixer: ws_comma",
-            "RefactoringTool: Skipping optional fixer: ws_comma",
-            "RefactoringTool: Refactored {0}".format(py_file),
-            "RefactoringTool: Files that need to be modified:",
-            "RefactoringTool: {0}".format(py_file),
-            "RefactoringTool: No changes to {0}".format(py_file)]
-
-        error = [x for x in error if x not in errignore]
-        error = [x for x in error if x.find(
-            ": Generating grammar tables from ") == -1]
-
-        return output, "".join(error)
-
-    def test_2to3(self):
-        output, error = self.run2to3("../disciplefile.py", [], [])
-        self.assertEqual(output, [], "../disciplefile.py 2to3 errors:\n" +
-                         "".join(output))
-        self.assertEqual(error, "",
-                         "../disciplefile.py 2to3 check had errors:\n" + error)
-
-        output, error = self.run2to3("test_disciplefile.py", [], [])
-        self.assertEqual(output, [],
-                         "test_disciplefile.py 2to3 errors:\n" +
-                         "".join(output))
-        self.assertEqual(error, "",
-                         "test_disciplefile.py 2to3 check had errors:\n" +
-                         error)
 
 
 class Testcommandline(unittest.TestCase):
@@ -1185,14 +1055,10 @@ class Testcommandline(unittest.TestCase):
         def __init__(self, data):
             StringIO.__init__(self)
             self.buffer = Testcommandline.Mystdin.bufferemulator()
-            if(sys.hexversion > 0x03000000):
-                if(isinstance(data, bytearray)):
-                    self.buffer.bytedata = data
-                else:
-                    self.buffer.bytedata = bytearray([ord(x) for x in data])
+            if isinstance(data, bytearray):
+                self.buffer.bytedata = data
             else:
-                self.write(data)
-                self.seek(0)
+                self.buffer.bytedata = bytearray([ord(x) for x in data])
 
     def runtest(self, command, stdindata, wantbytearrayreturned=False):
         saved_output = sys.stdout
@@ -1208,9 +1074,7 @@ class Testcommandline(unittest.TestCase):
             sys.stdin = saved_input
 
         out = output.getvalue()
-        if(sys.hexversion < 0x03000000 and not wantbytearrayreturned):
-            out = out.decode('utf8')
-        if(len(out) == 0 and len(output.buffer.bytedata) > 0):
+        if len(out) == 0 and len(output.buffer.bytedata) > 0:
             out = output.buffer.bytedata
         output.close()
         return out
@@ -1621,9 +1485,9 @@ Contains file (number 1) with the error: Contains invalid filetype.
             disciplefile._commandline(["disciplefile.py"] + command.split())
             self.fail("No SpectrumTranslateError raised")
         except spectrumtranslate.SpectrumTranslateError as se:
-            if(se.value == message):
+            if se.value == message:
                 return
-            self.fail("Wrong exception message. Got:\n{0}\nExpected:\n{1}".
+            self.fail("Wrong exception message. Got:\n{0\nExpected:\n{}".
                       format(se.value, message))
 
     def test_invalidcommands(self):

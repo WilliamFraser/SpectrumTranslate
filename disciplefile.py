@@ -42,59 +42,38 @@
 # Author: william.fraser@virgin.net
 # Date: 14th January 2015
 
-# 2to3 will complain but won't cause problems in real life
 import spectrumtranslate
 import sys
 from os.path import isfile as _isfile
 from os import fstat
-from numbers import Integral as _INT_OR_LONG
 
 
-if(sys.hexversion > 0x03000000):
-    _unistr = str
+def _validateandpreparebytes(x, m):
+    if isinstance(x, (bytes, bytearray)) or \
+       (isinstance(x, (list, tuple)) and
+       all(isinstance(val, int) for val in x)):
+        return bytearray(x)
 
-    def _validateandpreparebytes(x, m):
-        if(isinstance(x, (bytes, bytearray)) or
-           (isinstance(x, (list, tuple)) and
-           all(isinstance(val, int) for val in x))):
-            return bytearray(x)
-
-        raise spectrumtranslate.SpectrumTranslateError("{0} needs to be a \
+    raise spectrumtranslate.SpectrumTranslateError("{} needs to be a \
 list or tuple of ints, or of type 'bytes' or 'bytearray'".format(m))
-
-else:
-    # 2to3 will complain but this code is python 2 & 3 compatible
-    _unistr = unicode
-
-    def _validateandpreparebytes(x, m):
-        # function to convert any valid source to a list of ints and
-        # except if not
-        if(isinstance(x, (str, bytes, bytearray)) or
-           (isinstance(x, (list, tuple)) and
-           all(isinstance(val, _INT_OR_LONG) for val in x))):
-            return bytearray(x)
-
-        raise spectrumtranslate.SpectrumTranslateError("{0} needs to be a \
-byte string, or a list or tuple of ints or longs, or of type 'bytes' or \
-'bytearray'".format(m))
 
 
 def _validateandconvertfilename(filename):
     # check filename is valid
-    if(isinstance(filename, list)):
+    if isinstance(filename, list):
         # if is list of numbers convert to list of strings
-        if(all(isinstance(x, _INT_OR_LONG) for x in filename)):
+        if all(isinstance(x, int) for x in filename):
             filename = bytearray(filename)
 
         # if there are only strings in the list then convert list to
         # a string
-        if(all(isinstance(x, str) for x in filename)):
+        if all(isinstance(x, str) for x in filename):
             filename = "".join(filename)
 
-    if(isinstance(filename, str)):
+    if isinstance(filename, str):
         filename = bytearray(filename, "utf8")
 
-    if(not isinstance(filename, (bytes, bytearray)) or len(filename) > 10):
+    if not isinstance(filename, (bytes, bytearray)) or len(filename) > 10:
         raise spectrumtranslate.SpectrumTranslateError(
             "Filename must be a string, or list of ints or strings, of type \
 'bytes' or 'bytearray' and of no more than 10 characters.")
@@ -129,7 +108,7 @@ class DiscipleFile:
 
         # is it a valid filenumber?
         # Origional valid filenumbers are 1 to 80
-        if(self.filenumber < 1 or self.filenumber > 80):
+        if self.filenumber < 1 or self.filenumber > 80:
             raise spectrumtranslate.SpectrumTranslateError(
                 "Invalid File Number")
 
@@ -156,11 +135,11 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
         # check to make sure is valid file
-        if(self.isempty(headderdata)):
+        if self.isempty(headderdata):
             return None
 
         # make note of number of sectors in file
@@ -180,8 +159,8 @@ class DiscipleFile:
         # BASIC, code, number array, string array, or screen have extra
         # 9 bytes of file as copy of headder data.
         t = self.getfiletype(headderdata)
-        if((t > 0 and t < 5) or t == 7):
-            if(wantheadder):
+        if (t > 0 and t < 5) or t == 7:
+            if wantheadder:
                 readpos = 0
                 bytestocopy += 9
 
@@ -192,17 +171,17 @@ class DiscipleFile:
             readpos = 0
 
         # now move through file transfering data to array
-        while(i > 0):
+        while i > 0:
             # sanity check on track & sector
-            if(track == 0 and sector == 0):
+            if track == 0 and sector == 0:
                 raise spectrumtranslate.SpectrumTranslateError(
                     "unexpected early end of file")
 
-            if((track & 127) > 79 or track < 4):
+            if (track & 127) > 79 or track < 4:
                 raise spectrumtranslate.SpectrumTranslateError(
                     "Invalid track number")
 
-            if(sector < 1 or sector > 10):
+            if sector < 1 or sector > 10:
                 raise spectrumtranslate.SpectrumTranslateError(
                     "Invalid sector number")
 
@@ -213,7 +192,7 @@ class DiscipleFile:
             b = 1 << (o % 8)
             o = o // 8
             # check if is sector owned by this file
-            if((sectorMap[o] & b) != b):
+            if (sectorMap[o] & b) != b:
                 raise spectrumtranslate.SpectrumTranslateError(
                     "next sector not matching FAT")
 
@@ -238,13 +217,13 @@ class DiscipleFile:
             readpos = 0
 
         # track & sector of last sector read should be 0
-        if(track != 0 and sector != 0):
+        if track != 0 and sector != 0:
             raise spectrumtranslate.SpectrumTranslateError(
                 "File length mismatch")
 
         # sectorMap should now be blank
         # otherwise there are unused sectors
-        if(any(i != 0 for i in sectorMap)):
+        if any(i != 0 for i in sectorMap):
             raise spectrumtranslate.SpectrumTranslateError(
                 "Unused sectors in FAT")
 
@@ -265,11 +244,11 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
         # check to make sure is valid file
-        if(self.isempty(headderdata)):
+        if self.isempty(headderdata):
             return 0
 
         # is stored at offset 11 in motorola byte order (most significant
@@ -287,35 +266,35 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
         t = self.getfiletype(headderdata)
         # the length of the file in bytes depends on the file type
-        if(t == 0):
+        if t == 0:
             # deleted/empty
             return 0
 
-        elif(t == 1 or t == 2 or t == 3 or t == 4 or t == 7 or t == 13):
+        elif t in [1, 2, 3, 4, 7, 13]:
             # 1=basic,2=number array,3=string array,4=code,7=screen$,
             # 13=unidos create file
             return headderdata[212] + 256 * headderdata[213]
 
-        elif(t == 5):
+        elif t == 5:
             # 48K snapshot
             return 49152  # 3 * 16K ram banks
 
-        elif(t == 9):
+        elif t == 9:
             # 128K snapshot
             return 131073  # 1 byte page register value + 8 16K ram banks
 
-        elif(t == 10):
+        elif t == 10:
             # opentype
             return headderdata[212] +\
                    256 * headderdata[213] +\
                    65536 * headderdata[210]
 
-        elif(t == 11):
+        elif t == 11:
             # execute
             return 510
         else:
@@ -332,7 +311,7 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
         # &31 to exclude hidden flags
@@ -346,7 +325,7 @@ class DiscipleFile:
         """
 
         i = self.getfiletype(headderdata)
-        if(i > 11):
+        if i > 11:
             return None
 
         return ("Free/Erased", "Basic", "Number Array", "String Array", "Code",
@@ -362,7 +341,7 @@ class DiscipleFile:
         """
 
         i = self.getfiletype(headderdata)
-        if(i > 11):
+        if i > 11:
             return None
 
         return ("ERASED", "BAS", "D.ARRAY", "$.ARRAY", "CDE", "SNP 48k",
@@ -382,7 +361,7 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
         return spectrumtranslate.getspectrumstring(headderdata[1:11])
@@ -391,7 +370,7 @@ class DiscipleFile:
         """This returns the 10 character file name as a bytearray."""
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
         return headderdata[1:11]
@@ -405,7 +384,7 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
         details = {"filenumber": self.filenumber,
@@ -418,24 +397,24 @@ class DiscipleFile:
                    "filelength": self.getfilelength(headderdata),
                    "catextradata": ""}
 
-        if(details["filetype"] == 4):
+        if details["filetype"] == 4:
             # code
             details["codeaddress"] = self.getcodestart(headderdata)
-            details["catextradata"] = "{0:5},{1:5}".format(
+            details["catextradata"] = "{:5},{:5}".format(
                 self.getcodestart(headderdata),
                 self.getfilelength(headderdata))
             details["coderunaddress"] = headderdata[218] +\
                 256 * headderdata[219]
 
-        if(details["filetype"] == 1):
+        if details["filetype"] == 1:
             # basic
             details["autostartline"] = self.getautostartline(headderdata)
             details["variableoffset"] = self.getvariableoffset(headderdata)
-            if(self.getautostartline(headderdata) >= 0):
-                details["catextradata"] = "{0:5}".format(self.getautostartline(
+            if self.getautostartline(headderdata) >= 0:
+                details["catextradata"] = "{:5}".format(self.getautostartline(
                                                          headderdata))
 
-        if(details["filetype"] == 2 or details["filetype"] == 3):
+        if details["filetype"] in [2, 3]:
             # number or character array
             details["variableletter"] = self.getvariableletter(headderdata)
             details["variablename"] = self.getvariablename(headderdata)
@@ -452,25 +431,25 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
-        s = _unistr("   {0:2}   {1}{2:4}      {3}").format(
+        s = "   {:2}   {}{:4}      {}".format(
             self.filenumber, self.getfilename(headderdata),
             self.getsectorsused(headderdata),
             self.getfiletypecatstring(headderdata))
 
         t = self.getfiletype(headderdata)
-        if(t == 4):
+        if t == 4:
             # code
-            s += "         {0:5},{1}".format(self.getcodestart(headderdata),
-                                             self.getfilelength(headderdata))
+            s += "         {:5},{}".format(self.getcodestart(headderdata),
+                                           self.getfilelength(headderdata))
 
-        if(t == 1):
+        if t == 1:
             # basic
-            if(self.getautostartline(headderdata) >= 0):
-                s += "         {0:5}".format(self.getautostartline(
-                                             headderdata))
+            if self.getautostartline(headderdata) >= 0:
+                s += "         {:5}".format(self.getautostartline(
+                                            headderdata))
 
         return s
 
@@ -484,15 +463,15 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
-        if(headderdata[0] != 1):
+        if headderdata[0] != 1:
             return -2
 
         val = headderdata[218] + 256 * headderdata[219]
 
-        if(val > 9999):
+        if val > 9999:
             return -1
 
         return val
@@ -508,10 +487,10 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
-        if(headderdata[0] != 1):
+        if headderdata[0] != 1:
             return -2
 
         return headderdata[216] + 256 * headderdata[217]
@@ -526,10 +505,10 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
-        if(headderdata[0] != 4 and headderdata[0] != 7):
+        if headderdata[0] != 4 and headderdata[0] != 7:
             return -2
 
         return headderdata[214] + 256 * headderdata[215]
@@ -543,10 +522,10 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
-        if(headderdata[0] != 2 and headderdata[0] != 3):
+        if headderdata[0] != 2 and headderdata[0] != 3:
             return None
 
         return chr((headderdata[216] & 127) | 64)
@@ -562,10 +541,10 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
-        if(headderdata[0] != 2 and headderdata[0] != 3):
+        if headderdata[0] != 2 and headderdata[0] != 3:
             return None
 
         return self.getvariableletter(headderdata) + \
@@ -587,10 +566,10 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
-        if(headderdata[0] != 2 and headderdata[0] != 3):
+        if headderdata[0] != 2 and headderdata[0] != 3:
             return -1
 
         return headderdata[216]
@@ -619,10 +598,10 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
-        if(headderdata[0] != 5 or headderdata[0] != 9):
+        if headderdata[0] != 5 or headderdata[0] != 9:
             return None
 
         regs = {}
@@ -646,7 +625,7 @@ class DiscipleFile:
         mem = self.getfiledata(False, headderdata)
 
         # handle 128K specific stuff
-        if(headderdata[0] == 9):
+        if headderdata[0] == 9:
             # get which rambank is paged in
             regs["RAMbank"] = mem[0] & 7
             # get which screen
@@ -700,47 +679,47 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
         t = self.getfiletype(headderdata)
 
-        s = _unistr('filenumber: {0}\nFile name: "{1}"\n').format(
+        s = 'filenumber: {}\nFile name: "{}"\n'.format(
             self.filenumber, self.getfilename(headderdata))
-        s += _unistr("File type: {0} = {1}\n").format(
+        s += "File type: {} = {}\n".format(
             t, self.getfiletypestring(headderdata))
         s += "File length: {0}({0:X})\n".format(
             self.getfilelength(headderdata))
 
-        if(t == 1):  # basic
+        if t == 1:  # basic
             s += "Autostart: {0}\nVariable offset: {1}({1:X})\n".format(
                 self.getautostartline(headderdata),
                 self.getvariableoffset(headderdata))
 
-        elif(t == 2 or t == 3):  # number array, or string array
-            s += _unistr("variable name: {0}\n").format(
+        elif t in [2, 3]:  # number array, or string array
+            s += "variable name: {}\n".format(
                 self.getvariablename(headderdata))
 
-        elif(t == 4 or t == 7):  # code or screen$
+        elif t in [4, 7]:  # code or screen$
             s += "code start address: {0}({0:X})\n".format(
                 self.getcodestart(headderdata))
 
-        s += "file details: {0}\n".format(
+        s += "file details: {}\n".format(
             self.getfiledetailsstring(headderdata))
         s += "directory entry address: T={0[0]} S={0[1]} offset={1}\n".format(
             GetDirectoryEntryPosition(self.filenumber),
             ((self.filenumber - 1) & 1) * 256)
-        s += "Number of sectors used: {0}\n".format(
+        s += "Number of sectors used: {}\n".format(
             self.getsectorsused(headderdata))
 
         s += "Sectors in FAT:"
         for i in range(0, 195):
-            if(headderdata[i + 15]):
+            if headderdata[i + 15]:
                 m = i * 8
                 b = headderdata[i + 15]
-                while(b & 0xFF):
-                    if(b & 1):
-                        s += " {0};{1}".format(
+                while b & 0xFF:
+                    if b & 1:
+                        s += " {};{}".format(
                             (m // 10) + (52 if (m >= 760) else 4),
                             (m % 10) + 1)
                     b >>= 1
@@ -751,12 +730,12 @@ class DiscipleFile:
         i = self.getsectorsused(headderdata)
 
         s += "\nSector chain:"
-        while(i > 0):
-            if(sector < 1 or sector > 10 or track < 0 or (track & 127) > 79):
-                s += " {0};{1}(invalid sector!)".format(track, sector)
+        while i > 0:
+            if sector < 1 or sector > 10 or track < 0 or (track & 127) > 79:
+                s += " {};{}(invalid sector!)".format(track, sector)
                 sector = -1
                 break
-            s += " {0};{1}({2:X})".format(
+            s += " {};{}({:X})".format(
                 track, sector,
                 self.image.getsectorposition(track & 127, sector, track >> 7))
             sectordata = self.image.getsector(track & 127, sector, track >> 7)
@@ -764,8 +743,8 @@ class DiscipleFile:
             sector = sectordata[511]
             i -= 1
 
-        if(sector != -1):
-            s += " {0};{1}".format(track, sector)
+        if sector != -1:
+            s += " {};{}".format(track, sector)
 
         return s
 
@@ -782,7 +761,7 @@ class DiscipleFile:
         """
 
         # if no headder supplied, need to load it up
-        if(headderdata is None):
+        if headderdata is None:
             headderdata = self.getheadder()
 
         faults = []
@@ -790,11 +769,11 @@ class DiscipleFile:
         # is filetype (excluding flags) consistent with valid file?
         filetype = headderdata[0] & 31
         # is empty directory entries
-        if(filetype == 0):
+        if filetype == 0:
             return None
 
-        if(filetype > 11):
-            if(fast):
+        if filetype > 11:
+            if fast:
                 return ["Contains invalid filetype"]
             faults += ["Contains invalid filetype"]
 
@@ -806,13 +785,13 @@ class DiscipleFile:
         # iterate through all headders
         for entry in range(1, 81):
             # skip if is this file
-            if(self.filenumber == entry):
+            if self.filenumber == entry:
                 continue
 
             headderstart = ((entry - 1) & 1) * 256
             # only load sector if needed
             newtrack, newsector = GetDirectoryEntryPosition(entry)
-            if(track != newtrack or sector != newsector):
+            if track != newtrack or sector != newsector:
                 track = newtrack
                 sector = newsector
                 headder = self.image.getsector(track, sector)
@@ -825,10 +804,10 @@ class DiscipleFile:
         sectorcount = 0
 
         for i in range(195):
-            if(sectorMap[i] & headderdata[15 + i] != 0):
+            if sectorMap[i] & headderdata[15 + i] != 0:
                 # we have conflicting FAT entries
                 msg = ["File Allocation Table overlaps with other file(s)"]
-                if(fast):
+                if fast:
                     return msg
                 faults += msg
                 break
@@ -837,48 +816,47 @@ class DiscipleFile:
             sectorcount += bin(headderdata[15 + i]).count("1")
 
         # check number of sectors line up with FAT table
-        if(sectorcount != headderdata[12] + 256 * headderdata[11]):
+        if sectorcount != headderdata[12] + 256 * headderdata[11]:
             msg = ["Number of sectors do not match number of sectors in FAT"]
-            if(fast):
+            if fast:
                 return msg
             faults += msg
 
         # compare file length against sectors used in FAT table for
         # length workoutable files
         filelen = -1
-        if(filetype == 1 or filetype == 2 or filetype == 3 or
-           filetype == 4 or filetype == 7 or filetype == 13):
+        if filetype in [1, 2, 3, 4, 7, 13]:
             # 1=basic,2=number array,3=string array,4=code,7=screen$,
             # 13=unidos create file
             filelen = headderdata[212] + 256 * headderdata[213]
-        elif(filetype == 5):
+        elif filetype == 5:
             # 48K snapshot
             filelen = 49152  # 3 * 16K ram banks
-        elif(filetype == 9):
+        elif filetype == 9:
             # 128K snapshot
             # 1 byte page register value + 8 16K ram banks
             filelen = 131073
-        elif(filetype == 10):
+        elif filetype == 10:
             # opentype
             filelen = headderdata[212] + 256 * headderdata[213] + \
                       65536 * headderdata[210]
-        elif(filetype == 11):
+        elif filetype == 11:
             # execute
             filelen = 510
 
         # BASIC, code, number array, string array, or screen have 1st
         # 9 bytes of file as copy of headder data.
-        if((filetype > 0 and filetype < 5) or filetype == 7):
+        if (filetype > 0 and filetype < 5) or filetype == 7:
             filelen += 9
 
         # compare it to number of sectors used
-        if(filelen != -1):
+        if filelen != -1:
             # work out how many sectors should be used. round up
             estimatedsectors = (filelen + 509) // 510
             # now see if matches
-            if(sectorcount != estimatedsectors):
+            if sectorcount != estimatedsectors:
                 msg = ["Wrong length for number of sectors used"]
-                if(fast):
+                if fast:
                     return msg
                 faults += msg
 
@@ -890,10 +868,10 @@ class DiscipleFile:
         starttrack = headderdata[13]
 
         # do we have valid sector?
-        if((starttrack & 127) > 79 or starttrack < 4 or
-           startsector < 1 or startsector > 10):
+        if (starttrack & 127) > 79 or starttrack < 4 or startsector < 1 or \
+           startsector > 10:
             msg = ["Invalid first sector"]
-            if(fast):
+            if fast:
                 return msg
             # can't continue after this fault so return
             return faults + msg
@@ -902,9 +880,9 @@ class DiscipleFile:
         o, b = self.image.get_offset_and_bit_from_track_and_sector(starttrack,
                                                                    startsector)
         # check if is sector owned by this file
-        if((sm[o] & b) != b):
+        if (sm[o] & b) != b:
             msg = ["Used sectors don't match FAT table entries"]
-            if(fast):
+            if fast:
                 return msg
             faults += msg
 
@@ -912,7 +890,7 @@ class DiscipleFile:
         # ensure sector map is empty at the end
 
         # if we don't know size of file then estimate it
-        if(filelen == -1):
+        if filelen == -1:
             filelen = sectorcount * 510
 
         # get start track & sector
@@ -920,19 +898,19 @@ class DiscipleFile:
         s = startsector
 
         # now move through file sectors
-        while(sectorcount > 0):
+        while sectorcount > 0:
             # have we reached early end of file?
-            if(t == 0 and s == 0):
+            if t == 0 and s == 0:
                 msg = ["Sector chain terminates early"]
-                if(fast):
+                if fast:
                     return msg
                 # can't continue after this fault so return
                 return faults + msg
 
             # do we have valid sector?
-            if((t & 127) > 79 or t < 4 or s < 1 or s > 10):
+            if (t & 127) > 79 or t < 4 or s < 1 or s > 10:
                 msg = ["Invalid sector reference in chain"]
-                if(fast):
+                if fast:
                     return msg
                 # can't continue after this fault so return
                 return faults + msg
@@ -941,9 +919,9 @@ class DiscipleFile:
             # sectorMap
             o, b = self.image.get_offset_and_bit_from_track_and_sector(t, s)
             # check if is sector owned by this file
-            if((sm[o] & b) != b):
+            if (sm[o] & b) != b:
                 msg = ["Using sector not owned by this file"]
-                if(fast):
+                if fast:
                     return msg
                 faults += msg
 
@@ -962,9 +940,9 @@ class DiscipleFile:
             sectorcount -= 1
 
         # track & sector of last sector read should be 0
-        if(t != 0 and s != 0):
+        if t != 0 and s != 0:
             msg = ["Mismatch between details and sector chain"]
-            if(fast):
+            if fast:
                 return msg
             faults += msg
 
@@ -975,9 +953,9 @@ class DiscipleFile:
         # sectors in the FAT table with the number stated in the
         # directory entry that this file uses.
         # Still just in case...
-        if(any(i != 0 for i in sm)):
+        if any(i != 0 for i in sm):
             msg = ["Incorect FAT table"]
-            if(fast):
+            if fast:
                 return msg
             faults += msg
 
@@ -991,7 +969,7 @@ class DiscipleImage:
         self.ImageSource = "Undefined"
         self.ImageFormat = "Unknown"
 
-        if(fileName is not None):
+        if fileName is not None:
             self.setfilename(fileName, accessmode=accessmode)
 
     def setfile(self, filehandle, form="Unknown"):
@@ -1013,7 +991,7 @@ class DiscipleImage:
             self.filehandle = open(filename, accessmode)
         except (OSError, IOError):
             raise spectrumtranslate.SpectrumTranslateError(
-                'can not open "{0}" for reading'.format(filename))
+                'can not open "{}" for reading'.format(filename))
             return
 
         self.ImageSource = "FileName"
@@ -1022,8 +1000,7 @@ class DiscipleImage:
     def setbytes(self, bytedata, form="Unknown"):
         """
         Sets the source for the disciple image to be a bytearray string, a
-        list or tuple of ints or longs, or can also be bytes or
-        bytearray in python 3.
+        list or tuple of ints, or can also be bytes or bytearray.
         """
 
         # validate and prepare bytedata
@@ -1040,7 +1017,7 @@ class DiscipleImage:
         "IMG" is side 0 track 0, side 0 track 1, side 0 track 2, ...
         side 0 track 79, side 1 track 0, side 1 track 1, etc
         """
-        if(form == "MGT" or form == "IMG" or form == "Unknown"):
+        if form in ["MGT", "IMG", "Unknown"]:
             self.ImageFormat = form
             return
 
@@ -1049,9 +1026,9 @@ class DiscipleImage:
 
     def get_offset_and_bit_from_track_and_sector(self, track, sector):
         """calculate offset & bit of this track & sector in sectorMap"""
-        if(track < 4 or (track & 127) > 79 or sector < 1 or sector > 10):
+        if track < 4 or (track & 127) > 79 or sector < 1 or sector > 10:
             raise spectrumtranslate.SpectrumTranslateError(
-                "Track {0}, Sector {1} not a valid sector to be referenced by \
+                "Track {}, Sector {} not a valid sector to be referenced by \
 sector map.".format(track, sector))
 
         o = (track & 127) + (80 if track >= 128 else 0) - 4
@@ -1070,11 +1047,11 @@ sector map.".format(track, sector))
 
         # simplest way I can think of is to try out the different formats
         self.ImageFormat = "MGT"
-        if(self.isimagevalid(True)[0]):
+        if self.isimagevalid(True)[0]:
             return self.ImageFormat
 
         self.ImageFormat = "IMG"
-        if(self.isimagevalid(True)[0]):
+        if self.isimagevalid(True)[0]:
             return self.ImageFormat
 
         self.ImageFormat = "Unknown"
@@ -1082,7 +1059,7 @@ sector map.".format(track, sector))
 
     def __del__(self):
         # close filehandle if needed
-        if(self.ImageSource == "FileName"):
+        if self.ImageSource == "FileName":
             self.filehandle.close()
 
     def getsectorposition(self, track, sector, head=-1):
@@ -1098,28 +1075,28 @@ sector map.".format(track, sector))
         """
 
         # if we don't know what format we've got then guess
-        if(self.ImageFormat == "Unknown"):
+        if self.ImageFormat == "Unknown":
             self.guessimageformat()
 
         # is head part of track?
-        if(head == -1):
+        if head == -1:
             head = (track >> 7) & 1
             track &= 127
 
         # sanity check on inputs
-        if(head < 0 or head > 1):
+        if head < 0 or head > 1:
             raise spectrumtranslate.SpectrumTranslateError(
                 'Valid head values are 0 and 1')
 
-        if(sector < 1 or sector > 10):
+        if sector < 1 or sector > 10:
             raise spectrumtranslate.SpectrumTranslateError(
                 'Valid sector values are 1 to 10 inclusive')
 
-        if(track < 0 or track > 79):
+        if track < 0 or track > 79:
             raise spectrumtranslate.SpectrumTranslateError(
                 'Valid track values are 0 to 79 inclusive')
 
-        if(self.ImageFormat == "MGT"):
+        if self.ImageFormat == "MGT":
             return ((sector - 1) + (head * 10) + (track * 20)) * 512
 
         # otherwise is img file format
@@ -1131,11 +1108,11 @@ sector map.".format(track, sector))
         # where is sector we're after
         pos = self.getsectorposition(track, sector, head)
 
-        if(self.ImageSource == "Bytes"):
+        if self.ImageSource == "Bytes":
             return self.bytedata[pos:pos + 512]
 
-        elif(self.ImageSource == "File" or self.ImageSource == "FileName"):
-            if(self.filehandle.tell() != pos):
+        elif self.ImageSource in ["File", "FileName"]:
+            if self.filehandle.tell() != pos:
                 self.filehandle.seek(pos)
 
             return bytearray(self.filehandle.read(512))
@@ -1146,36 +1123,33 @@ sector map.".format(track, sector))
 
     def writesector(self, data, track, sector, head=-1):
         """Writes supplied sector to image. data has to be 512 long and
-        is the data to be written to the sector.  In python 2 it must be
-        a list or tuple of ints or longs, and in python 3 it can also be
-        a bytearray or bytes.  If the image is not initiated, then it
-        will be set up as a byte image.  You will need to save off the
-        data at the end to save any changes.
+        is the data to be written to the sector.  It must be a list or
+        tuple of ints, a bytearray, or bytes.  If the image is not
+        initiated, then it will be set up as a byte image.  You will
+        need to save off the data at the end to save any changes.
         """
 
         # validate and prepare data
-        data = _validateandpreparebytes(data, "data must be a \
-512 bytes in length, and a list or tuple of int or long, or a byte string in \
-python 2, or of type 'byte' or 'bytearray' in python 3.")
+        data = _validateandpreparebytes(data, "data must be a 512 bytes in \
+length, and a list or tuple of int, or of type 'byte' or 'bytearray'.")
 
-        if(len(data) != 512):
+        if len(data) != 512:
             raise spectrumtranslate.SpectrumTranslateError("data must be a \
-512 bytes in length, and a list or tuple of int or long, or a byte string in \
-python 2, or of type 'byte' or 'bytearray' in python 3.")
+512 bytes in length, and a list or tuple of int, a bytearray or bytes.")
 
         # if we've got uninitiated DiscipleImage then set up as bytearray
-        if(self.ImageSource == "Undefined"):
+        if self.ImageSource == "Undefined":
             self.setbytes([0] * 819200)
 
         # where is sector we're after
         pos = self.getsectorposition(track, sector, head)
-        if(self.ImageSource == "Bytes"):
+        if self.ImageSource == "Bytes":
             self.bytedata[pos:pos + 512] = data
 
-        elif(self.ImageSource == "File" or self.ImageSource == "FileName"):
+        elif self.ImageSource in ["File", "FileName"]:
             # have we got overwrite access?
-            if(len(self.filehandle.mode) != 3 or
-               0 in [c in self.filehandle.mode for c in "r+b"]):
+            if len(self.filehandle.mode) != 3 or \
+               0 in [c in self.filehandle.mode for c in "r+b"]:
                 # if not we can't write to it
                 raise spectrumtranslate.SpectrumTranslateError(
                     'DiscipleImage not opened with access mode rb+')
@@ -1195,7 +1169,7 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         """
 
         # check input
-        if(entrynumber > 80 or entrynumber < 1):
+        if entrynumber > 80 or entrynumber < 1:
             raise spectrumtranslate.SpectrumTranslateError(
                 'Invalid file enty number (must be 1 to 80 inclusive).')
 
@@ -1222,18 +1196,18 @@ python 2, or of type 'byte' or 'bytearray' in python 3.")
         """
 
         # check image source
-        if(self.ImageSource == "Undefined"):
+        if self.ImageSource == "Undefined":
             return False, "No image source defined"
 
         # todo handle non 80 track, 2 sided disks
         # for now just say not valid
-        if(self.ImageSource == "Bytes" and (not hasattr(self, "bytedata") or
-           len(self.bytedata) != 819200)):
+        if self.ImageSource == "Bytes" and (not hasattr(self, "bytedata")
+                                            or len(self.bytedata) != 819200):
             return False, "Image wrong size for 2 sided, 80 track, 10 sector \
 per track, 512 byte sector image."
 
-        if((self.ImageSource == "File" or self.ImageSource == "FileName") and
-           fstat(self.filehandle.fileno()).st_size != 819200):
+        if self.ImageSource in ["File", "FileName"] and fstat(
+           self.filehandle.fileno()).st_size != 819200:
             return False, "Image wrong size for 2 sided, 80 track, 10 sector \
 per track, 512 byte sector image."
 
@@ -1256,12 +1230,12 @@ per track, 512 byte sector image."
 
         # check source could be an image
         valid, problem = self.couldbeimage()
-        if(not valid):
+        if not valid:
             return False, problem
 
-        if(self.ImageFormat == "Unknown"):
+        if self.ImageFormat == "Unknown":
             self.guessimageformat()
-            if(self.ImageFormat == "Unknown"):
+            if self.ImageFormat == "Unknown":
                 return False, "Can't work out image format"
 
         faults = []
@@ -1269,10 +1243,10 @@ per track, 512 byte sector image."
         for entry in range(1, 81):
             df = DiscipleFile(self, entry)
             filefaults = df.checkforfaults(fast=not deeptest)
-            if(filefaults):
-                msg = "Contains file (number {0}) with the error{1}: {2}.\
+            if filefaults:
+                msg = "Contains file (number {}) with the error{}: {}.\
 ".format(entry, ("s" if len(filefaults) > 1 else ""), ". ".join(filefaults))
-                if(not deeptest):
+                if not deeptest:
                     return False, msg
                 faults += [msg]
 
@@ -1281,17 +1255,16 @@ per track, 512 byte sector image."
     def writefile(self, headder, filedata, position=-1):
         """This method will write the supplied filedata to the disk
         image with the headder as specified by headder.  headder has to
-        be a 256 byte list or tuple of ints or longs (or a bytes or
-        a bytearraystring object in python 3) for the file.  Bytes 11 to
-        209 will be ignored and overwritten, but the other bytes have to
-        correct for the file.  filedata is then written to the disk.
-        position is optional, but specifies into which file entry you
-        want this saved.  If it's -1 then it will be saved to the first
-        free headder slot.
+        be a 256 byte list or tuple of ints, bytes or a bytearray) for
+        the file.  Bytes 11 to 209 will be ignored and overwritten, but
+        the other bytes have to correct for the file.  filedata is then
+        written to the disk.  position is optional, but specifies into
+        which file entry you want this saved.  If it's -1 then it will
+        be saved to the first free headder slot.
         """
 
         # first check input
-        if(len(headder) != 256):
+        if len(headder) != 256:
             raise spectrumtranslate.SpectrumTranslateError(
                 "Header block must be 256 bytes long.")
 
@@ -1299,7 +1272,7 @@ per track, 512 byte sector image."
         headder = _validateandpreparebytes(headder, "headder")
         filedata = _validateandpreparebytes(filedata, "filedata")
 
-        if(position != -1 and position < 1 and position > 80):
+        if position != -1 and position < 1 and position > 80:
             raise spectrumtranslate.SpectrumTranslateError(
                 "Invalid file position.")
 
@@ -1308,20 +1281,20 @@ per track, 512 byte sector image."
         sectorcount = 0
         # create empty sector map
         sectorMap = bytearray(195)
-        while(i <= 80):
+        while i <= 80:
             t, s = GetDirectoryEntryPosition(i)
             sector = self.getsector(t, s)
             for headderoffset in (0, 256):
                 # if empty check if we can use it
-                if(sector[headderoffset] == 0):
-                    if(position == -1):
+                if sector[headderoffset] == 0:
+                    if position == -1:
                         position = i
 
                 # if used then make note of sectors used if we're not
                 # overwriting
-                elif(position != i):
+                elif position != i:
                     for m in range(195):
-                        if(sectorMap[m] & sector[headderoffset + 15 + m] != 0):
+                        if sectorMap[m] & sector[headderoffset + 15 + m] != 0:
                             # we have conflicting FAT entries
                             raise spectrumtranslate.SpectrumTranslateError(
                                 "Corrupt FAT table in destination image.")
@@ -1336,7 +1309,7 @@ per track, 512 byte sector image."
 
         # if no empty headders and not wanting to over-write then raise
         # error
-        if(position == -1):
+        if position == -1:
             raise spectrumtranslate.SpectrumTranslateError(
                 "No empty headder entries.")
 
@@ -1344,22 +1317,22 @@ per track, 512 byte sector image."
         # sector
         sectorsused = (len(filedata) + 509) // 510
 
-        if(sectorsused + sectorcount > 1560):
+        if sectorsused + sectorcount > 1560:
             raise spectrumtranslate.SpectrumTranslateError(
                 "Not enough space on disk for file.")
 
         # define nested function to search for next unused sector
         def NextUnusedSector(sectormap):
             for i in range(195):
-                if(sectormap[i] == 255):
+                if sectormap[i] == 255:
                     continue
 
                 for b in range(8):
-                    if(sectormap[i] & (1 << b) == 0):
+                    if sectormap[i] & (1 << b) == 0:
                         # work out track & sector
                         s = i * 8 + b
                         t = (s // 10) + 4
-                        if(t > 79):
+                        if t > 79:
                             t += 48
 
                         s = (s % 10) + 1
@@ -1383,7 +1356,7 @@ per track, 512 byte sector image."
 
         # now save file
         m = 0
-        while(m < len(filedata)):
+        while m < len(filedata):
             # mark sector as being used in disk FAT & file FAT
             o, b = self.get_offset_and_bit_from_track_and_sector(t, s)
             sectorMap[o] |= b
@@ -1394,7 +1367,7 @@ per track, 512 byte sector image."
 
             # work out what next track & sector will be
             # will be 0,0 if last sector in chain
-            if(len(filedata) - m <= 510):
+            if len(filedata) - m <= 510:
                 nextsector = [0, 0]
 
             else:
@@ -1431,14 +1404,14 @@ per track, 512 byte sector image."
 
         # search to see if file exists
         i = 1
-        while(i <= 80):
+        while i <= 80:
             t, s = GetDirectoryEntryPosition(i)
             sector = self.getsector(t, s)
             for headderoffset in (0, 256):
                 # if is the file we're after then note it
-                if(((not wantdeleted and sector[headderoffset] != 0) or
-                    (wantdeleted and sector[headderoffset] == 0)) and
-                   sector[headderoffset + 1:headderoffset + 11] == filename):
+                if ((not wantdeleted and sector[headderoffset] != 0) or
+                    (wantdeleted and sector[headderoffset] == 0)) and \
+                   sector[headderoffset + 1:headderoffset + 11] == filename:
                     hits += [i]
 
                 i += 1
@@ -1448,33 +1421,32 @@ per track, 512 byte sector image."
     def writebasicfile(self, filedata, filename, position=-1, autostartline=-1,
                        varposition=-1, overwritename=True):
         """This method writes a BASIC file to the disk image.  filedata
-        is a list or tuple of ints or longs (or a bytes or bytearray
-        object in python 3) of the BASIC file (with or without extra
-        variables).  filename is the name to save the BASIC file as on
-        the disk image.  Normaly this method would overwrite an existing
-        file with the same name.  If overwritename is False then it will
-        not overwrite the existing file.  Haveing two files with the
-        same name on a disk is not impossible but is confusing.
-        position can be used to specify which directory entry to save
-        the file details at.  If -1 it will use the first available
-        empty slot (assuming that we're not overwriting a file with the
-        same name), otherwise it will save the file in this slot even if
-        a file with the same name exists in another directory slot.
-        autostartline specifies the line to automatically start running
-        if loaded.  If not specified then no automatic start line is
-        set.  varposition specifies the offset to the variables being
-        saved with the BASIC program.  If set to None then it will save
-        the file as if there were no variables, if -1 then this method
-        will work out where the variables are (if any).  Only set this
-        manually if you know the correct value as this could cause
-        confusion if wrong.  If in doubt use -1.
+        is a list or tuple of ints, bytes or bytearray) of the BASIC
+        file (with or without extra variables).  filename is the name to
+        save the BASIC file as on the disk image.  Normaly this method
+        would overwrite an existing file with the same name.  If
+        overwritename is False then it will not overwrite the existing
+        file.  Haveing two files with the same name on a disk is not
+        impossible but is confusing.  position can be used to specify
+        which directory entry to save the file details at.  If -1 it
+        will use the first available empty slot (assuming that we're not
+        overwriting a file with the same name), otherwise it will save
+        the file in this slot even if a file with the same name exists
+        in another directory slot.  autostartline specifies the line to
+        automatically start running if loaded.  If not specified then no
+        automatic start line is set.  varposition specifies the offset
+        to the variables being saved with the BASIC program.  If set to
+        None then it will save the file as if there were no variables,
+        if -1 then this method will work out where the variables are (if
+        any).  Only set this manually if you know the correct value as
+        this could cause confusion if wrong.  If in doubt use -1.
         Filenames consist of up to 10 characters as either a string, or
         a list of strings or list of numbers for the character values.
         The method will raise an exception if the filename is invalid.
         """
 
         # validate input
-        if(len(filedata) > 65535 - 23755):
+        if len(filedata) > 65535 - 23755:
             raise spectrumtranslate.SpectrumTranslateError(
                 "Data too big to fit in spectrum memory.")
 
@@ -1495,7 +1467,7 @@ per track, 512 byte sector image."
         headder[214] = 23755 & 255
         headder[215] = 23755 // 256
         # set variable offset
-        if(varposition is None or varposition == -1):
+        if varposition is None or varposition == -1:
             # work out position of variables
             varposition = spectrumtranslate.getvariableoffset(filedata)
 
@@ -1503,7 +1475,7 @@ per track, 512 byte sector image."
         headder[217] = varposition // 256
 
         # setautostart
-        if(autostartline < 0 or autostartline > 9999):
+        if autostartline < 0 or autostartline > 9999:
             autostartline = 0x8000
 
         headder[218] = autostartline & 255
@@ -1511,7 +1483,7 @@ per track, 512 byte sector image."
 
         # outputfile
         # first work out if we're overwriting existing filename
-        if(overwritename and position == -1):
+        if overwritename and position == -1:
             # if so get index or -1
             hits = self.fileindexfromname(headder[1:11])
             position = -1 if len(hits) == 0 else hits[0]
@@ -1524,31 +1496,30 @@ per track, 512 byte sector image."
                       codestartaddress=0, overwritename=True,
                       coderunaddress=0):
         """This method writes a code file to the disk image.  filedata
-        is a list or tuple of ints or longs (or a bytes or bytearray
-        object in python 3) of the code.  filename is the name to save
-        the code file as on the disk image.  Normaly this method would
-        overwrite an existing file with the same name.  If overwritename
-        is False then it will not overwrite the existing file.  Haveing
-        two files with the same name on a disk is not impossible but is
-        confusing.  position can be used to specify which directory
-        entry to save the file details at.  If -1 it will use the first
-        available empty slot (assuming that we're not overwriting a file
-        with the same name), otherwise it will save the file in this
-        slot even if a file with the same name exists in another
-        directory slot.  codestartaddress specifies the address to which
-        the code should be loaded.  coderunaddress specifies the
-        address which should be called after the code is loaded.  If 0
-        it is ignored.  Filenames consist of up to 10 characters as
-        either a string, or a list of strings or list of numbers for the
-        character values.  The method will raise an exception if the
-        filename is invalid.
+        is a list or tuple of ints, bytes or bytearray) of the code.
+        filename is the name to save the code file as on the disk image.
+        Normaly this method would overwrite an existing file with the
+        same name.  If overwritename is False then it will not overwrite
+        the existing file.  Haveing two files with the same name on a
+        disk is not impossible but is confusing.  position can be used
+        to specify which directory entry to save the file details at.
+        If -1 it will use the first available empty slot (assuming that
+        we're not overwriting a file with the same name), otherwise it
+        will save the file in this slot even if a file with the same
+        name exists in another directory slot.  codestartaddress
+        specifies the address to which the code should be loaded.
+        coderunaddress specifies the address which should be called
+        after the code is loaded.  If 0 it is ignored.  Filenames
+        consist of up to 10 characters as either a string, or a list of
+        strings or list of numbers for the character values.  The method
+        will raise an exception if the filename is invalid.
         """
 
         # validate and prepare filedata
         filedata = _validateandpreparebytes(filedata, "filedata")
 
         # validate input
-        if(len(filedata) > 65535):
+        if len(filedata) > 65535:
             raise spectrumtranslate.SpectrumTranslateError(
                 "Data too big to fit in spectrum memory.")
 
@@ -1566,14 +1537,14 @@ per track, 512 byte sector image."
         headder[214] = codestartaddress & 255
         headder[215] = codestartaddress // 256
         # set coderunaddress
-        if(coderunaddress < 0 or coderunaddress > 0xFFFF):
+        if coderunaddress < 0 or coderunaddress > 0xFFFF:
             coderunaddress = 0
         headder[218] = coderunaddress & 255
         headder[219] = coderunaddress // 256
 
         # outputfile
         # first work out if we're overwriting existing filename
-        if(overwritename and position == -1):
+        if overwritename and position == -1:
             # if so get index or -1
             hits = self.fileindexfromname(headder[1:11])
             position = -1 if len(hits) == 0 else hits[0]
@@ -1585,28 +1556,28 @@ per track, 512 byte sector image."
     def writearrayfile(self, filedata, filename, VariableDescriptor,
                        position=-1, overwritename=True):
         """This method writes an array file to the disk image.  filedata
-        is a list or tuple of ints or longs (or a bytes or bytearray
-        object in python 3) of the array data.  filename is the name to
-        save the file as on the disk image.  Normaly this method would
-        overwrite an existing file with the same name.  If overwritename
-        is False then it will not overwrite the existing file.  Haveing
-        two files with the same name on a disk is not impossible but is
-        confusing.  position can be used to specify which directory
-        entry to save the file details at.  If -1 it will use the first
-        available empty slot (assuming that we're not overwriting a file
-        with the same name), otherwise it will save the file in this
-        slot even if a file with the same name exists in another
-        directory slot.  The VariableDescriptor is composed of the lower
-        6 bits of the variable name (a one letter name), and the upper 2
-        bits are 64 for a character array, 128 for a number array, and
-        192 for a string array.  Filenames consist of up to 10
-        characters as either a string, or a list of strings or list of
-        numbers for the character values.  The method will raise an
-        exception if the filename is invalid.
+        is a list or tuple of ints, bytes or bytearray of the array
+        data.  filename is the name to save the file as on the disk
+        image.  Normaly this method would overwrite an existing file
+        with the same name.  If overwritename is False then it will not
+        overwrite the existing file.  Haveing two files with the same
+        name on a disk is not impossible but is confusing.  position can
+        be used to specify which directory entry to save the file
+        details at.  If -1 it will use the first available empty slot
+        (assuming that we're not overwriting a file with the same name),
+        otherwise it will save the file in this slot even if a file with
+        the same name exists in another directory slot.  The
+        VariableDescriptor is composed of the lower 6 bits of the
+        variable name (a one letter name), and the upper 2 bits are 64
+        for a character array, 128 for a number array, and 192 for a
+        string array.  Filenames consist of up to 10 characters as
+        either a string, or a list of strings or list of numbers for the
+        character values.  The method will raise an exception if the
+        filename is invalid.
         """
 
         # validate input
-        if(len(filedata) > 65535 - 23755):
+        if len(filedata) > 65535 - 23755:
             raise spectrumtranslate.SpectrumTranslateError(
                 "Data too big to fit in spectrum memory.")
 
@@ -1628,7 +1599,7 @@ per track, 512 byte sector image."
 
         # outputfile
         # first work out if we're overwriting existing filename
-        if(overwritename and position == -1):
+        if overwritename and position == -1:
             # if so get index or -1
             hits = self.fileindexfromname(headder[1:11])
             position = -1 if len(hits) == 0 else hits[0]
@@ -1640,25 +1611,24 @@ per track, 512 byte sector image."
     def writescreenfile(self, filedata, filename, position=-1,
                         overwritename=True):
         """This method writes a screen file to the disk image.  filedata
-        is a list or tuple of ints or longs (or a bytes or bytearray
-        object in python 3) of the screen.  filename is the name to save
-        the file as on the disk image.  Normaly this method would
-        overwrite an existing file with the same name.  If overwritename
-        is False then it will not overwrite the existing file.  Haveing
-        two files with the same name on a disk is not impossible but is
-        confusing.  position can be used to specify which directory
-        entry to save the file details at.  If -1 it will use the first
-        available empty slot (assuming that we're not overwriting a file
-        with the same name), otherwise it will save the file in this
-        slot even if a file with the same name exists in another
-        directory slot.  Filenames consist of up to 10 characters as
-        either a string, or a list of strings or list of numbers for the
-        character values.  The method will raise an exception if the
-        filename is invalid.
+        is a list or tuple of ints, bytes or bytearray of the screen.
+        filename is the name to save the file as on the disk image.
+        Normaly this method would overwrite an existing file with the
+        same name.  If overwritename is False then it will not overwrite
+        the existing file.  Having two files with the same name on a
+        disk is not impossible but is confusing.  position can be used
+        to specify which directory entry to save the file details at.
+        If -1 it will use the first available empty slot (assuming that
+        we're not overwriting a file with the same name), otherwise it
+        will save the file in this slot even if a file with the same
+        name exists in another directory slot.  Filenames consist of up
+        to 10 characters as either a string, or a list of strings or
+        list of numbers for the character values.  The method will raise
+        an exception if the filename is invalid.
         """
 
         # validate input
-        if(len(filedata) != 6912):
+        if len(filedata) != 6912:
             raise spectrumtranslate.SpectrumTranslateError(
                 "filedata is wrong length for a spectrum screen file.")
 
@@ -1681,7 +1651,7 @@ per track, 512 byte sector image."
 
         # outputfile
         # first work out if we're overwriting existing filename
-        if(overwritename and position == -1):
+        if overwritename and position == -1:
             # if so get index or -1
             hits = self.fileindexfromname(headder[1:11])
             position = -1 if len(hits) == 0 else hits[0]
@@ -1699,7 +1669,7 @@ per track, 512 byte sector image."
         """
 
         i = 1
-        while(i <= 80):
+        while i <= 80:
             yield DiscipleFile(self, i)
             i += 1
 
@@ -1709,7 +1679,7 @@ def usage():
     returns the command line arguments for disciplefile as a string.
     """
 
-    return"""usage: python disciplefile.py instruction [args] infile
+    return """usage: python disciplefile.py instruction [args] infile
     outfile
 
     moves data from infile which should be a disciple disc image file or
@@ -1877,7 +1847,7 @@ def _commandline(args):
         try:
             specifiedfiles = []
             for n in arg.split(','):
-                if('-' in n):
+                if '-' in n:
                     v = n.split('-', 1)
                     specifiedfiles += list(range(getint(v[0]),
                                                  getint(v[1]) + 1))
@@ -1885,7 +1855,7 @@ def _commandline(args):
                 else:
                     specifiedfiles += [getint(n)]
 
-            if(len(specifiedfiles) == 0):
+            if len(specifiedfiles) == 0:
                 return None
 
             return specifiedfiles
@@ -1919,31 +1889,29 @@ def _commandline(args):
     verbosetestoutput = True
 
     # handle no arguments
-    if(len(args) == 1):
+    if len(args) == 1:
         mode = 'help'
 
     # go through arguments analysing them
-    while(i < len(args)-1):
+    while i < len(args)-1:
         i += 1
 
         arg = args[i]
-        if(arg == 'help' or arg == 'extract' or arg == 'list' or
-           arg == 'delete' or arg == 'copy' or arg == 'create' or
-           arg == 'test'):
-            if(mode is not None):
+        if arg in ['help', 'extract', 'list', 'delete', 'copy', 'create',
+                   'test']:
+            if mode is not None:
                 raise spectrumtranslate.SpectrumTranslateError(
                     "Can't have multiple commands.")
 
             mode = arg
             continue
 
-        if(mode is None):
+        if mode is None:
             raise spectrumtranslate.SpectrumTranslateError('No command (list, \
 extract, delete, copy, create, test, or help) specified as first argument.')
 
-        if(mode == 'create' and creating is None):
-            if(arg != 'basic' and arg != 'code' and arg != 'array' and
-               arg != 'screen'):
+        if mode == 'create' and creating is None:
+            if arg not in ['basic', 'code', 'array', 'screen']:
                 raise spectrumtranslate.SpectrumTranslateError('Must specify \
 what type of file to create. Valid options are basic, code, array, and \
 screen.')
@@ -1952,16 +1920,16 @@ screen.')
             continue
 
         # chack for multiple flags in one arg and split them
-        if(arg[0] == '-' and len(arg) > 2 and arg[1] != '-'):
+        if arg[0] == '-' and len(arg) > 2 and arg[1] != '-':
             args = args[0:i] + ['-' + x for x in arg[1:]] + args[i + 1:]
             arg = args[i]
 
-        if(arg == '--filename'):
+        if arg == '--filename':
             i += 1
             creatingfilename = spectrumtranslate.stringtospectrum(args[i])
             continue
 
-        if(arg == '--autostart'):
+        if arg == '--autostart':
             i += 1
             try:
                 creatingautostart = getint(args[i])
@@ -1969,9 +1937,9 @@ screen.')
 
             except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError(
-                    '{0} is not a valid autostart number.'.format(args[i]))
+                    '{} is not a valid autostart number.'.format(args[i]))
 
-        if(arg == '--variableoffset'):
+        if arg == '--variableoffset':
             i += 1
             try:
                 creatingvariableoffset = getint(args[i])
@@ -1979,17 +1947,17 @@ screen.')
 
             except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError(
-                    '{0} is not a valid variable offset.'.format(args[i]))
+                    '{} is not a valid variable offset.'.format(args[i]))
 
-        if(arg == '--donotoverwriteexisting'):
+        if arg == '--donotoverwriteexisting':
             creatingoverwritename = False
             continue
 
-        if(arg == '--origin'):
+        if arg == '--origin':
             i += 1
             try:
                 creatingorigin = getint(args[i])
-                if(creatingorigin < 0 or creatingorigin > 65535):
+                if creatingorigin < 0 or creatingorigin > 65535:
                     raise spectrumtranslate.SpectrumTranslateError(
                         'code origin must be 0-65535 inclusive.')
 
@@ -1997,220 +1965,216 @@ screen.')
 
             except ValueError:
                 raise spectrumtranslate.SpectrumTranslateError(
-                    '{0} is not a valid code origin.'.format(args[i]))
+                    '{} is not a valid code origin.'.format(args[i]))
                 break
 
-        if(arg == '--arraytype'):
+        if arg == '--arraytype':
             i += 1
-            if(args[i] == 'character' or args[i] == 'c'):
+            if args[i] in ['character', 'c']:
                 creatingarraytype = 192
                 continue
 
-            elif(args[i] == 'number' or args[i] == 'n'):
+            elif args[i] in ['number', 'n']:
                 creatingarraytype = 128
                 continue
 
-            elif(args[i] == 'string' or args[i] == 's'):
+            elif args[i] in ['string', 's']:
                 creatingarraytype = 64
                 continue
 
             else:
-                raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
+                raise spectrumtranslate.SpectrumTranslateError('{} is not a \
 valid array type (must be character, number or string).'.format(args[i]))
 
-        if(arg == '--arrayname'):
+        if arg == '--arrayname':
             i += 1
             creatingarrayname = args[i]
-            if(len(creatingarrayname) == 1 and
-               creatingarrayname.isalpha()):
+            if len(creatingarrayname) == 1 and creatingarrayname.isalpha():
                 continue
 
             raise spectrumtranslate.SpectrumTranslateError(
-                '{0} is not a valid variable name.'.format(args[i]))
+                '{} is not a valid variable name.'.format(args[i]))
             break
 
-        if(arg == '-i' or arg == '--fromstandardinput'):
+        if arg in ['-i', '--fromstandardinput']:
             fromstandardinput = True
             continue
 
-        if(arg == '-o' or arg == '--tostandardoutput'):
+        if arg in ['-o', '--tostandardoutput']:
             tostandardoutput = True
             continue
 
-        if(arg == '--forceinputformat'):
+        if arg == '--forceinputformat':
             i += 1
-            if(args[i] == 'IMG' or args[i] == 'MGT'):
+            if args[i] in ['IMG', 'MGT']:
                 formatinput = args[i]
                 continue
             raise spectrumtranslate.SpectrumTranslateError(
-                '{0} is not a valid format type.'.format(args[i]))
+                '{} is not a valid format type.'.format(args[i]))
             break
 
-        if(arg == '--forceoutputformat'):
+        if arg == '--forceoutputformat':
             i += 1
-            if(args[i] == 'IMG' or args[i] == 'MGT'):
+            if args[i] in ['IMG', 'MGT']:
                 formatoutput = args[i]
                 continue
             raise spectrumtranslate.SpectrumTranslateError(
-                '{0} is not a valid format type.'.format(args[i]))
+                '{} is not a valid format type.'.format(args[i]))
             break
 
-        if(arg == '-f' or arg == '--forceformat'):
+        if arg in ['-f', '--forceformat']:
             i += 1
-            if(args[i] == 'IMG' or args[i] == 'MGT'):
+            if args[i] in ['IMG', 'MGT']:
                 formatinput = args[i]
                 formatoutput = args[i]
                 continue
             raise spectrumtranslate.SpectrumTranslateError(
-                '{0} is not a valid format type.'.format(args[i]))
+                '{} is not a valid format type.'.format(args[i]))
             break
 
-        if(arg == '-d' or arg == '--details'):
+        if arg in ['-d', '--details']:
             wantdetails = True
             continue
 
-        if(arg == '-l' or arg == '--listempty'):
+        if arg in ['-l', '--listempty']:
             listempty = True
             continue
 
-        if(arg == '-c' or arg == '--capacity'):
+        if arg in ['-c', '--capacity']:
             wantdiskcapacity = True
             continue
 
-        if(arg == '--cs'):
+        if arg == '--cs':
             wantdiskcapacity = True
             capacityformat = "Sector"
             continue
 
-        if(arg == '--ck'):
+        if arg == '--ck':
             wantdiskcapacity = True
             capacityformat = "K"
             continue
 
-        if(arg == '-s' or arg == '--specifyfiles' or arg == '--specificfiles'):
+        if arg in ['-s', '--specifyfiles', '--specificfiles']:
             i += 1
             specifiedfiles = getindices(args[i])
-            if(specifiedfiles is None):
+            if specifiedfiles is None:
                 raise spectrumtranslate.SpectrumTranslateError(
                     '"' + args[i] + '" is invalid list of file indexes.')
 
             continue
 
-        if(arg == '-p' or arg == '--position' or arg == '--pos'):
+        if arg in ['-p', '--position', '--pos']:
             i += 1
             copyposition = getindices(args[i])
-            if(not copyposition):
-                raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
+            if not copyposition:
+                raise spectrumtranslate.SpectrumTranslateError('{} is not a \
 valid index for the output file.'.format(args[i]))
             continue
 
-        if(arg == '-b' or arg == '--brief'):
+        if arg in ['-b', '--brief']:
             verbosetestoutput = False
             continue
 
         # have unrecognised argument.
-        if(arg[0] == '-' or arg[0:2] == '--'):
-            raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
+        if arg[0] == '-' or arg[0:2] == '--':
+            raise spectrumtranslate.SpectrumTranslateError('{} is not a \
 recognised flag.'.format(arg))
 
         # check if is what entry we want to extract
-        if(mode == 'extract' and entrywanted is None):
+        if mode == 'extract' and entrywanted is None:
             try:
                 entrywanted = getint(arg)
                 continue
 
             except ValueError:
-                raise spectrumtranslate.SpectrumTranslateError('{0} is not a \
+                raise spectrumtranslate.SpectrumTranslateError('{} is not a \
 valid index in the input file.'.format(arg))
 
         # check if is what entry we want to delete or copy
-        if((mode == 'delete' or mode == 'copy') and
-           entrywanted is None and specifiedfiles is None):
+        if mode in ['delete', 'copy'] and entrywanted is None and \
+           specifiedfiles is None:
             specifiedfiles = getindices(arg)
-            if(not specifiedfiles):
-                raise spectrumtranslate.SpectrumTranslateError('{0} is \
+            if not specifiedfiles:
+                raise spectrumtranslate.SpectrumTranslateError('{} is \
 not a valid index in the input file.'.format(arg))
             continue
 
         # check if is input or output file
         # will be inputfile if not already defined, and
         # fromstandardinput is False
-        if(inputfile is None and not fromstandardinput):
+        if inputfile is None and not fromstandardinput:
             inputfile = arg
             continue
 
         # will be outputfile if not already defined, tostandardoutput
         # is False, and is last
         # argument
-        if(outputfile is None and not tostandardoutput and i == len(args)-1):
+        if outputfile is None and not tostandardoutput and i == len(args)-1:
             outputfile = arg
             continue
 
-        raise spectrumtranslate.SpectrumTranslateError('"{0}" is unrecognised \
+        raise spectrumtranslate.SpectrumTranslateError('"{}" is unrecognised \
 argument.'.format(arg))
 
-    if(inputfile is None and not fromstandardinput and mode != 'help'):
+    if inputfile is None and not fromstandardinput and mode != 'help':
         raise spectrumtranslate.SpectrumTranslateError(
             'No input file specified.')
 
-    if(outputfile is None and not tostandardoutput and mode != 'help'):
+    if outputfile is None and not tostandardoutput and mode != 'help':
         raise spectrumtranslate.SpectrumTranslateError(
             'No output file specified.')
 
-    if(entrywanted is None and mode == 'extract'):
+    if entrywanted is None and mode == 'extract':
         raise spectrumtranslate.SpectrumTranslateError(
             'No file index specified to extract.')
 
-    if(specifiedfiles is None and entrywanted is None and
-       (mode == 'delete' or mode == 'copy')):
+    if specifiedfiles is None and entrywanted is None and mode in ['delete',
+                                                                   'copy']:
         raise spectrumtranslate.SpectrumTranslateError(
-            'No file index(s) specified to {0}.'.format(mode))
+            'No file index(s) specified to {}.'.format(mode))
 
-    if(mode == 'extract' and (entrywanted > 80 or entrywanted < 1)):
+    if mode == 'extract' and (entrywanted > 80 or entrywanted < 1):
         raise spectrumtranslate.SpectrumTranslateError(
             str(entrywanted) + " is not a valid entry number (should be 1 to \
 80).")
 
-    if(mode == 'delete' or mode == 'copy'):
-        if(specifiedfiles is None):
+    if mode in ['delete', 'copy']:
+        if specifiedfiles is None:
             specifiedfiles = [entrywanted]
 
-        if(any(i > 80 or i < 1 for i in specifiedfiles)):
+        if any(i > 80 or i < 1 for i in specifiedfiles):
             raise spectrumtranslate.SpectrumTranslateError(
                 str(specifiedfiles) + " is not a valid entry number (should \
 be 1 to 80).")
 
-    if(mode == 'create' and creatingfilename is None):
+    if mode == 'create' and creatingfilename is None:
         raise spectrumtranslate.SpectrumTranslateError(
             'You have to specify file name to create.')
 
-    if(mode == 'create' and creating == 'array' and
-       (creatingarraytype is None or creatingarrayname is None)):
+    if mode == 'create' and creating == 'array' and \
+       (creatingarraytype is None or creatingarrayname is None):
         raise spectrumtranslate.SpectrumTranslateError(
             'You have to specify array type and name.')
 
     # if help is needed display it
-    if(mode == 'help'):
+    if mode == 'help':
         sys.stdout.write(usage())
         return
 
     # get input data
-    if(mode == 'create'):
-        if(not fromstandardinput):
+    if mode == 'create':
+        if not fromstandardinput:
             with open(inputfile, 'rb') as infile:
                 datain = bytearray(infile.read())
         else:
-            if(sys.hexversion > 0x03000000):
-                datain = sys.stdin.buffer.read()
-            else:
-                datain = sys.stdin.read()
+            datain = sys.stdin.buffer.read()
 
     else:
         # get disc image
-        if(not fromstandardinput):
+        if not fromstandardinput:
             # if we're deleteing then we need to work with a copy of
             # the input file
-            if(mode == 'delete'):
+            if mode == 'delete':
                 with open(inputfile, 'rb') as infile:
                     di = DiscipleImage()
                     di.setbytes(infile.read())
@@ -2220,42 +2184,39 @@ be 1 to 80).")
 
         else:
             di = DiscipleImage()
-            if(sys.hexversion > 0x03000000):
-                di.setbytes(sys.stdin.buffer.read())
-            else:
-                di.setbytes(sys.stdin.read())
+            di.setbytes(sys.stdin.buffer.read())
 
     # set format if specified
-    if(formatinput):
+    if formatinput:
         di.setimageformat(formatinput)
 
     # now do command
-    if(mode == 'list'):
+    if mode == 'list':
         retdata = '' if wantdetails else "  pos   filename  sectors   type\n"
         sectorsused = 0
         for df in di.iteratedisciplefiles():
-            if(specifiedfiles is not None and
-               df.filenumber not in specifiedfiles):
+            if specifiedfiles is not None and \
+               df.filenumber not in specifiedfiles:
                 continue
 
-            if(not listempty and df.isempty()):
+            if not listempty and df.isempty():
                 continue
 
-            if(wantdetails):
+            if wantdetails:
                 d = df.getfiledetails()
 
-                retdata += _unistr("{filenumber}\t{filename}\t{filetype}\t{\
-filetypelong}\t{sectors}\t{filelength}").format(**d)
+                retdata += "{filenumber}\t{filename}\t{filetype}\t{\
+filetypelong}\t{sectors}\t{filelength}".format(**d)
 
-                if(d["filetype"] == 1):
+                if d["filetype"] == 1:
                     retdata += "\t{autostartline}\t{variableoffset}".\
                         format(**d)
 
-                if(d["filetype"] == 4):
+                if d["filetype"] == 4:
                     retdata += "\t" + str(d["codeaddress"]) + "\t" + \
                         str(d["coderunaddress"])
 
-                if(d["filetype"] == 2 or d["filetype"] == 3):
+                if d["filetype"] in [2, 3]:
                     retdata += "\t" + str(d["variableletter"]) + "\t" + \
                         str(d["variablename"]) + "\t" + \
                         str(d["arraydescriptor"])
@@ -2267,32 +2228,32 @@ filetypelong}\t{sectors}\t{filelength}").format(**d)
 
             retdata += "\n"
 
-        if(wantdiskcapacity):
-            if(capacityformat == "Sector"):
+        if wantdiskcapacity:
+            if capacityformat == "Sector":
                 retdata += str(1560 - sectorsused) + " sectors free.\n"
-            elif(capacityformat == "K"):
+            elif capacityformat == "K":
                 retdata += str(((1560 - sectorsused) * 510) / 1024.0) + "K\
  free.\n"
             else:
                 retdata += str((1560 - sectorsused) * 510) + " bytes free.\n"
 
-    if(mode == 'extract'):
+    if mode == 'extract':
         df = DiscipleFile(di, entrywanted)
         retdata = df.getfiledata()
 
-    if(mode == 'delete'):
+    if mode == 'delete':
         for i in specifiedfiles:
             di.deleteentry(i)
 
         # now set disk image as output
         retdata = di.bytedata
 
-    if(mode == 'copy'):
+    if mode == 'copy':
         # create output image to copy into
         diout = DiscipleImage()
         # if we're writing to an existing file then load it into our
         # image
-        if(not tostandardoutput and _isfile(outputfile)):
+        if not tostandardoutput and _isfile(outputfile):
             with open(outputfile, 'rb') as outfile:
                 diout.setbytes(outfile.read(), form=formatoutput)
         else:
@@ -2317,12 +2278,12 @@ filetypelong}\t{sectors}\t{filelength}").format(**d)
         # now set disk image as output
         retdata = diout.bytedata
 
-    if(mode == 'create'):
+    if mode == 'create':
         # create output image to copy into
         diout = DiscipleImage()
         # if we're writing to an existing file then load it into our
         # image
-        if(not tostandardoutput and _isfile(outputfile)):
+        if not tostandardoutput and _isfile(outputfile):
             with open(outputfile, 'rb') as outfile:
                 diout.setbytes(outfile.read(), form=formatoutput)
         else:
@@ -2331,28 +2292,28 @@ filetypelong}\t{sectors}\t{filelength}").format(**d)
         # get where to save to or go for //first available slot
         copyposition = -1 if len(copyposition) == 0 else copyposition[0]
 
-        if(creating == 'basic'):
+        if creating == 'basic':
             diout.writebasicfile(datain, creatingfilename,
                                  position=copyposition,
                                  autostartline=creatingautostart,
                                  varposition=creatingvariableoffset,
                                  overwritename=creatingoverwritename)
 
-        elif(creating == 'code'):
+        elif creating == 'code':
             diout.writecodefile(datain, creatingfilename,
                                 position=copyposition,
                                 codestartaddress=creatingorigin,
                                 overwritename=creatingoverwritename,
                                 coderunaddress=creatingautostart)
 
-        elif(creating == 'array'):
+        elif creating == 'array':
             diout.writearrayfile(datain, creatingfilename,
                                  creatingarraytype + (ord(creatingarrayname) &
                                                       0x3F),
                                  position=copyposition,
                                  overwritename=creatingoverwritename)
 
-        elif(creating == 'screen'):
+        elif creating == 'screen':
             diout.writescreenfile(datain, creatingfilename,
                                   position=copyposition,
                                   overwritename=creatingoverwritename)
@@ -2360,10 +2321,10 @@ filetypelong}\t{sectors}\t{filelength}").format(**d)
         # now set disk image as output
         retdata = diout.bytedata
 
-    if(mode == 'test'):
+    if mode == 'test':
         testresults = di.isimagevalid(deeptest=verbosetestoutput)
 
-        if(testresults[0]):
+        if testresults[0]:
             # image is valid
             retdata = 'Valid Image file.\n' if verbosetestoutput else ''
         else:
@@ -2387,30 +2348,20 @@ filetypelong}\t{sectors}\t{filelength}").format(**d)
                 retdata = 'Invalid Image file.\n'
 
     # output data
-    if(not tostandardoutput):
-        if(mode == "list"):
-            if(sys.hexversion > 0x03000000):
-                fo = open(outputfile, "w", encoding='utf-8')
-                fo.write(retdata)
-            else:
-                fo = open(outputfile, "wb")
-                fo.write(retdata.encode('utf-8'))
+    if not tostandardoutput:
+        if mode == "list":
+            fo = open(outputfile, "w", encoding='utf-8')
+            fo.write(retdata)
         else:
             fo = open(outputfile, "wb")
             fo.write(retdata)
         fo.close()
 
     else:
-        if(mode == "list" or mode == 'test'):
-            if(sys.hexversion > 0x03000000):
-                sys.stdout.write(retdata)
-            else:
-                sys.stdout.write(retdata.encode('utf-8'))
+        if mode in ["list", 'test']:
+            sys.stdout.write(retdata)
         else:
-            if(sys.hexversion > 0x03000000):
-                sys.stdout.buffer.write(retdata)
-            else:
-                sys.stdout.write("".join([chr(x) for x in retdata]))
+            sys.stdout.buffer.write(retdata)
 
 
 if __name__ == "__main__":
