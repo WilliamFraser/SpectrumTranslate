@@ -106,7 +106,7 @@ class Testbasicconversion(unittest.TestCase):
 10 REM ^16^00^00""" + CHAR87 + """^11^05""" + CHAR84 + """^11^03hello123^11^01\
 ^10^05^11^06
 15 PRINT ^10^00^11^07"80"
-20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
+20 DATA 1,2(hidden value: 1024),3,4: LIST : NEW \n\
 
 
 Variables:
@@ -128,7 +128,7 @@ z$="testing"
                          """\
 10 REM ^16^00^00^87^11^05^84^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
-20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
+20 DATA 1,2(hidden value: 1024),3,4: LIST : NEW \n\
 
 
 Variables:
@@ -3059,7 +3059,7 @@ windows console")
 10 REM ^16^00^00""" + CHAR87 + """^11^05""" + CHAR84 + """^11^03hello123^11^01\
 ^10^05^11^06
 15 PRINT ^10^00^11^07"80"
-20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
+20 DATA 1,2(hidden value: 1024),3,4: LIST : NEW \n\
 
 
 Variables:
@@ -3082,7 +3082,7 @@ z$="testing"
         self.assertEqual(self.runtest("basic -o -a basictest.dat", ""), """\
 10 REM ^16^00^00^87^11^05^84^11^03hello123^11^01^10^05^11^06
 15 PRINT ^10^00^11^07"80"
-20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
+20 DATA 1,2(hidden value: 1024),3,4: LIST : NEW \n\
 
 
 Variables:
@@ -3104,7 +3104,7 @@ Autostart at line:10
 10 REM ^16^00^00""" + CHAR87 + """^11^05""" + CHAR84 + """^11^03hello123^11^01\
 ^10^05^11^06
 15 PRINT ^10^00^11^07"80"
-20 DATA 1(number without value),2(1024),3,4: LIST : NEW \n\
+20 DATA 1,2(hidden value: 1024),3,4: LIST : NEW \n\
 
 
 Variables:

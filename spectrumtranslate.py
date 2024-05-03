@@ -1060,21 +1060,20 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
     if ivariableOffset == -1:
         ivariableOffset = getvariableoffset(data)
 
-    text = ''
+    text = ""
+    i = 0
 
     if iAutostart >= 0 and iAutostart < 10000:
         text = "Autostart at line:{}\n".format(iAutostart)
+    
+    while i + 4 < len(data):
+        if data[i] >= 64:
+            break
 
-    i = 0
-
-    # move through program listing lines
-    while i < ivariableOffset:
-        # get line number
-        # line number is high byte first
         iLineNumber = data[i+1] + 256 * data[i]
         i += 2
-        if iLineNumber > 9999:
-            raise SpectrumTranslateError("Line number cannot exceed 9999")
+        #if iLineNumber > 9999:
+        #    raise SpectrumTranslateError("Line number cannot exceed 9999")
 
         text += "{} ".format(iLineNumber)
 
@@ -1085,119 +1084,31 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
         sNumber = ''
         bInQuotes = False
         bPostREM = False
-        bPostDEF = False
         Lastchar = ord(' ')
 
-        # now move through line
-        l = 0
-        k = data[i]
-        while l < iLineLen:
-            # get next line entry character
+        while i < len(data):
             k = data[i]
-            i += 1
 
-            # if we're in a REM statement display characters.  ignore
-            # last character as should be new line character
-            if bPostREM and l < iLineLen - 1:
-                text += getspectrumchar(k, hexfornonascii)
-                l += 1
-                continue
+            if k == 0x0D:
+                text += "\n"
+                i += 1
+                break
 
-            # have we reached end of number without hitting number
-            # definition?
-            if (len(sNumber) > 0 and  # are we in a number?
-               k != 0x0E and         # and not hitting a hidden number
-               not(                  # and not an extension of number
-                                     # 0-9
-                   (k >= 0x30 and k <= 0x39 and ' ' not in sNumber) or
-                   k in [ord('E'), ord('e')] or     # an exponent symbol
-                   # a plus of minus after an exponent symbol
-                   (k in [ord('+'), ord('-')] and
-                   sNumber[-1] in [ord('E'), ord('e')]) or
-                   k == 32                   # hit a space
-               )):
-                # if so exit number gathering routine without gathering
-                # number definition
-                text += sNumber
-                text += "(number without value)"
+            if k == 0x0E:
+                sn = spectrumnumber.SpectrumNumber(data[i+1:i+6])
+                if sNumber != sn:
+                    text += "(hidden value: {})".format(sn)
                 sNumber = ''
+                i += 6
+                continue
 
             # are we entering/leaving a quote
             if k == ord('"'):
                 bInQuotes = not bInQuotes
 
-            # are we entering or definately leaving a DEF
-            if k == ord(')'):
-                bPostDEF = False
-
-            if k == 206:
-                bPostDEF = True
-
-            # deal with non-printable characters, and user-defined
-            # characters
-            if k < 32 or (k > 127 and k < 163):
-                if k == 13:  # end of line
-                    # if still characters hidden after end-of line char
-                    # then print them
-                    if l != iLineLen - 1:
-                        while l < iLineLen:
-                            text += '^{:02X}'.format(data[i])
-                            i += 1
-                            l += 1
-                    text += "\n"
-
-                elif k == 14:  # number definition
-                    # if not enough bytes before end of line or program
-                    # then we have a problem
-                    if l + 5 >= iLineLen or i + 5 >= len(data):
-                        raise SpectrumTranslateError(
-                            "Error with number format")
-
-                    sn = spectrumnumber.SpectrumNumber(data[i:i+5])
-                    i += 5
-                    l += 5
-                    # ignore what happens after def
-                    if bPostDEF:
-                        sNumber = ''
-
-                    # output displayed number
-                    else:
-                        text += sNumber
-                        # check if displayed number same as hidden one,
-                        # and if not also display real number  can cause
-                        # exceptions so catch them, although is very
-                        # unlikely.  trying to get value of empty string
-                        # however will cause exception so test for this
-                        # case & handle it first
-                        if len(sNumber) == 0:
-                            text += "({0!s})".format(sn)
-                        else:
-                            try:
-                                if sn != sNumber:
-                                    text += "({0!s})".format(sn)
-                            except (e):
-                                text += "(real value unclear)"
-
-                        sNumber = ''
-
-                # deal with commands like INK, PAPER etc that have a
-                # single byte argument
-                elif (k >= 16 and k <= 21) or k == 23:
-                    text += "^{:02X}^{:02X}".format(k, data[i])
-                    i += 1
-                    l += 1
-
-                # deal with AT with x & y coordinates after
-                elif k == 22:
-                    text += "^{:02X}^{:02X}^{:02X}".format(k, data[i],
-                                                           data[i+1])
-                    i += 2
-                    l += 2
-
-                else:
-                    text += "^{:02X}".format(k)
-                    i += 1
-                    l += 1
+            # are we hitting REM but not in a string
+            if k == 234 and not bInQuotes:
+                bPostREM = True
 
             # see if is valid number digit.  If so store it
             if (not bInQuotes and not bPostREM and (
@@ -1209,35 +1120,21 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                )):
                 sNumber += chr(k)
                 Lastchar = k
-                l += 1
-                continue
 
-            # printable characters
-            if k > 31 and k < 128:
+            # printable character
+            if k > 31 and k < 163:
                 text += getspectrumchar(k, hexfornonascii)
-
             # check for commands
-            if k > 162:
-                if k == 234:
-                    bPostREM = True
-
-                if Lastchar != ord(' ') and not bInQuotes:
+            elif k > 162:
+                if Lastchar == ord(':') and not bInQuotes:
                     text += ' '
-
                 text += SPECTRUM_COMMANDS[k - 163] + " "
-                k = ord(' ')
+                k = 32
+            else:
+                text += "^{:02X}".format(k)
 
             Lastchar = k
-            # exit if hit end of line
-            if k == 13:
-                break
-
-            l += 1
-
-        # see if hit end of program marker
-        if k == 128:
-            break
-
+            i += 1
     # end program part of code
 
     # do variables
