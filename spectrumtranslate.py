@@ -1173,17 +1173,21 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
             text += "\n"
             i += 5
 
-        # array of numbers
-        elif k == 4:
-            text += VarName
+        # array of numbers or characters
+        elif k == 4 or k == 6:
+            text += VarName + ("$" if k == 6 else "")
             i += 1
 
             # for each dimension, print its length
             for x in range(data[i + 2]):
                 text += "[{}]".format(data[i+3+x+x] + 256 * data[i+4+x+x])
 
-            text += "=" + arraytotext(data[i+2:], 128, hexfornonascii) + "\n"
-            i += 2 + data[i] + 256 * data[i+1]
+            try:
+                text += "=" + arraytotext(data[i+2:], k << 5, hexfornonascii) + "\n"
+                i += 2 + data[i] + 256 * data[i+1]
+            except:
+                text += "corrupt array"
+                break
 
         # for next loop control
         elif k == 7:
@@ -1195,7 +1199,8 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                 text += " Loop back to line={}, statement={}\n".format(
                     data[i+16] + 256 * data[i+17], data[i+18])
             except:
-                text += "Unable to extract FOR...NEXT variable VarName"
+                text += "Unable to extract FOR...NEXT variable {}".format(
+                    VarName)
 
             i += 19
 
@@ -1206,20 +1211,9 @@ def basictotext(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                                                         hexfornonascii) + '"\n'
             i += strlen + 3
 
-        # array of characters
-        elif k == 6:
-            text += VarName + "$"
-            i += 1
-
-            # for each dimension, print it's length
-            for x in range(data[i+2]):
-                text += "[{}]".format(data[i+3+x*2] + 256 * data[i+4+x*2])
-
-            text += "=" + arraytotext(data[i+2:], 192, hexfornonascii) + "\n"
-            i += 2 + data[i] + 256 * data[i+1]
-
         else:
-            raise SpectrumTranslateError("Unrecognised variable type")
+            text += "Unrecognised variable type"
+            break
 
     return text
 
@@ -1519,18 +1513,33 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                 text += '</value>\n    </variable>\n'
                 i += 6
 
-            # array of numbers
-            elif k == 4:
+            # string
+            elif k == 2:
                 text += '    <variable>\n      <name>' + VarName
-                text += '</name>\n      <type>numberarray</type>\n'
-                text += '      <value>\n'
+                text += '$</name>\n      <type>string</type>\n'
+                strlen = data[i+1] + 256*data[i+2]
+                text += "      <value>" + getspectrumstring(
+                    data[i+3:i+3+strlen], hexfornonascii) + \
+                    "</value>\n    </variable>\n"
+                i += strlen + 3
+
+            # array of numbers or characters
+            elif k == 4 or k == 6:
+                text += '    <variable>\n      <name>' + VarName
+                text += ('$' if k == 6 else '') + '</name>\n      <type>'
+                text += 'characterarray' if k == 6 else 'numberarray'
+                text += '</type>\n      <value>\n'
                 i += 1
 
-                text += '\n'.join(['        ' + x for x in arraytoxml(
-                                       data[i+2:], 128,
-                                       hexfornonascii).splitlines()])
-                text += '\n      </value>\n    </variable>\n'
-                i += 2 + data[i] + 256*data[i+1]
+                try:
+                    text += '\n'.join(['        ' + x for x in arraytoxml(
+                                           data[i+2:], k << 5,
+                                           hexfornonascii).splitlines()])
+                    text += '\n      </value>\n    </variable>\n'
+                    i += 2 + data[i] + 256*data[i+1]
+                except:
+                    text += "corrupt array"
+                    break
 
             # for next loop control
             elif k == 7:
@@ -1554,28 +1563,6 @@ def basictoxml(data, iAutostart=-1, ivariableOffset=-1, hexfornonascii=False):
                     text += '    </variable>\n'
 
                 i += 19
-
-            # string
-            elif k == 2:
-                text += '    <variable>\n      <name>' + VarName
-                text += '$</name>\n      <type>string</type>\n'
-                strlen = data[i+1] + 256*data[i+2]
-                text += "      <value>" + getspectrumstring(
-                    data[i+3:i+3+strlen], hexfornonascii) + \
-                    "</value>\n    </variable>\n"
-                i += strlen + 3
-
-            # array of characters
-            elif k == 6:
-                text += '    <variable>\n      <name>' + VarName + '$</name>\n'
-                text += '      <type>characterarray</type>\n      <value>\n'
-                i += 1
-
-                text += '\n'.join(['        ' + x for x in
-                                   arraytoxml(data[i+2:], 192,
-                                              hexfornonascii).splitlines()])
-                text += '\n      </value>\n    </variable>\n'
-                i += 2 + data[i] + 256*data[i+1]
 
             else:
                 raise SpectrumTranslateError("Unrecognised variable type")
@@ -1667,13 +1654,25 @@ def extractarray(data, descriptor):
     # validate and convert data from string to bytearray if needed
     data = _validateandpreparebytes(data, "data")
 
+    array_length = data[0] + 256*data[1]
+
     # number array or character array
     if descriptor & 128 == 128:
+        # ensure have enough dimension lengths
+        if len(data) - 1 < data[0] * 2:
+            raise SpectrumTranslateError("Corrupt array dimensions")
         # get dimension lengths
         dim_lengths = [data[x] + 256*data[x+1] for x in range(1, data[0]*2, 2)]
         # o is current offset.  Set to past dimensions details pointing
         # at first element
         o = len(dim_lengths)*2 + 1
+        # work out how many elements there should be
+        elements = 1
+        for e in dim_lengths:
+            elements *= e
+        # ensure have enough data described by the dimensions
+        if len(data) - o < elements * (5 if descriptor & 192 == 128 else 1):
+            raise SpectrumTranslateError("Not enough element data for array")
         # get arrays and return them
         return getSubArray(dim_lengths, data, descriptor & 192 == 128, o)
 
