@@ -47,6 +47,7 @@ from site import getusersitepackages
 from shutil import copy as shutil_copy
 import os
 import tempfile
+import platform
 
 if __name__ == "__main__":
     # set up getch to return keypress in windows or unix like system (linux/mac)
@@ -78,6 +79,18 @@ if __name__ == "__main__":
             shutil_copy(temp_file.name, os.path.join(dest, src))
             os.remove(temp_file.name)
 
+    if platform.system().lower() == 'linux':
+        print("""Linux detected.
+Please note that installing modules this way may well fail.
+Please read the instalation section in Documentation.html.
+Continue? (y/n/q)""")
+        while True:
+            c = getch()
+            if c in [b'n', b'N', 'n', 'N', b'q', b'Q', 'q', 'Q']:
+                quit()
+            if c in [b'y', b'Y', 'y', 'Y']:
+                break
+
     # set up PyQt5?
     print("Do You want to install PyQt5 (latest version of Qt needed to run \
 graphical interface to SpectrumTranslate) and PyQtWebEngine? (y/n/q)")
@@ -94,7 +107,7 @@ graphical interface to SpectrumTranslate) and PyQtWebEngine? (y/n/q)")
             break
 
     # set up packages needed for development?
-    print("\nDo You want to install pycodestyle and pillow (Only required if \
+    print("\nDo You want to install pycodestyle and pil (Only required if \
 running development tests)? (y/n/q)")
     while True:
         c = getch()
@@ -105,7 +118,7 @@ running development tests)? (y/n/q)")
         if c in [b'y', b'Y', 'y', 'Y']:
             print()
             pip_main(['install', 'pycodestyle'])
-            pip_main(['install', 'pillow'])
+            pip_main(['install', 'pil'])
             break
 
     # work out where to copy files to

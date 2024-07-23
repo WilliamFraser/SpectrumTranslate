@@ -143,10 +143,10 @@ class TestDiscipleFile(unittest.TestCase):
         self.assertEqual(df.image, [1, 2])
         self.assertEqual(df.filenumber, 4)
 
-    def test_getheadder(self):
+    def test_getheader(self):
         di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
-        self.assertEqual(df.getheadder(), bytearray(
+        self.assertEqual(df.getheader(), bytearray(
                          [1, 66, 65, 83, 73, 67, 32, 116, 101, 115, 116, 0, 1,
                           4, 1, 1] +
                          [0] * 195 +
@@ -157,7 +157,7 @@ class TestDiscipleFile(unittest.TestCase):
         di = disciplefile.DiscipleImage("diskimagetest.mgt")
         df = disciplefile.DiscipleFile(di, 1)
         self.assertEqual(df.getfiledata(), _getfileasbytes("basictest.dat"))
-        self.assertEqual(df.getfiledata(wantheadder=True),
+        self.assertEqual(df.getfiledata(wantheader=True),
                          bytearray([0, 190, 0, 203, 92, 78, 0, 255, 255]) +
                          _getfileasbytes("basictest.dat"))
 
@@ -734,7 +734,7 @@ with the error: Contains invalid filetype."))
 
     def test_writefile(self):
         di = disciplefile.DiscipleImage()
-        # test write wrong headder size
+        # test write wrong header size
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           di.writefile, [0], [1], -1)
         # test write invalid file position
@@ -780,7 +780,7 @@ with the error: Contains invalid filetype."))
         self.assertRaises(spectrumtranslate.SpectrumTranslateError,
                           di.writefile, [0] * 256, [0] * 100, -1)
 
-        # test for no empty headders
+        # test for no empty headers
         di.setbytes(imagedata)
         # create lots of file entries
         for s in range(3, 11):
