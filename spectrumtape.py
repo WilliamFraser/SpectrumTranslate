@@ -39,14 +39,15 @@
 # software, even if advised of the possibility of such damage.  By using
 # this software you agree to these terms.
 #
-# Author: william.fraser@virgin.net
-# Date: 16th April 2024
+# Author: william@fraser.earth
+# Date: 28th March 2026
 
 import spectrumtranslate
 import sys
-from io import IOBase
-from math import ceil, log2
+from io import IOBase, RawIOBase, BufferedIOBase, SEEK_END, SEEK_SET
+from math import ceil, log2, floor
 from os.path import isfile
+from struct import pack, unpack
 # os.path imported elsewhere so only used for command line
 
 
@@ -425,6 +426,18 @@ class SpectrumTapeBlock:
         raise spectrumtranslate.SpectrumTranslateError("Generic Tape Block \
 not useable in file. Use child classes instead")
 
+    def getwavdata(self, wavgenerationdata, pause):
+        """
+        returns the wav file data as if this TapeBlock were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        pause is the number of miliseconds of silence to add after this
+        block has been played.  It defaults to 1 second.
+        """
+
+        raise spectrumtranslate.SpectrumTranslateError("Generic Tape Block \
+provides no wav data. Use child classes instead")
+
 
 class SpectrumTapBlock(SpectrumTapeBlock):
     """
@@ -539,6 +552,51 @@ class SpectrumTapBlock(SpectrumTapeBlock):
         # merge it into a list, and return
         return word_to_bytes(length, 2) + bytearray([self.flag]) + \
             self.data + bytearray([checksum])
+
+    def getwavdata(self, wavgenerationdata, pause=1000):
+        """
+        returns the wav file data as if this TapBlock were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        pause is the number of miliseconds of silence to add after this
+        block has been played.  It defaults to 1 second.
+        """
+
+        # there are 8063 pilot pulses for headder, and 3223 for data
+        pilotpulsenumber = 8063 if self.flag < 128 else 3223
+
+        output = bytearray()
+
+        # do pilot tone
+        for i in range(0, pilotpulsenumber):
+            output += wavgenerationdata.pulse(2168)
+
+        # do sync pulses
+        output += wavgenerationdata.pulse(667)
+        output += wavgenerationdata.pulse(735)
+
+        # work out checksum
+        checksum = self.flag
+        for i in self.data:
+            checksum = checksum ^ i
+
+        # do data
+        for i in bytearray([self.flag]) + self.data + bytearray([checksum]):
+            # bit by bit
+            for b in range(7, -1, -1):
+                t = 855 if ((i >> b) & 1) == 0 else 1710
+                output += wavgenerationdata.pulse(t)
+                output += wavgenerationdata.pulse(t)
+
+        # ensure have end edge so can tell end of last data bit pulse
+        output += wavgenerationdata.pulse(None)
+
+        if pause:
+            samples = floor((pause / 1000.0 *
+                             wavgenerationdata.frequency) + 0.5)
+            output += bytearray(wavgenerationdata.currentsample() * samples)
+
+        return output
 
 
 class SpectrumTZXStandardSpeedDataBlock(SpectrumTapeBlock):
@@ -661,6 +719,44 @@ pause afterwards: {}ms".format(self.flag, self.getpayloadlength(),
         return bytearray([0x10]) + \
             word_to_bytes(self.endPause, 2) + \
             word_to_bytes(len(self.data), 2) + self.data
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        # there are 8063 pilot pulses for headder, and 3223 for data
+        pilotpulsenumber = 8063 if self.flag < 128 else 3223
+
+        output = bytearray()
+
+        # do pilot tone
+        for i in range(0, pilotpulsenumber):
+            output += wavgenerationdata.pulse(2168)
+
+        # do sync pulses
+        output += wavgenerationdata.pulse(667)
+        output += wavgenerationdata.pulse(735)
+
+        # do data
+        for i in self.data:
+            # bit by bit
+            for b in range(7, -1, -1):
+                t = 855 if ((i >> b) & 1) == 0 else 1710
+                output += wavgenerationdata.pulse(t)
+                output += wavgenerationdata.pulse(t)
+
+        # ensure have end edge so can tell end of last data bit pulse
+        output += wavgenerationdata.pulse(None)
+
+        if self.endPause:
+            samples = floor((self.endPause / 1000.0 *
+                             wavgenerationdata.frequency) + 0.5)
+            output += bytearray(wavgenerationdata.currentsample() * samples)
+
+        return output
 
 
 class SpectrumTZXTurboSpeedDataBlock(SpectrumTapeBlock):
@@ -800,6 +896,48 @@ afterwards: {}ms".format(self.flag, self.getpayloadlength(), self.endPause)
             word_to_bytes(self.endPause, 2) + \
             word_to_bytes(len(self.data), 3) + self.data
 
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        output = bytearray()
+
+        # do pilot tone
+        for i in range(0, self.lenPilotTone):
+            output += wavgenerationdata.pulse(self.lenPilotPulse)
+
+        # do sync pulses
+        output += wavgenerationdata.pulse(self.lenSyncPulse1)
+        output += wavgenerationdata.pulse(self.lenSyncPulse2)
+
+        # do data
+        for i in self.data[:-1]:
+            # bit by bit
+            for b in range(7, -1, -1):
+                t = (self.lenZeroPulse if ((i >> b) & 1) == 0
+                     else self.lenOnePulse)
+                output += wavgenerationdata.pulse(t)
+                output += wavgenerationdata.pulse(t)
+        # do last byte
+        for b in range(7, self.lastByteUsedBits - 1, -1):
+            t = (self.lenZeroPulse if ((self.data[-1] >> b) & 1) == 0
+                 else self.lenOnePulse)
+            output += wavgenerationdata.pulse(t)
+            output += wavgenerationdata.pulse(t)
+
+        # ensure have end edge so can tell end of last data bit pulse
+        output += wavgenerationdata.pulse(None)
+
+        if self.endPause:
+            samples = floor((self.endPause / 1000.0 *
+                             wavgenerationdata.frequency) + 0.5)
+            output += bytearray(wavgenerationdata.currentsample() * samples)
+
+        return output
+
 
 class SpectrumTZXPureToneBlock(SpectrumTapeBlock):
     """
@@ -850,6 +988,21 @@ Pulses:{}".format(self.lenPulse, self.numberOfPulses)
         return bytearray([0x12]) + \
             word_to_bytes(self.lenPilot, 2) + \
             word_to_bytes(self.numberOfPulses, 2)
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        output = bytearray()
+
+        # do pilot tone
+        for i in range(0, self.numberOfPulses):
+            output += wavgenerationdata.pulse(self.lenPilot)
+
+        return output
 
 
 class SpectrumTZXPulseSequenceBlock(SpectrumTapeBlock):
@@ -902,6 +1055,20 @@ class SpectrumTZXPulseSequenceBlock(SpectrumTapeBlock):
 
         return bytearray([0x13]) + \
             word_to_bytes(len(self.pulses), 1) + self.pulses
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        output = bytearray()
+
+        for i in self.pulses:
+            output += wavgenerationdata.pulse(i)
+
+        return output
 
 
 class SpectrumTZXPureDataBlock(SpectrumTapeBlock):
@@ -1009,6 +1176,40 @@ afterwards: {}ms".format(self.flag, self.getpayloadlength(), self.endPause)
             word_to_bytes(self.endPause, 2) + \
             word_to_bytes(len(self.data), 3) + self.data
 
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        output = bytearray()
+
+        # do data
+        for i in self.data[:-1]:
+            # bit by bit
+            for b in range(7, -1, -1):
+                t = (self.lenZeroPulse if ((i >> b) & 1) == 0
+                     else self.lenOnePulse)
+                output += wavgenerationdata.pulse(t)
+                output += wavgenerationdata.pulse(t)
+        # do last byte
+        for b in range(7, self.lastByteUsedBits - 1, -1):
+            t = (self.lenZeroPulse if ((self.data[-1] >> b) & 1) == 0
+                 else self.lenOnePulse)
+            output += wavgenerationdata.pulse(t)
+            output += wavgenerationdata.pulse(t)
+
+        # ensure have end edge so can tell end of last data bit pulse
+        output += wavgenerationdata.pulse(None)
+
+        if self.endPause:
+            samples = floor((self.endPause / 1000.0 *
+                             wavgenerationdata.frequency) + 0.5)
+            output += bytearray(wavgenerationdata.currentsample() * samples)
+
+        return output
+
 
 class SpectrumTZXDirectRecordingBlock(SpectrumTapeBlock):
     """
@@ -1078,6 +1279,34 @@ afterwards:{}ms".format(len(self.sampleData), self.endPause)
             word_to_bytes(self.endPause, 2) + \
             word_to_bytes(self.lastByteUsedBits, 1) + \
             word_to_bytes(len(self.sampleData), 3) + self.sampleData
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        output = bytearray()
+
+        for i in self.sampleData[:-1]:
+            for b in range(7, -1, -1):
+                output += bytearray(wavgenerationdata.volumes[(i >> b) & 1] *
+                                    self.TPerSample)
+        # do last byte
+        for b in range(7, self.lastByteUsedBits - 1, -1):
+            output += bytearray(
+                wavgenerationdata.volumes[(self.sampleData[-1] >> b) & 1] *
+                self.TPerSample)
+
+        if self.endPause:
+            # ensure have end edge so can tell end of last data bit pulse
+            output += wavgenerationdata.pulse(None)
+            samples = floor(
+                (self.endPause / 1000.0 * wavgenerationdata.frequency) + 0.5)
+            output += bytearray(wavgenerationdata.currentsample() * samples)
+
+        return output
 
 
 class SpectrumTZXCSWRecording(SpectrumTapeBlock):
@@ -1151,6 +1380,14 @@ afterwards:{}ms".format(self.storedPulses, self.endPause)
             word_to_bytes(self.compressionType, 1) + \
             word_to_bytes(self.storedPulses, 4) + \
             self.CSWData
+
+    def getwavdata(self, wavgenerationdata, pause):
+        """
+        not supported.  Can't find any examples to test against.
+        """
+
+        raise spectrumtranslate.SpectrumTranslateError("getwavdata not \
+supported for SpectrumTZXCSWRecording Block")
 
 
 class SpectrumTZXGeneralizedDataBlock(SpectrumTapeBlock):
@@ -1238,9 +1475,9 @@ afterwards:{}ms".format(self.symbolsInDataBlock, self.endPause)
 
         symdefasd = []
         for symdef in self.symbolDefinitionsData:
-            symdefasp += [symdef[0]]
+            symdefasd += [symdef[0]]
             for w in symdef[1]:
-                symdefasp += word_to_bytes(w, 2)
+                symdefasd += word_to_bytes(w, 2)
 
         lenstreams = len(symdefasp) + len(prle) + len(symdefasd) + \
             len(self.dataStreamData)
@@ -1250,11 +1487,78 @@ afterwards:{}ms".format(self.symbolsInDataBlock, self.endPause)
             word_to_bytes(self.endPause, 2) + \
             word_to_bytes(self.symbolsInPilotBlock, 4) + \
             word_to_bytes(self.pulsesPerPilotSymbol, 1) + \
-            word_to_bytes(self.alphabetSizePilot, 1) + \
+            word_to_bytes(self.alphabetSizePilot & 0xFF, 1) + \
             word_to_bytes(self.symbolsInDataBlock, 4) + \
             word_to_bytes(self.pulsesPerDataSymbol, 1) + \
-            word_to_bytes(self.alphabetSizeData, 1) + \
+            word_to_bytes(self.alphabetSizeData & 0xFF, 1) + \
             symdefasp + prle + symdefasd + self.dataStreamData
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        output = bytearray()
+
+        # do pilot / sync
+        for (i, reps) in self.dataStreamPilot:
+            # i is index in pilot/sync alphabet, rep is repetitions
+            for x in range(reps):
+                # adjust start mic level if needed (1 = no change)
+                if self.symbolDefinitionsPilot[i][0] & 3 == 0:
+                    wavgenerationdata.togglemic()
+                elif self.symbolDefinitionsPilot[i][0] & 3 == 2:
+                    wavgenerationdata.currentmiclevel = 0
+                elif self.symbolDefinitionsPilot[i][0] & 3 == 3:
+                    wavgenerationdata.currentmiclevel = 1
+                # iterate through pulse lengths
+                notfirst = False
+                for t in self.symbolDefinitionsPilot[i][1]:
+                    # exit pulse list if reached end
+                    if t == 0:
+                        break
+                    wavgenerationdata.pulse(t, notfirst)
+                    notfirst = True
+
+        # do data
+        symbolbitlength = (self.alphabetSizeData - 1).bit_length()
+        bitmask = (1 << symbolbitlength) - 1
+        for s in range(self.symbolsInDataBlock):
+            i = s * symbolbitlength / 8
+            b = 7 - ((s * symbolbitlength) & 7)
+            e = symbolbitlength - b - 1
+            if e <= 0:
+                s = self.dataStreamData[i] >> (b - symbolbitlength)
+            else:
+                s = ((self.dataStreamData[i] << e) |
+                     (self.dataStreamData[i + 1] >> (8 - e)))
+            p = self.symbolDefinitionsData[s & bitmask]
+            # adjust start mic level if needed (1 = no change)
+            if p[0] & 3 == 0:
+                wavgenerationdata.togglemic()
+            elif p[0] & 3 == 2:
+                wavgenerationdata.currentmiclevel = 0
+            elif p[0] & 3 == 3:
+                wavgenerationdata.currentmiclevel = 1
+            # iterate through pulse lengths
+            notfirst = False
+            for t in p[1]:
+                # exit pulse list if reached end
+                if t == 0:
+                    break
+                wavgenerationdata.pulse(t, notfirst)
+                notfirst = True
+
+        if self.endPause:
+            # ensure have end edge so can tell end of last data bit pulse
+            output += wavgenerationdata.pulse(None)
+            samples = floor(
+                (self.endPause / 1000.0 * wavgenerationdata.frequency) + 0.5)
+            output += bytearray(wavgenerationdata.currentsample() * samples)
+
+        return output
 
 
 class SpectrumTZXPauseOrStopBlock(SpectrumTapeBlock):
@@ -1318,6 +1622,19 @@ class SpectrumTZXPauseOrStopBlock(SpectrumTapeBlock):
 
         return bytearray([0x20]) + word_to_bytes(self.pause, 2)
 
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        If pause is 0 (stop) then will insert 1 second silence
+        """
+
+        wavgenerationdata.currentmiclevel = 0
+        samples = floor(((1.0 if self.pause == 0 else self.pause /
+                          1000.0) * wavgenerationdata.frequency) + 0.5)
+        return bytearray(wavgenerationdata.currentsample() * samples)
+
 
 class SpectrumTZXGroupStartBlock(SpectrumTapeBlock):
     """
@@ -1378,6 +1695,15 @@ class SpectrumTZXGroupStartBlock(SpectrumTapeBlock):
         return bytearray([0x21]) + \
             word_to_bytes(len(self.groupName), 1) + self.groupName
 
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
+
 
 class SpectrumTZXGroupEndBlock(SpectrumTapeBlock):
     """
@@ -1413,6 +1739,15 @@ class SpectrumTZXGroupEndBlock(SpectrumTapeBlock):
         """
 
         return bytearray([0x22])
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
 
 
 class SpectrumTZXJumpToBlock(SpectrumTapeBlock):
@@ -1478,6 +1813,15 @@ class SpectrumTZXJumpToBlock(SpectrumTapeBlock):
         return bytearray([0x23]) + \
             word_to_bytes(self.relativeJumpValue, 2, True)
 
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
+
 
 class SpectrumTZXLoopStartBlock(SpectrumTapeBlock):
     """
@@ -1538,6 +1882,15 @@ class SpectrumTZXLoopStartBlock(SpectrumTapeBlock):
 
         return bytearray([0x24]) + word_to_bytes(self.repetitions, 2)
 
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
+
 
 class SpectrumTZXLoopEndBlock(SpectrumTapeBlock):
     """
@@ -1573,6 +1926,15 @@ class SpectrumTZXLoopEndBlock(SpectrumTapeBlock):
         """
 
         return bytearray([0x25])
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
 
 
 class SpectrumTZXCallSequenceBlock(SpectrumTapeBlock):
@@ -1652,6 +2014,15 @@ class SpectrumTZXCallSequenceBlock(SpectrumTapeBlock):
             word_to_bytes(len(self.relativeBlockNumbers), 2) + \
             sequence
 
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
+
 
 class SpectrumTZXReturnFromSequenceBlock(SpectrumTapeBlock):
     """
@@ -1687,6 +2058,15 @@ class SpectrumTZXReturnFromSequenceBlock(SpectrumTapeBlock):
         """
 
         return bytearray([0x27])
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
 
 
 class SpectrumTZXSelectBlock(SpectrumTapeBlock):
@@ -1762,6 +2142,15 @@ class SpectrumTZXSelectBlock(SpectrumTapeBlock):
             word_to_bytes(len(self.selectOptions), 1) + \
             selects
 
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
+
 
 class SpectrumTZXStopTapeIf48KBlock(SpectrumTapeBlock):
     """
@@ -1797,6 +2186,18 @@ class SpectrumTZXStopTapeIf48KBlock(SpectrumTapeBlock):
         """
 
         return bytearray([0x2A]) + word_to_bytes(0, 4)
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        Will insert a 1 second pause
+        """
+
+        wavgenerationdata.currentmiclevel = 0
+        samples = floor(wavgenerationdata.frequenc + 0.5)
+        return bytearray(wavgenerationdata.currentsample() * samples)
 
 
 class SpectrumTZXSetSignalLevelBlock(SpectrumTapeBlock):
@@ -1856,6 +2257,16 @@ class SpectrumTZXSetSignalLevelBlock(SpectrumTapeBlock):
         return bytearray([0x2B]) + \
             word_to_bytes(1, 4) + \
             word_to_bytes(self.level, 1)
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        wavgenerationdata.currentmiclevel = self.level
+        return bytearray()
 
 
 class SpectrumTZXTextDescriptionBlock(SpectrumTapeBlock):
@@ -1918,6 +2329,15 @@ class SpectrumTZXTextDescriptionBlock(SpectrumTapeBlock):
         return bytearray([0x30]) + \
             word_to_bytes(len(self.description), 1) + \
             self.description
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
 
 
 class SpectrumTZXMessageBlock(SpectrumTapeBlock):
@@ -1983,6 +2403,15 @@ duration:{}s".format(self.message.decode("ascii"), self.duration)
             word_to_bytes(len(self.message), 1) + \
             self.message
 
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
+
 
 class SpectrumTZXArchiveInfoBlock(SpectrumTapeBlock):
     """
@@ -2046,6 +2475,15 @@ class SpectrumTZXArchiveInfoBlock(SpectrumTapeBlock):
             word_to_bytes(len(self.archiveInfoEntries), 1) + \
             infos
 
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
+
 
 class SpectrumTZXHardwareTypeBlock(SpectrumTapeBlock):
     """
@@ -2095,6 +2533,15 @@ class SpectrumTZXHardwareTypeBlock(SpectrumTapeBlock):
             word_to_bytes(len(self.hardwareTypeEntries), 1) + \
             infos
 
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
+
 
 class SpectrumTZXCustomInfoBlock(SpectrumTapeBlock):
     """
@@ -2138,6 +2585,15 @@ class SpectrumTZXCustomInfoBlock(SpectrumTapeBlock):
             self.identification + \
             word_to_bytes(len(self.customInfo), 4) + self.customInfo
 
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
+
 
 class SpectrumTZXHeaderBlock(SpectrumTapeBlock):
     """
@@ -2178,6 +2634,15 @@ class SpectrumTZXHeaderBlock(SpectrumTapeBlock):
         return bytearray(b'ZXTape!\x1a') + \
             word_to_bytes(self.major, 1) + \
             word_to_bytes(self.minor, 1)
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return bytearray()
 
 
 class SpectrumTapeSource():
@@ -2393,9 +2858,13 @@ def gettzxblockfromsource(tzxsource, block=0):
             symbolsInPilotBlock = tzxsource.getword(4)
             pulsesPerPilotSymbol = tzxsource.getword(1)
             alphabetSizePilot = tzxsource.getword(1)
+            if alphabetSizePilot == 0:
+                alphabetSizePilot = 256
             symbolsInDataBlock = tzxsource.getword(4)
             pulsesPerDataSymbol = tzxsource.getword(1)
             alphabetSizeData = tzxsource.getword(1)
+            if alphabetSizeData == 0:
+                alphabetSizeData = 256
 
             def _X(x):
                 return [tzxsource.getword(2) for _ in range(x)]
@@ -2749,6 +3218,284 @@ def createdatablock(data, flag=0xFF):
     return tb
 
 
+class WavGenerationData:
+    """
+    A class that holds information needed for generating a WAV file from
+    a Tape file.
+    """
+
+    def __init__(self, timingis48k=True, frequency=44100, channels=1,
+                 samplesize=1, micstartlow=True, michigh=255, miclow=0):
+        """
+        Creates a new WavGenerationData object. timingis48k if True (the
+        default) works out samples based on 3,500,00Hz as machine timing
+        (as used in 48K and 16K machines), and False uses 3,546,900 Hz
+        (as used in 128k, 128k+2, 128k+2A, and 128k+3 machines).
+        frequency is the output frequency in Hz of the wav file to be
+        generated (default is 44100). Timings are tight and I would not
+        advise using much lower frequencies than this.
+        channels are the number of output channels to generate in the
+        wav file.  The default is 1, but 2 is also allowed.
+        samplesize is the number of bytes to be used to encode
+        individual samples in the wav file being generated.  Valid
+        values are 4 if floating point samples are being generated, and
+        for PCM integers: 1, 2, and 4 for 8, 16, and 32 bit integers.
+        micstartlow is a boolean detailing if the microphone is low to
+        start with or not.  This defaults to True.
+        michigh and miclow are the volumes to be used when the
+        microphone is high or low.  They can be either float or int, and
+        the sample format (PCM integer or IEEE 754 float) will be worked
+        out depending on the type of these values.  These default to 255
+        and 0 (for 8 bit sample sizes)."""
+
+        self.timingis48k = timingis48k
+
+        self.michigh = michigh
+        self.miclow = miclow
+        self.micstartlow = micstartlow
+        self.currentmiclevel = 0 if self.micstartlow else 1
+
+        self.channels = channels
+        self.samplesize = samplesize
+        self.frequency = frequency
+
+        self.updateinternals()
+
+    def newfromfile(f, timingis48k=True):
+        """
+        Creates a new WavGenerationData object that will synchronize
+        with the supplied file. timingis48k if True (the default) works
+        out samples based on 3,500,00Hz as machine timing (as used in
+        48K and 16K machines), and False uses 3,546,900 Hz (as used in
+        128k, 128k+2, 128k+2A, and 128k+3 machines).
+        """
+
+        filewgd = WavGenerationData()
+        filewgd.timingis48k = timingis48k
+
+        # ensure is binary file
+        if not isinstance(f, (RawIOBase, BufferedIOBase)):
+            raise spectrumtranslate.SpectrumTranslateError('Must be a binary\
+ file.')
+
+        # wav format very lax, can't check all posibilities, but do some basics
+
+        # ensure is wav file
+        f.seek(0)
+        b = f.read(16)
+        if b[0:4] != b'RIFF' or b[8:16] != b'WAVEfmt ':
+            raise spectrumtranslate.SpectrumTranslateError('Must be a wav\
+ file.')
+
+        # check file size details
+        f.seek(0, SEEK_END)
+        if pack('<i', f.tell() - 8) != b[4:8]:
+            raise spectrumtranslate.SpectrumTranslateError('Wav file size\
+ wrong.')
+
+        # get fmt chunk
+        f.seek(16, SEEK_SET)
+        fmtlen = unpack('<i', f.read(4))[0]
+        if fmtlen not in [16, 18, 40]:
+            raise spectrumtranslate.SpectrumTranslateError('Wav file non-\
+standard fmt chunk size.')
+        b = f.read(fmtlen)
+
+        # get basic wav parameters
+        filewgd.mode = unpack('<h', b[0:2])[0]
+        if filewgd.mode not in [1, 3]:
+            raise spectrumtranslate.SpectrumTranslateError('Can only handle\
+ PCM and IEEE float samples.')
+        filewgd.channels = unpack('<h', b[2:4])[0]
+        filewgd.frequency = unpack('<i', b[4:8])[0]
+        i = unpack('<h', b[14:16])[0]
+        if i not in [8, 16, 32]:
+            raise spectrumtranslate.SpectrumTranslateError('Wav file non-\
+standard bits per sample.')
+        filewgd.samplesize = i >> 3
+
+        # move to data segment
+        while True:
+            b = f.read(8)
+
+            datalen = unpack('<i', b[4:8])[0]
+            if b[0:4] == b'data':
+                break
+
+            # skip rest of chunk chunk
+            f.seek(datalen, 1)
+
+        # save where data size is
+        filewgd.filedatasizeaddress = f.tell() - 4
+
+        # work out what samples are being used
+        samples = []
+        blocksize = filewgd.samplesize * filewgd.channels
+        while datalen > 0:
+            b = f.read(blocksize)
+            datalen -= blocksize
+
+            if b in samples:
+                continue
+
+            samples += [b]
+            if len(samples) > 2:
+                raise spectrumtranslate.SpectrumTranslateError('More than 2\
+ volumes in existing wav file.')
+
+        # b will now contain last sample and samples will have 2 volumes
+        # save where end of data is
+        filewgd.filedataendaddress = f.tell()
+        # work out max and min
+        packformat = 'f' if filewgd.mode == 3 else [
+            None, 'B', '<h', None, '<l'][filewgd.samplesize]
+        s1 = unpack(packformat, samples[0][:filewgd.samplesize])[0]
+        s2 = unpack(packformat, samples[1][:filewgd.samplesize])[0]
+        filewgd.michigh = max(s1, s2)
+        filewgd.miclow = min(s1, s2)
+        # work out last sample level
+        filewgd.currentmiclevel = 0 if unpack(
+            packformat, b[:filewgd.samplesize])[0] == filewgd.miclow else 1
+
+        filewgd.updateinternals()
+
+        return filewgd
+
+    def updateinternals(self):
+        """
+        Checks parameters, and sets internal settings ready for sound
+        generation.  Call this if you change any settings or after
+        creating a WavGenerationData object manually."""
+
+        # some sanity checks on paramaters
+        # work out if PCM int or IEEE 754 float
+        if type(self.miclow) is float and type(self.michigh) is float:
+            self.mode = 3
+            if self.samplesize != 4:
+                raise spectrumtranslate.SpectrumTranslateError('wav float must\
+ be 4 bytes.')
+            pacarg = '<f'
+        elif type(self.miclow) is int and type(self.michigh) is int:
+            self.mode = 1
+            if self.samplesize not in [1, 2, 4]:
+                raise spectrumtranslate.SpectrumTranslateError('wav int values\
+ must be 1, 2, or 4 bytes.')
+            pacarg = [None, 'B', '<h', None, '<l'][self.samplesize]
+        else:
+            raise spectrumtranslate.SpectrumTranslateError('wav values must be\
+ ints or floats.')
+
+        # more sanity checks on paramaters
+        if self.channels not in [1, 2]:
+            raise spectrumtranslate.SpectrumTranslateError('wav must have 1 or\
+ 2 channels.')
+        if type(self.frequency) not in [int, float]:
+            raise spectrumtranslate.SpectrumTranslateError('wav output \
+ frequency must be a number.')
+
+        # work out how many samples per T-state
+        self.spt = (1.0 / (3500000 if self.timingis48k else 3546900) *
+                    self.frequency)
+        # work out what single entry in wave data will be
+        self.volumes = [bytearray(pack(pacarg, self.miclow) * self.channels),
+                        bytearray(pack(pacarg, self.michigh) * self.channels)]
+
+    def togglemic(self):
+        """Toggles the microphone level from on to off or vice versa."""
+
+        self.currentmiclevel = 1 - self.currentmiclevel
+
+    def currentsample(self):
+        """Returns the sample for the current microphone level."""
+
+        return self.volumes[self.currentmiclevel]
+
+    def pulse(self, t, toggle=True):
+        """
+        Returns data for a pulse of length t in T-states.
+        N.B. there is No end to the pulse.  Usually the end is generated
+        by a change in the microphone level as the next pulse starts.
+        If there are no more pulses after this, a single sample needs to
+        be output at the alternative microphone level.  You can do this
+        by calling this method with a t value of None.
+        toggle determines if the microphone level is toggled before the
+        pulse is generated.  Defaults to True."""
+
+        if toggle:
+            self.currentmiclevel = 1 - self.currentmiclevel
+        samples = 1 if t is None else floor(t * self.spt + 0.5)
+        return bytearray(self.volumes[self.currentmiclevel] * samples)
+
+
+def writewavfile(f, wavgenerationdata, data):
+    """
+    Write the wave data generated using wavgenerationdata to the file f.
+    """
+
+    headder = bytearray("RIFF".encode('utf-8'))
+    # file size - 8 (WAVE(4) + headder(24) + data(8+datalen)
+    headder += pack('<i', len(data) + 36)
+
+    headder += bytearray("WAVE".encode('utf-8'))
+
+    headder += bytearray("fmt ".encode('utf-8'))
+    # fmt chunk size - 8
+    headder += pack('<i', 16)
+    # 1 = PCM int, 3 = IEEE 754 float
+    headder += pack('<h', wavgenerationdata.mode)
+    # number of channels
+    headder += pack('<h', wavgenerationdata.channels)
+    # Sample rate in Hz
+    headder += pack('<i', wavgenerationdata.frequency)
+    # Bytes per second (f * bytes per block)
+    headder += pack('<i', wavgenerationdata.frequency *
+                    wavgenerationdata.channels * wavgenerationdata.samplesize)
+    # Bytes per block (channels * bytes per sample)
+    headder += pack('<h', wavgenerationdata.channels *
+                    wavgenerationdata.samplesize)
+    # Bits per sample
+    headder += pack('<h', wavgenerationdata.samplesize * 8)
+
+    headder += bytearray("data".encode('utf-8'))
+    # data size
+    headder += pack('<i', len(data))
+
+    f.write(headder)
+    f.write(data)
+
+
+def appendwavfile(f, wavgenerationdata, data):
+    """
+    Append the wave data generated using wavgenerationdata to the file f.
+    The file must be opened in r+b mode.
+    """
+
+    filewgd = WavGenerationData.newfromfile(f)
+
+    if (filewgd.channels != wavgenerationdata.channels or
+            filewgd.samplesize != wavgenerationdata.samplesize or
+            filewgd.frequency != wavgenerationdata.frequency):
+        raise spectrumtranslate.SpectrumTranslateError('wav data is not\
+in same format as the file to append to.')
+
+    # is valid wav file (otherwise newfromfile would have failed)
+    # move to and get file size - 8
+    # update how long the file will be
+    f.seek(4, SEEK_SET)
+    # end of data (updated for new added data) is end of file
+    # the file length value required is 8 less than this
+    f.write(pack('<i', filewgd.filedataendaddress + len(data) - 8))
+    # move to and get data size
+    f.seek(filewgd.filedatasizeaddress, SEEK_SET)
+    datasize = unpack('<i', f.read(4))[0]
+    # update and save datasize
+    f.seek(filewgd.filedatasizeaddress, SEEK_SET)
+    f.write(pack('<i', datasize + len(data)))
+    # now move to end of data and write new data
+    f.seek(filewgd.filedataendaddress, SEEK_SET)
+    f.write(data)
+
+
 def usage():
     """
     returns the command line arguments for spectrumtape as a string.
@@ -2761,13 +3508,14 @@ def usage():
     save as a file into a tap or tzx file) and outputs it to outfile.
 
     instruction is required and specifies what you want to do. It must
-    be 'list', 'extract', 'delete', 'copy, or 'create'.  'list' will
-    list the contents of the specified file.  'extract' extracts the
-    data from a file entry to wherever you want.  'copy' copies the
+    be 'list', 'extract', 'delete', 'copy, 'create', or 'save'.  'list'
+    will list the contents of the specified file.  'extract' extracts
+    the data from a file entry to wherever you want.  'copy' copies the
     specified file entries to another file.  'delete' deletes the
     specified entries from the source file and outputs the resulting
     file. 'create' creates a tap entry (as well as a header entry if
-    needed) in outfile using the supplied file data.
+    needed) in outfile using the supplied file data.  'save' exports the
+    selected data as a .wav file as if the tape were being played.
 
     infile and outfile are required unless reading from the standard
     input or outputting to the standard output.  Usually arguments are
@@ -2776,10 +3524,10 @@ def usage():
     For the extract instruction, the index of the entry you want to
     extract must be specified before the filenames.
 
-    For the copy and delete instructions, the index(s) of the entry or
-    entries you want to copy must be specified before the filename.  You
-    do not need to do this if you have already specified which entries
-    you want with the -s flag.
+    For the copy, delete and save instructions, the index(s) of the
+    entry or entries you want to copy must be specified before the
+    filename.  You do not need to do this if you have already specified
+    which entries you want with the -s flag.
 
     If using the create instruction, you must specify what you are
     creating imediatly after the create instruction.  Valid options are
@@ -2873,6 +3621,9 @@ def usage():
        decimal or hexadecimal number preceded by '0x'.
     --pos same as -p.
     --position same as -p.
+
+    save flags:
+    -a append the generated wav data to an existing wav file.
 """
 
 
@@ -2934,7 +3685,8 @@ def _commandline(args):
         i += 1
 
         arg = args[i]
-        if arg in ['help', 'extract', 'list', 'copy', 'delete', 'create']:
+        if arg in ['help', 'extract', 'list', 'copy', 'delete', 'create',
+                   'save']:
             if mode is not None:
                 raise spectrumtranslate.SpectrumTranslateError(
                     "Can't have multiple commands.")
@@ -3109,7 +3861,7 @@ valid index in the input file.'.format(arg))
             continue
 
         # if it is what entries we want to copy
-        if mode in ['copy', 'delete'] and specifiedfiles is None:
+        if mode in ['copy', 'delete', 'save'] and specifiedfiles is None:
             specifiedfiles = getindices(arg)
             if specifiedfiles is None:
                 raise spectrumtranslate.SpectrumTranslateError(
@@ -3142,11 +3894,12 @@ valid index in the input file.'.format(arg))
             'No output file specified.')
 
     if specifiedfiles is None and entrywanted is None and mode in ['delete',
-                                                                   'copy']:
+                                                                   'copy',
+                                                                   'save']:
         raise spectrumtranslate.SpectrumTranslateError(
             'No file index(s) specified to {}.'.format(mode))
 
-    if mode in ['delete', 'copy']:
+    if mode in ['delete', 'copy', 'save']:
         if specifiedfiles is None:
             specifiedfiles = [entrywanted]
 
@@ -3181,8 +3934,8 @@ valid index in the input file.'.format(arg))
         data = sys.stdin.buffer.read()
 
     # work out output format
-    if mode in ['create', 'copy', 'delete'] and not tostandardoutput and \
-       isfile(outputfile):
+    if mode in ['create', 'copy', 'delete'] and \
+       not tostandardoutput and isfile(outputfile):
         with open(outputfile, 'rb') as f:
             outfiletype = getfiletypeandblocksfromsource(f)[0]
         if outfiletype is not None and filetyperequested is not None and \
@@ -3286,6 +4039,22 @@ source data.")
             data, flag=creatingblockflag if creating == 'block' else 0xFF),
             outfiletype).getpackagedforfile()
 
+    if mode == 'save':
+        if append:
+            with open(outputfile, 'rb') as fo:
+                wgd = WavGenerationData.newfromfile(fo)
+        else:
+            wgd = WavGenerationData()
+
+        (infiletype, tbs) = getfiletypeandblocksfromsource(data)
+        retdata = bytearray()
+        for x in specifiedfiles:
+            if x > len(tbs):
+                raise spectrumtranslate.SpectrumTranslateError(
+                    str(x) + " is greater than the number of entries in the \
+source data.")
+            retdata += tbs[x].getwavdata(wgd)
+
     # handle copy or create inserting at position
     if copyposition and mode in ['create', 'copy']:
         if not tostandardoutput and isfile(outputfile):
@@ -3311,10 +4080,18 @@ source data.")
 
     # output data
     if not tostandardoutput:
-        filemode = "a" if mode in ['copy', 'create'] and append else "w"
-        with open(outputfile,
-                  filemode if mode == 'list' else filemode + 'b') as fo:
-            fo.write(retdata)
+        if mode == 'save':
+            if append:
+                with open(outputfile, "r+b") as fo:
+                    appendwavfile(fo, wgd, retdata)
+            else:
+                with open(outputfile, "wb") as fo:
+                    writewavfile(fo, wgd, retdata)
+        else:
+            filemode = "a" if mode in ['copy', 'create'] and append else "w"
+            with open(outputfile,
+                      filemode if mode == 'list' else filemode + 'b') as fo:
+                fo.write(retdata)
 
     else:
         if mode == "list":

@@ -39,8 +39,8 @@
 # software, even if advised of the possibility of such damage.  By using
 # this software you agree to these terms.
 #
-# Author: william.fraser@virgin.net
-# Date: 14th January 2015
+# Author: william@fraser.earth
+# Date: 28th March 2026
 
 import spectrumnumber
 import sys

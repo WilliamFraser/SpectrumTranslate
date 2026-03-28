@@ -39,8 +39,8 @@
 # software, even if advised of the possibility of such damage.  By using
 # this software you agree to these terms.
 #
-# Author: william.fraser@virgin.net
-# Date: 12th March 2017
+# Author: william@fraser.earth
+# Date: 28th March 2026
 
 from site import getsitepackages
 from shutil import rmtree as shutil_rmtree

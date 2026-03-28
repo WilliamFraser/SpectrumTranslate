@@ -39,8 +39,8 @@
 # software, even if advised of the possibility of such damage.  By using
 # this software you agree to these terms.
 #
-# Author: william.fraser@virgin.net
-# Date: 15th April 2024
+# Author: william@fraser.earth
+# Date: 28th March 2026
 
 """
 Unit Test for spectrumtape file

@@ -37,8 +37,8 @@
 # software, even if advised of the possibility of such damage.  By using
 # this software you agree to these terms.
 #
-# Author: william.fraser@virgin.net
-# Date: 14th January 2015
+# Author: william@fraser.earth
+# Date: 28th March 2026
 
 # Please note that functions are capitalized so that Abs etc will not
 # conflict with builtin functions.

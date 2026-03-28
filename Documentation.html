@@ -55,7 +55,7 @@
     <li><strong>disciplefile.py</strong> - Contains classes and functions to handle disciple or +D disk images (reading or writing sectors, reading, writing, deleting files, iterating through files in a disk image, validating a disk image, creating a disk image). It also contains classes and functions to handle interaction with files contained in a disciple or +D disk image (extracting all the file details, and all details contained in a file individually). It also contains functions to use this as a command to do most of these tasks from the command line.</li>
     <li><strong>spectrumfiletranslategui.py</strong> - This module provides a graphical program that allows the user to manipulate data and files contained in disciple disk images, tap files, or to extract them from raw binary files. It offers a multitude of options as to how the data is extracted and presented, allowing the user to view the data, and save it off as a text or binary file, or even back to a container file such as a tap file or disciple disk image. It essentially acts as a graphical interface to the other modules.</li>
     <li><strong>spectrumnumber.py</strong> - This module gives a basic emulation of a spectrum floating point number. It is not a complete emulation of a 5 byte spectrum number, but has most basic functions implemented faithfully to the origional format. It was done to provide acurate translation of spectrum numbers.</li>
-    <li><strong>spectrumtape.py</strong> - This module contains classes and functions to handle spectrum .tap and .tzx files which hold data stored on tape. The classes and functions allow the user to iterate through the entries in a file, create new entries in a file, and also allows the user to extract details from the files contained in a file.  It allows a user to convert some .tap file blocks to .tzx and back again. It also contains functions to use this as a command to do most of these tasks from the command line.</li>
+    <li><strong>spectrumtape.py</strong> - This module contains classes and functions to handle spectrum .tap and .tzx files which hold data stored on tape. The classes and functions allow the user to iterate through the entries in a file, create new entries in a file, and also allows the user to extract details from the files contained in a file.  There are functions to convert tape blocks to sound in wav format. It allows a user to convert some .tap file blocks to .tzx and back again. It also contains functions to use this as a command to do most of these tasks from the command line.</li>
     <li><strong>spectrumtranslate.py</strong> - This module contains the data, classes, and functions to translate text, basic progams, machine code, data arrays, screens, and disciple snapshots from spectrum formats into formats such as text, XML, gif, or data arrays. Converting a raw machine code file to easily human readable data is a complex task, and to facilitate this this module also contains classes and functions to handle all sorts of usage cases. It also contains functions to use this as a command to do most of these tasks from the command line.</li>
 </ul>
 <p>SpectrumTranslate also contains a directory called test that consists of several modules and files that together test any changes to SpectrumTranslate and are used to develop it. Unless you're developing or making changes to the code you shouldn't need them.</p>
@@ -275,9 +275,11 @@
   <li><code>copy</code> - copies the specified file(s) from one tap file to another.</li>
   <li><code>delete</code> - will output a copy of the input tap file with the specified files deleted.</li>
   <li><code>create</code> - creates a new tap entry (as well as a header if needed) in outfile using the supplied file data.</li>
+  <li><code>save</code> - creates or appends a tape block to a wav file.</li>
 </ul></p>
 <p>For the <code>extract</code> instruction, the index of the tap entry you want to extract must be specified before the filenames.</p>
 <p>For the <code>copy</code> and <code>delete</code> instructions, the index(s) of the tap entry(entries) you want to copy must be specified before the filename.  You do not need to do this if you have already specified which entries you want with the <code>-s</code> flag.</p>
+<p>For the <code>save</code> instruction, the index(s) of the tap entry(s) you want to extract must also be specified.</p>
 <p>If using the <code>create</code> instruction, you must specify what you are creating imediatly after the create instruction.  Valid options are <code>basic</code>, <code>code</code>, <code>array</code>, <code>screen</code>, and <code>block</code>.  You must also specify the filnename for the file with the <code>--filename</code> flag unless you are creating a data block.  If creating an array, you must also specify the name and type of array with the <code>--arraytype</code> and <code>--arrayname</code> flags.</p>
 <p>spectrumtape.py will pick an apropriate output file format (Tzx or Tap) if it can. If the output file exists and is being appended to, it will pick this as the file format to use. Otherwise it will pick the input format as the output format. You can specify what output format you want using the general flags (see below).</p>
 <h5>general flags:</h5>
@@ -345,6 +347,11 @@
   <dt><code>--position</code></dt>
   <dd>same as <code>-p</code>.</dd>
 </dl>
+<h5>save flags:</h5>
+<dl>
+  <dt><code>-a</code></dt>
+  <dd>specifies that the output should be appended to an existing wav file rather than overwriting it.</dd>
+</dl>
 <a id="cli_spectrumtape_example"></a><h5>Examples:</h5>
 <dl>
   <dt><code>python spectrumtape.py</code></dt>
@@ -367,6 +374,8 @@
   <dd>This will create a code file entry in tzx format in basic.tzx, appending it to the existing file so that the code file comes after any existing files. The file is called TEST. The Origin of the code file will be set as 32768 (8000 hexadecimal). The data of the code file is to be taken from the file code.bin.</dd>
   <dt><code>python spectrumtape.py create array --filename ARRAY -p 2 --arraytype string --arrayname S -i basic.tap</code></dt>
   <dd>When run, it will wait for input from the standard input (ie the keyboard). Type some message like "This is a test" and then press CTRL-D twice to end the input (I'm not sure why you have to press CTRL-D twice and not just once...). This will then create a string array file at position 2 called ARRAY. It will use the text inputed as the data for the string array.</dd>
+  <dt><code>python spectrumtape.py save -s 0-6 program.tap program.wav</code></dt>
+  <dd>When run, it will get tape blocks 0 to 5 inclusive from program.tap and transform them into a .wav file called program.wav.</dd>
 </dl>
 <a id="command_line_spectrumtranslate"></a><h4>spectrumtranslate.py</h4>
 <p>To convert data from spectrum formats to more usable formats such as text, XML, or images, use the spectrumtranslate.py file. It converts data from infile and outputs it to outfile, although you can get data from the standard input and output it to the standard output if you so wish. It is also used to create instructions to customize machine code disassembly. It has the following options one of which must be specified as the first argument:</p>
@@ -655,6 +664,10 @@
     <dd>returns a block that is the supplied block converted to the requested format. Acceptable formats are 'Tap, 'Tzx', and None (the origional block will be returned in this case). It will raise an error if the block cannot be converted.</dd>
     <dt><code>getfiletypeandblocksfromsource(source)</code></dt>
     <dd>Returns a tuple consisting of (filetype, list of blocks). source can be a bytearray, a bytes object, or a list or tuple of ints. the returned filetype is 'Tap', 'Tzx', or 'unknown'.</dd>
+    <dt><code>appendwavfile(f, wavgenerationdata, data)</code></dt>
+    <dd>Appends the wav samples in data, that were created using the WavGenerationData object wavgenerationdata to the file f. The file fmust have been opened in r+b mode.</dd>
+    <dt><code>writewavfile(f, wavgenerationdata, data)</code></dt>
+    <dd>Writes the wav samples in data, that were created using the WavGenerationData object wavgenerationdata to the file f. The file fmust have been opened in wb mode.</dd>
   </dl>
   <a id="class_SpectrumTapeBlock"></a><h4><code>SpectrumTapeBlock</code> class</h4>
   <p>A generic class to handle individual entries in a tape file. It is not intended for general use, but is inherited by classes used to describe Tap and Tzx file blocks, and it's attributes and methods can be used by the child classes.</p>
@@ -705,6 +718,8 @@
     <dd>Is this Block object probably a data block? of a file. Returns True if this is probably a data, or False if probably not.</dd>
     <dt><code>isheader</code></dt>
     <dd>Is this Block object probably a header block? Header blocks come before the blocks holding the actual file data and contain information such as the filename, the file type, length, and other information depending on the file type. Returns True if this is probably a header, or False if probably not.</dd>
+    <dt><code>getwavdata</code></dt>
+    <dd>Returns a bytearray of data for samples that would represent this tape block in a wav file. It needs a WaveGenerationData object to detail what the wav file format should be.</dd>
   </dl>
   <h4><code>SpectrumTapBlock</code> class</h4>
   <p>A class that holds information about a block of data from a Spectrum Tap file format. These can be used to extract data from a tap file. It inherits methods and attributes from <code>SpectrumTapeBlock</code>.</p>
@@ -713,13 +728,54 @@
     <dt><code>flag</code></dt>
     <dd>This is the flag byte of the spectrum file that this block represents (0 for a header, 255 for a data block).</dd>
   </dl>
-
   <h4><code>SpectrumTZXStandardSpeedDataBlock</code>, <code>SpectrumTZXTurboSpeedDataBlock</code>, <code>SpectrumTZXPureToneBlock</code>, <code>SpectrumTZXPulseSequenceBlock</code>, <code>SpectrumTZXPureDataBlock</code>, <code>SpectrumTZXDirectRecordingBlock</code>, <code>SpectrumTZXCSWRecording</code>, <code>SpectrumTZXGeneralizedDataBlock</code>, <code>SpectrumTZXPauseOrStopBlock</code>, <code>SpectrumTZXGroupStartBlock</code>, <code>SpectrumTZXGroupEndBlock</code>, <code>SpectrumTZXJumpToBlock</code>, <code>SpectrumTZXLoopStartBlock</code>, <code>SpectrumTZXLoopEndBlock</code>, <code>SpectrumTZXCallSequenceBlock</code>, <code>SpectrumTZXReturnFromSequenceBlock</code>, <code>SpectrumTZXSelectBlock</code>, <code>SpectrumTZXStopTapeIf48KBlock</code>, <code>SpectrumTZXSetSignalLevelBlock</code>, <code>SpectrumTZXTextDescriptionBlock</code>, <code>SpectrumTZXMessageBlock</code>, <code>SpectrumTZXArchiveInfoBlock</code>, <code>SpectrumTZXHardwareTypeBlock</code>, <code>SpectrumTZXCustomInfoBlock</code>, and <code>SpectrumTZXHeaderBlock</code> classs</h4>
   <p>These classes that holds information about blocks of data from a Spectrum Tzx file format. These can be used to extract data from a tzx file. They inherits methods and attributes from <code>SpectrumTapeBlock</code>.</p>
   <h5>Attributes in available in <code>SpectrumTZXStandardSpeedDataBlock</code>, <code>SpectrumTZXTurboSpeedDataBlock</code>, and <code>SpectrumTZXPureDataBlock</code> (in addition to those from <a href="#class_SpectrumTapeBlock">SpectrumTapeBlock</a>:</h5>
   <dl>
     <dt><code>flag</code></dt>
     <dd>This is the flag byte of the spectrum file that this block represents (0 for a header, 255 for a data block).</dd>
+  </dl>
+
+  <a id="class_WavGenerationData"></a><h4><code>WavGenerationData</code> class</h4>
+  <p>An object to hold information needed for generating a WAV files from a Tape file, and methods to help.</p>
+  <p>You can create it with WavGenerationData(). It will default to timing for 48K machine, 44,100Hz, 1 channel, microphone low, and volumes of 0 for low, and 255 for microphone high. You can create custom wav file formats by specifying any of timingis48k, frequency, channels, samplesize, micstartlow, michigh, and miclow.</p>
+  <h5>Attributes:</h5>
+  <dl>
+    <dt><code>michigh</code></dt>
+    <dd>This is the value for the volume when the microphone is high.</dd>
+    <dt><code>miclow</code></dt>
+    <dd>This is the value for the volume when the microphone is low.</dd>
+    <dt><code>currentmiclevel</code></dt>
+    <dd>This is 0 if the microphpne is currently low, and 1 if it is currently high.</dd>
+    <dt><code>micstartlow</code></dt>
+    <dd>If this is true then the wav sample starts off as microphone low. Otherwise it starts off microphone high.</dd>
+    <dt><code>timingis48k</code></dt>
+    <dd>True if generating the wav file as if saving from a machine running at 3,500,00Hz as for a 48K or 16K spectrum. False if running at 3,546,900Hz like a 128K, 128K+2, 128K+2A, or 128K+3 machines.</dd>
+    <dt><code>channels</code></dt>
+    <dd>The number of channels in the wav file. 1 and 2 are supported.</dd>
+    <dt><code>frequency</code></dt>
+    <dd>The sample frequency to use in the wav file. Due to timing considerations I would not advise using a value below 44,100.</dd>
+    <dt><code>samplesize</code></dt>
+    <dd>samplesize details how many bytes are used per sample. Valid options are 1, 2, and 4 for integer samples, and 4 for float samples.</dd>
+    <dt><code>mode</code></dt>
+    <dd>mode is the type of wav file. Only two options are valid: 1 for PCM integer samples, and 3 for IEEE 754 floats.</dd>
+    <dt><code>spt</code></dt>
+    <dd>spt is the number of samples per T-state. It is used internally, and Unless you know what you are doing, do not change it.</dd>
+    <dt><code>volumes</code></dt>
+    <dd>volumes is an array containing samples for low microphone level and high microphone level. It is used internally, and Unless you know what you are doing, do not change it.</dd>
+  </dl>
+  <h5>Methods:</h5>
+  <dl>
+    <dt><code>newfromfile</code></dt>
+    <dd>This is a class method. It returns a new WavGenerationData that will be compatible with the supplied file.</dd>
+    <dt><code>updateinternals</code></dt>
+    <dd>This validates attributes, and calculates things like sample rate, mode, and volumes ready to generate wav data. It should be called if you manually change any attributes.</dd>
+    <dt><code>togglemic</code></dt>
+    <dd>This toggles the current microphone level.</dd>
+    <dt><code>currentsample</code></dt>
+    <dd>This returns the sample for the current microphone level.</dd>
+    <dt><code>pulse</code></dt>
+    <dd>This returns a bytearray of samples for a pulse for the length of t-states specified. toggle is True if the microphone has to be toggled before the pulse starts. If False it cn be used to extend the previous pulse.</dd>
   </dl>
 </dl>
 <a id="python_usage_spectrumtranslate"></a><h3>spectrumtranslate.py functions, and classes</h3>
