@@ -398,7 +398,7 @@ class SpectrumFileTranslateGUI(QtGui.QWidget):
                                "Flag": 0xFF,
                                "+DPos": 1,
                                "FilePosition": 0,
-                               "ContainerType": 3,
+                               "ContainerType": 0,
                                "MakeTZXHeader": True}
 
         self.ImageFormatFallback = "Unknown"
@@ -2758,16 +2758,19 @@ frequency must be between 0 and 255 decimal.")
 
         box = QtGui.QVBoxLayout()
         cbContainerType = QtGui.QComboBox(self)
-        cbContainerType.addItem("Tzx file container", 0)
-        cbContainerType.addItem("Tap file container", 1)
-        cbContainerType.addItem("+D/Disciple file container", 2)
-        cbContainerType.addItem("container format from destination file", 3)
+        cbContainerType.addItem("container format from destination file", 0)
+        cbContainerType.addItem("Tzx file container", 1)
+        cbContainerType.addItem("Tap file container", 2)
+        cbContainerType.addItem("+D/Disciple file container", 3)
+        cbContainerType.addItem("Wave file", 4)
+        
         cbContainerType.setToolTip(
             "Select the type of containter file to export to.")
         cbContainerType.setCurrentIndex(self.ExportSettings["ContainerType"])
         box.addWidget(cbContainerType)
 
         tab = QtGui.QTabWidget()
+        tab.setUsesScrollButtons(False)
 
         vbox = QtGui.QVBoxLayout()
 
@@ -2777,6 +2780,7 @@ frequency must be between 0 and 255 decimal.")
         cbOverOrAppend.setToolTip(
             "Do you want to append or overwrite an existing file?")
         cbOverOrAppend.setCurrentIndex(self.ExportSettings["AppendOrOver"])
+        cbOverOrAppend.activated.connect(self.handlecbOverOrAppendchange)
         vbox.addWidget(cbOverOrAppend)
 
         cbSaveWithHeader = QtGui.QComboBox(self)
@@ -2786,7 +2790,7 @@ frequency must be between 0 and 255 decimal.")
             "Do you want to save as headerless block or file with header?")
         cbSaveWithHeader.setCurrentIndex(
             self.ExportSettings["SaveWithHeader"])
-        cbSaveWithHeader.activated.connect(self.ExportSettingsControlUpdate)
+        cbSaveWithHeader.activated.connect(self.handlecbSaveWithHeaderchange)
         vbox.addWidget(cbSaveWithHeader)
 
         hbox = QtGui.QHBoxLayout()
@@ -2800,6 +2804,7 @@ frequency must be between 0 and 255 decimal.")
         leFileName.sizePolicy().setHorizontalStretch(1)
         leFileName.setText(str(self.ExportSettings["Filename"]))
         leFileName.textEdited.connect(self.setleFileNameD)
+        leFileName.textEdited.connect(self.setleWavFileName)
         hbox.addWidget(leFileName)
         vbox.addLayout(hbox)
 
@@ -2813,6 +2818,7 @@ frequency must be between 0 and 255 decimal.")
         leFlag.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
         leFlag.sizePolicy().setHorizontalStretch(1)
         leFlag.setText(str(self.ExportSettings["Flag"]))
+        leFlag.textEdited.connect(self.setleWavFlag)
         hbox.addWidget(leFlag)
         vbox.addLayout(hbox)
 
@@ -2849,6 +2855,7 @@ frequency must be between 0 and 255 decimal.")
         leFileNameD.sizePolicy().setHorizontalStretch(1)
         leFileNameD.setText(self.ExportSettings["Filename"])
         leFileNameD.textEdited.connect(self.setleFileName)
+        leFileNameD.textEdited.connect(self.setleWavFileName)
         hbox.addWidget(leFileNameD)
         vbox.addLayout(hbox)
 
@@ -2869,6 +2876,62 @@ into.\nValid options are 1 to 80 inclusive.")
         w.setLayout(vbox)
         tab.addTab(w, "+D/Disciple options")
 
+        vbox = QtGui.QVBoxLayout()
+
+        cbWavOverOrAppend = QtGui.QComboBox(self)
+        cbWavOverOrAppend.addItem("Overwrite if file exists", 0)
+        cbWavOverOrAppend.addItem("Append if file exists", 1)
+        cbWavOverOrAppend.setToolTip(
+            "Do you want to append or overwrite an existing file?")
+        cbWavOverOrAppend.setCurrentIndex(self.ExportSettings[
+            "AppendOrOver"])
+        cbWavOverOrAppend.activated.connect(self.handlecbWavOverOrAppendchange)
+        vbox.addWidget(cbWavOverOrAppend)
+
+        cbWavSaveWithHeader = QtGui.QComboBox(self)
+        cbWavSaveWithHeader.addItem("Save as headerless block", 0)
+        cbWavSaveWithHeader.addItem("Save with header", 1)
+        cbWavSaveWithHeader.setToolTip(
+            "Do you want to save as headerless block or file with header?")
+        cbWavSaveWithHeader.setCurrentIndex(
+            self.ExportSettings["SaveWithHeader"])
+        cbWavSaveWithHeader.activated.connect(
+            self.handlecbWavSaveWithHeaderchange)
+        vbox.addWidget(cbWavSaveWithHeader)
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.setSpacing(2)
+        lWavFileName = QtGui.QLabel("File Name:")
+        hbox.addWidget(lFileName)
+        leWavFileName = QtGui.QLineEdit(self)
+        leWavFileName.setToolTip("Filename to export as.")
+        leWavFileName.sizePolicy().setHorizontalPolicy(
+            QtGui.QSizePolicy.Expanding)
+        leWavFileName.sizePolicy().setHorizontalStretch(1)
+        leWavFileName.setText(str(self.ExportSettings["Filename"]))
+        leWavFileName.textEdited.connect(self.setleFileNameD)
+        leWavFileName.textEdited.connect(self.setleFileName)
+        hbox.addWidget(leWavFileName)
+        vbox.addLayout(hbox)
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.setSpacing(2)
+        lWavFlag = QtGui.QLabel("Block Flag:")
+        hbox.addWidget(lFlag)
+        leWavFlag = QtGui.QLineEdit(self)
+        leWavFlag.setToolTip(
+            "Flag value for the data block.\nIgnored if saveing with header.")
+        leWavFlag.sizePolicy().setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
+        leWavFlag.sizePolicy().setHorizontalStretch(1)
+        leWavFlag.setText(str(self.ExportSettings["Flag"]))
+        leWavFlag.textEdited.connect(self.setleFlag)
+        hbox.addWidget(leWavFlag)
+        vbox.addLayout(hbox)
+
+        w = QtGui.QWidget()
+        w.setLayout(vbox)
+        tab.addTab(w, "WAV options")
+
         box.addWidget(tab)
 
         hbox = QtGui.QHBoxLayout()
@@ -2885,6 +2948,7 @@ into.\nValid options are 1 to 80 inclusive.")
 
         dContainer.setLayout(box)
 
+        dContainer.cbOverOrAppend = cbOverOrAppend
         dContainer.cbSaveWithHeader = cbSaveWithHeader
         dContainer.lFileName = lFileName
         dContainer.leFileName = leFileName
@@ -2894,6 +2958,12 @@ into.\nValid options are 1 to 80 inclusive.")
         dContainer.lSlot = lSlot
         dContainer.leSlot = leSlot
         dContainer.leFileNameD = leFileNameD
+        dContainer.cbWavOverOrAppend = cbWavOverOrAppend
+        dContainer.cbWavSaveWithHeader = cbWavSaveWithHeader
+        dContainer.lWavFileName = lWavFileName
+        dContainer.leWavFileName = leWavFileName
+        dContainer.lWavFlag = lWavFlag
+        dContainer.leWavFlag = leWavFlag
         self.Ddialog = dContainer
 
         self.ExportSettingsControlUpdate()
@@ -2912,11 +2982,40 @@ into.\nValid options are 1 to 80 inclusive.")
 
         del self.Ddialog
 
+    def handlecbOverOrAppendchange(self):
+        self.Ddialog.cbWavOverOrAppend.setCurrentIndex(
+            self.Ddialog.cbOverOrAppend.currentIndex())
+        self.ExportSettingsControlUpdate()
+
+    def handlecbWavOverOrAppendchange(self):
+        self.Ddialog.cbOverOrAppend.setCurrentIndex(
+            self.Ddialog.cbWavOverOrAppend.currentIndex())
+        self.ExportSettingsControlUpdate()
+
+    def handlecbSaveWithHeaderchange(self):
+        self.Ddialog.cbWavSaveWithHeader.setCurrentIndex(
+            self.Ddialog.cbSaveWithHeader.currentIndex())
+        self.ExportSettingsControlUpdate()
+
+    def handlecbWavSaveWithHeaderchange(self):
+        self.Ddialog.cbSaveWithHeader.setCurrentIndex(
+            self.Ddialog.cbWavSaveWithHeader.currentIndex())
+        self.ExportSettingsControlUpdate()
+
     def setleFileNameD(self, text):
         self.Ddialog.leFileNameD.setText(text)
 
     def setleFileName(self, text):
         self.Ddialog.leFileName.setText(text)
+
+    def setleWavFileName(self, text):
+        self.Ddialog.leWavFileName.setText(text)
+
+    def setleFlag(self, text):
+        self.Ddialog.leFlag.setText(text)
+
+    def setleWavFlag(self, text):
+        self.Ddialog.leWavFlag.setText(text)
 
     def ExportSettingsControlUpdate(self):
         i = self.Ddialog.cbSaveWithHeader.currentIndex()
@@ -2924,10 +3023,15 @@ into.\nValid options are 1 to 80 inclusive.")
         self.Ddialog.leFileName.setEnabled(i == 1)
         self.Ddialog.lFlag.setEnabled(i == 0)
         self.Ddialog.leFlag.setEnabled(i == 0)
+        self.Ddialog.lWavFileName.setEnabled(i == 1)
+        self.Ddialog.leWavFileName.setEnabled(i == 1)
+        self.Ddialog.lWavFlag.setEnabled(i == 0)
+        self.Ddialog.leWavFlag.setEnabled(i == 0)
 
         i = self.Ddialog.cbFilePosition.currentIndex()
         self.Ddialog.lSlot.setEnabled(i == 1)
         self.Ddialog.leSlot.setEnabled(i == 1)
+
 
     def CheckValidFileName(self):
         try:
@@ -3156,7 +3260,7 @@ snapshot. Error:\n{}'.format(ste.value))
         # work out what container format to use
         containertype = self.ExportSettings["ContainerType"]
         # handle working out container type
-        if containertype == 3:
+        if containertype == 0:
             if os.path.isfile(fileout):
                 # try to see if is disciple/+D image file
                 try:
@@ -3165,7 +3269,7 @@ snapshot. Error:\n{}'.format(ste.value))
 
                     # if it's a valid +D file then use this format
                     if di.isimagevalid(True)[0]:
-                        containertype = 2
+                        containertype = 3
 
                 except:
                     # ignore errors, and fall through into tap check
@@ -3173,11 +3277,11 @@ snapshot. Error:\n{}'.format(ste.value))
 
                 # try to see if is tap file
                 try:
-                    if containertype == 3:
+                    if containertype == 0:
                         with open(fileout, 'rb') as f:
                             tbs = [*spectrumtape.gettapblocks(f)]
                             if len(tbs) > 0:
-                                containertype = 1
+                                containertype = 2
                 except:
                     # ignore errors, and fall through into next part of
                     # routine
@@ -3185,18 +3289,30 @@ snapshot. Error:\n{}'.format(ste.value))
 
                 # try to see if is tzx file
                 try:
-                    if containertype == 3:
+                    if containertype == 0:
                         with open(fileout, 'rb') as f:
                             tbs = [*spectrumtape.gettzxblocks(f)]
                             if len(tbs) > 0:
-                                containertype = 0
+                                containertype = 1
+                except:
+                    # ignore errors, and fall through into next part of
+                    # routine
+                    pass
+
+                # try to see if is wav file
+                try:
+                    if containertype == 0:
+                        with open(fileout, 'rb') as f:
+                            b = f.read(16)
+                            if b[0:4] == b'RIFF' and b[8:16] == b'WAVEfmt ':
+                                containertype = 4
                 except:
                     # ignore errors, and fall through into next part of
                     # routine
                     pass
 
                 # see if we've not worked out the format and handle this
-                if containertype == 2:
+                if containertype == 0:
                     QtGui.QMessageBox.warning(self, "Error!", '"{}" is not a \
 .tap file, .tzx file, or a disciple/+D disk image.'.format(fileout))
                     return
@@ -3220,10 +3336,10 @@ file, so cannot guess container format.'.format(fileout))
                 "Data is bigger than 65535 bytes and can't be saved.")
             return None
 
-        # handle tape file
-        if containertype in [0, 1]:
-            fileformat = 'Tap' if containertype == 1 else 'Tzx'
-            output = ''
+        # handle tape file or tape being saved as wav
+        if containertype in [1, 2, 4]:
+            fileformat = 'Tap' if containertype == 2 else 'Tzx'
+            outblocks = []
             if self.ExportSettings["SaveWithHeader"] == 1:
                 if outputformat == "Basic Program":
                     auto = self.getNumber(self.leBasicAutoLine)
@@ -3261,32 +3377,51 @@ Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
                 elif outputformat == "Screen":
                     headerblock = spectrumtape.createscreenheader(filename)
 
-                output = spectrumtape.convertblockformat(
-                    headerblock, fileformat).getpackagedforfile()
+                outblocks = [spectrumtape.convertblockformat(
+                    headerblock, fileformat)]
 
-            output += spectrumtape.convertblockformat(
+            outblocks += [spectrumtape.convertblockformat(
                 spectrumtape.createdatablock(
                 data,
                 0xFF if self.ExportSettings["SaveWithHeader"] == 1 else
-                self.ExportSettings["Flag"]), fileformat).getpackagedforfile()
+                self.ExportSettings["Flag"]), fileformat)]
 
             # if tzx file ensure have header if new file
-            if containertype == 0 and (self.ExportSettings["AppendOrOver"] == 0 or (not os.path.isfile(fileout) or os.path.getsize(fileout) == 0)) and self.ExportSettings["MakeTZXHeader"]:
-                output = spectrumtape.SpectrumTZXHeaderBlock(1, 20).getpackagedforfile() + output
+            if containertype == 1 and (self.ExportSettings["AppendOrOver"] == 0 or (not os.path.isfile(fileout) or os.path.getsize(fileout) == 0)) and self.ExportSettings["MakeTZXHeader"]:
+                outblocks = [spectrumtape.SpectrumTZXHeaderBlock(1, 20)] + outblocks
+            
+            # output tape file
+            if containertype in [1, 2]:
+                # prepare data for output
+                output = b"".join([tb.getpackagedforfile() for tb in outblocks])
+    
+                try:
+                    with open(
+                        fileout,
+                        MODE_AB if self.ExportSettings["AppendOrOver"] == 1 else
+                        MODE_WB) as fo:
+                        fo.write(output)
+                except:
+                    QtGui.QMessageBox.warning(
+                        self, "Error!",
+                        'Failed to save data to "{}"'.format(fileout))
 
-            # prepare data for output
-            output = bytes(output)
+            # output wav file
+            else:
+                append = not (self.ExportSettings["AppendOrOver"] == 0 or (not os.path.isfile(fileout) or os.path.getsize(fileout) == 0))
+                if append:
+                    with open(fileout, 'rb') as fo:
+                        wgd = spectrumtape.WavGenerationData.newfromfile(fo)
+                else:
+                    wgd = spectrumtape.WavGenerationData()
 
-            try:
-                with open(
-                    fileout,
-                    MODE_AB if self.ExportSettings["AppendOrOver"] == 1 else
-                    MODE_WB) as fo:
-                    fo.write(output)
-            except:
-                QtGui.QMessageBox.warning(
-                    self, "Error!",
-                    'Failed to save data to "{}"'.format(fileout))
+                output = b"".join([tb.getwavdata(wgd) for tb in outblocks])
+                if append:
+                    with open(fileout, "r+b") as fo:
+                        spectrumtape.appendwavfile(fo, wgd, output)
+                else:
+                    with open(fileout, "wb") as fo:
+                        spectrumtape.writewavfile(fo, wgd, output)
 
             return
 
@@ -3304,7 +3439,7 @@ Origin must be between 0 and 65535 (0000 and FFFF hexadecimal).")
                     self, "Error!",
                     'Failed to save data to "{}"'.format(fileout))
         # otherwise create blank image
-        elif containertype == 2:
+        elif containertype == 3:
             diout.setbytes([0] * 819200)
 
         # get where to save directory entry and whether to overwrite
@@ -4256,7 +4391,7 @@ file {} from "{}".'.format(i, self.leFileNameIn.text()))
                         self.bBrowseContainer.setText("Browse TAP")
                         self.bBrowseContainer.setEnabled(True)
                         return
-            except IOError:
+            except:
                 tbs = []
 
             # display waiting cursor while do translation
