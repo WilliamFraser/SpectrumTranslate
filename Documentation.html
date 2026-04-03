@@ -351,6 +351,10 @@
 <dl>
   <dt><code>-a</code></dt>
   <dd>specifies that the output should be appended to an existing wav file rather than overwriting it.</dd>
+  <dt><code>-1</code></dt>
+  <dd>use timing of 128K machine for sound generation. Defaults to the timing of 48K machine (3.5MHz).</dd>
+  <dt><code>-f</code></dt>
+  <dd>specifies the sound file frequency in Hz. It must be followed by a valid number. If not specified, 96000Hz is used. You can go as low as 44100Hz if it's only an emulator that will use the sound file, but my original 128K+2 failed to load at this frequency, hence the default of 96000Hz that did work.</dd>
 </dl>
 <a id="cli_spectrumtape_example"></a><h5>Examples:</h5>
 <dl>
@@ -374,7 +378,7 @@
   <dd>This will create a code file entry in tzx format in basic.tzx, appending it to the existing file so that the code file comes after any existing files. The file is called TEST. The Origin of the code file will be set as 32768 (8000 hexadecimal). The data of the code file is to be taken from the file code.bin.</dd>
   <dt><code>python spectrumtape.py create array --filename ARRAY -p 2 --arraytype string --arrayname S -i basic.tap</code></dt>
   <dd>When run, it will wait for input from the standard input (ie the keyboard). Type some message like "This is a test" and then press CTRL-D twice to end the input (I'm not sure why you have to press CTRL-D twice and not just once...). This will then create a string array file at position 2 called ARRAY. It will use the text inputed as the data for the string array.</dd>
-  <dt><code>python spectrumtape.py save -s 0-6 program.tap program.wav</code></dt>
+  <dt><code>python spectrumtape.py save -s 0-5 program.tap program.wav</code></dt>
   <dd>When run, it will get tape blocks 0 to 5 inclusive from program.tap and transform them into a .wav file called program.wav.</dd>
 </dl>
 <a id="command_line_spectrumtranslate"></a><h4>spectrumtranslate.py</h4>
@@ -738,7 +742,7 @@
 
   <a id="class_WavGenerationData"></a><h4><code>WavGenerationData</code> class</h4>
   <p>An object to hold information needed for generating a WAV files from a Tape file, and methods to help.</p>
-  <p>You can create it with WavGenerationData(). It will default to timing for 48K machine, 44,100Hz, 1 channel, microphone low, and volumes of 0 for low, and 255 for microphone high. You can create custom wav file formats by specifying any of timingis48k, frequency, channels, samplesize, micstartlow, michigh, and miclow.</p>
+  <p>You can create it with WavGenerationData(). It will default to timing for 48K machine, 96,000Hz, 1 channel, microphone low, and volumes of 0 for low, and 255 for microphone high. You can create custom wav file formats by specifying any of timingis48k, frequency, channels, samplesize, micstartlow, michigh, and miclow.</p>
   <h5>Attributes:</h5>
   <dl>
     <dt><code>michigh</code></dt>
@@ -754,7 +758,7 @@
     <dt><code>channels</code></dt>
     <dd>The number of channels in the wav file. 1 and 2 are supported.</dd>
     <dt><code>frequency</code></dt>
-    <dd>The sample frequency to use in the wav file. Due to timing considerations I would not advise using a value below 44,100.</dd>
+    <dd>The sample frequency to use in the wav file. I have tested a generated file on my old 128K+2 and at 44,100Hz (common frequency for sound files) it could not load the file, but at the default 96,000Hz it worked. 44,100Hz did work for FUSE however.</dd>
     <dt><code>samplesize</code></dt>
     <dd>samplesize details how many bytes are used per sample. Valid options are 1, 2, and 4 for integer samples, and 4 for float samples.</dd>
     <dt><code>mode</code></dt>

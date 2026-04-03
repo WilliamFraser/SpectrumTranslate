@@ -3224,7 +3224,7 @@ class WavGenerationData:
     a Tape file.
     """
 
-    def __init__(self, timingis48k=True, frequency=44100, channels=1,
+    def __init__(self, timingis48k=True, frequency=96000, channels=1,
                  samplesize=1, micstartlow=True, michigh=255, miclow=0):
         """
         Creates a new WavGenerationData object. timingis48k if True (the
@@ -3232,8 +3232,9 @@ class WavGenerationData:
         (as used in 48K and 16K machines), and False uses 3,546,900 Hz
         (as used in 128k, 128k+2, 128k+2A, and 128k+3 machines).
         frequency is the output frequency in Hz of the wav file to be
-        generated (default is 44100). Timings are tight and I would not
-        advise using much lower frequencies than this.
+        generated (default is 96000). Timings are tight and while at
+        44100Hz FUSE will recognise and load the WAV file, my origional
+        128K+2 could not load the sound file.
         channels are the number of output channels to generate in the
         wav file.  The default is 1, but 2 is also allowed.
         samplesize is the number of bytes to be used to encode
@@ -3624,6 +3625,9 @@ def usage():
 
     save flags:
     -a append the generated wav data to an existing wav file.
+    -1 use timing of 128K machine for sound generation.
+    -f specifies the sound file frequency in Hz. It must be followed by
+       a valid number.
 """
 
 
@@ -3675,6 +3679,8 @@ def _commandline(args):
     generatetzxheader = True
     infiletype = None
     outfiletype = None
+    timing48k = True
+    outputfrequency = None
 
     # handle no arguments
     if len(args) == 1:
@@ -3842,6 +3848,20 @@ specify output as either tap or tzx.')
 
         if arg == '--notzxheader':
             generatetzxheader = False
+            continue
+
+        if arg == '-1':
+            timing48k = False
+            continue
+
+        if arg == '-f':
+            i += 1
+            try:
+                outputfrequency = getint(args[i])
+            except ValueError:
+                raise spectrumtranslate.SpectrumTranslateError(
+                    '{} is not a valid frequency.'.format(args[i]))
+
             continue
 
         # have unrecognised argument.
@@ -4042,9 +4062,11 @@ source data.")
     if mode == 'save':
         if append:
             with open(outputfile, 'rb') as fo:
-                wgd = WavGenerationData.newfromfile(fo)
+                wgd = WavGenerationData.newfromfile(fo, timingis48k=timing48k)
         else:
-            wgd = WavGenerationData()
+            wgd = WavGenerationData(timingis48k=timing48k,
+                                    frequency=outputfrequency if
+                                    outputfrequency else 96000)
 
         (infiletype, tbs) = getfiletypeandblocksfromsource(data)
         retdata = bytearray()
