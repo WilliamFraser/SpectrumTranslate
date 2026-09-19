@@ -48,6 +48,7 @@ from io import IOBase, RawIOBase, BufferedIOBase, SEEK_END, SEEK_SET
 from math import ceil, log2, floor
 from os.path import isfile
 from struct import pack, unpack
+from functools import reduce
 # os.path imported elsewhere so only used for command line
 
 
