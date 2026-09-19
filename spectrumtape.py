@@ -40,7 +40,7 @@
 # this software you agree to these terms.
 #
 # Author: william@fraser.earth
-# Date: 28th March 2026
+# Date: 29th September 2026
 
 import spectrumtranslate
 import sys
@@ -426,17 +426,49 @@ class SpectrumTapeBlock:
         raise spectrumtranslate.SpectrumTranslateError("Generic Tape Block \
 not useable in file. Use child classes instead")
 
-    def getwavdata(self, wavgenerationdata, pause):
+    def getwavdata(self, wavgenerationdata):
         """
         returns the wav file data as if this TapeBlock were being
         played.  wavgenerationdata is a WavGenerationData object
         containing details of how the wav file data is to be formatted.
-        pause is the number of miliseconds of silence to add after this
-        block has been played.  It defaults to 1 second.
         """
 
         raise spectrumtranslate.SpectrumTranslateError("Generic Tape Block \
 provides no wav data. Use child classes instead")
+
+    def getaspulses(self):
+        """
+        returns a list of pulse lengths in T-states as if this TapeBlock
+        were being played.
+        """
+
+        raise spectrumtranslate.SpectrumTranslateError("Generic Tape Block \
+provides no pulse data. Use child classes instead")
+
+    def bytestopulses(data, bitpulses=[[855, 855], [1710, 1710]],
+                      bitsinlastbyte=8):
+        """
+        Converts a list or array of bytes to a stream of pulses.
+        data is a list of bytes or bytearray or bytes.
+        The optional bitpulses is an array of 2 arrays for pulse lengths
+        for bit 0 and bit 1 in T states. It defaults to the standard
+        lengths for the spectrum which is two 855 pulses for bit 0 and
+        two 1710 T-state pulses for bit being 1.
+        Some TZX blocks will only use some of the bits in the last byte
+        of data.  bitsinlastbyte allows you to specify how many of the
+        bits in the last byte to use.  If not specified it defaults to 8
+        (ie use the whole byte)
+        Returns a one dimensional list of the pulse lengths represending
+        the data.
+        """
+
+        pulses = []
+        last = len(data) - 1
+        for i, d in enumerate(data):
+            # bit by bit
+            for b in range(7, -1 if i < last else 7 - bitsinlastbyte, -1):
+                pulses += bitpulses[(d >> b) & 1]
+        return pulses
 
 
 class SpectrumTapBlock(SpectrumTapeBlock):
@@ -553,50 +585,28 @@ class SpectrumTapBlock(SpectrumTapeBlock):
         return word_to_bytes(length, 2) + bytearray([self.flag]) + \
             self.data + bytearray([checksum])
 
-    def getwavdata(self, wavgenerationdata, pause=1000):
+    def getaspulses(self):
+        """
+        returns a list of pulse lengths in T-states as if this TapBlock
+        were being played.
+        """
+
+        return ([2168] * (8063 if self.flag < 128 else 3223) +  # leader
+                [667, 735] +  # sync
+                SpectrumTapeBlock.bytestopulses([self.flag] + list(self.data) +
+                                                [reduce(lambda a, b: a ^ b,
+                                                        self.data,
+                                                        self.flag)]) +  # data
+                [3500000])  # pause
+
+    def getwavdata(self, wavgenerationdata):
         """
         returns the wav file data as if this TapBlock were being
         played.  wavgenerationdata is a WavGenerationData object
         containing details of how the wav file data is to be formatted.
-        pause is the number of miliseconds of silence to add after this
-        block has been played.  It defaults to 1 second.
         """
 
-        # there are 8063 pilot pulses for headder, and 3223 for data
-        pilotpulsenumber = 8063 if self.flag < 128 else 3223
-
-        output = bytearray()
-
-        # do pilot tone
-        for i in range(0, pilotpulsenumber):
-            output += wavgenerationdata.pulse(2168)
-
-        # do sync pulses
-        output += wavgenerationdata.pulse(667)
-        output += wavgenerationdata.pulse(735)
-
-        # work out checksum
-        checksum = self.flag
-        for i in self.data:
-            checksum = checksum ^ i
-
-        # do data
-        for i in bytearray([self.flag]) + self.data + bytearray([checksum]):
-            # bit by bit
-            for b in range(7, -1, -1):
-                t = 855 if ((i >> b) & 1) == 0 else 1710
-                output += wavgenerationdata.pulse(t)
-                output += wavgenerationdata.pulse(t)
-
-        # ensure have end edge so can tell end of last data bit pulse
-        output += wavgenerationdata.pulse(None)
-
-        if pause:
-            samples = floor((pause / 1000.0 *
-                             wavgenerationdata.frequency) + 0.5)
-            output += bytearray(wavgenerationdata.currentsample() * samples)
-
-        return output
+        return wavgenerationdata.pulses(self.getaspulses())
 
 
 class SpectrumTZXStandardSpeedDataBlock(SpectrumTapeBlock):
@@ -720,6 +730,18 @@ pause afterwards: {}ms".format(self.flag, self.getpayloadlength(),
             word_to_bytes(self.endPause, 2) + \
             word_to_bytes(len(self.data), 2) + self.data
 
+    def getaspulses(self):
+        """
+        returns a list of pulse lengths in T-states as if this Block
+        were being played.
+        """
+
+        return ([2168] * (8063 if self.flag < 128 else 3223) +  # leader
+                [667, 735] +  # sync
+                SpectrumTapeBlock.bytestopulses(self.data) +  # data
+                [floor((self.endPause / 1000.0 * 3500000) + 0.5)]
+                if self.endPause else [0])  # pause
+
     def getwavdata(self, wavgenerationdata):
         """
         returns the wav file data as if this TZX Block were being
@@ -727,36 +749,7 @@ pause afterwards: {}ms".format(self.flag, self.getpayloadlength(),
         containing details of how the wav file data is to be formatted.
         """
 
-        # there are 8063 pilot pulses for headder, and 3223 for data
-        pilotpulsenumber = 8063 if self.flag < 128 else 3223
-
-        output = bytearray()
-
-        # do pilot tone
-        for i in range(0, pilotpulsenumber):
-            output += wavgenerationdata.pulse(2168)
-
-        # do sync pulses
-        output += wavgenerationdata.pulse(667)
-        output += wavgenerationdata.pulse(735)
-
-        # do data
-        for i in self.data:
-            # bit by bit
-            for b in range(7, -1, -1):
-                t = 855 if ((i >> b) & 1) == 0 else 1710
-                output += wavgenerationdata.pulse(t)
-                output += wavgenerationdata.pulse(t)
-
-        # ensure have end edge so can tell end of last data bit pulse
-        output += wavgenerationdata.pulse(None)
-
-        if self.endPause:
-            samples = floor((self.endPause / 1000.0 *
-                             wavgenerationdata.frequency) + 0.5)
-            output += bytearray(wavgenerationdata.currentsample() * samples)
-
-        return output
+        return wavgenerationdata.pulses(self.getaspulses())
 
 
 class SpectrumTZXTurboSpeedDataBlock(SpectrumTapeBlock):
@@ -896,6 +889,22 @@ afterwards: {}ms".format(self.flag, self.getpayloadlength(), self.endPause)
             word_to_bytes(self.endPause, 2) + \
             word_to_bytes(len(self.data), 3) + self.data
 
+    def getaspulses(self):
+        """
+        returns a list of pulse lengths in T-states as if this Block
+        were being played.
+        """
+
+        return ([self.lenPilotPulse] * self.self.lenPilotTone +  # leader
+                [self.lenSyncPulse1, self.lenSyncPulse2] +  # sync
+                SpectrumTapeGeneratorStream.bytesToPulses(
+                    self.data,
+                    [[self.lenZeroPulse, self.lenZeroPulse],
+                     [self.lenOnePulse, self.lenOnePulse]],
+                    self.lastByteUsedBits) +  # data
+                [floor((self.endPause / 1000.0 * 3500000) + 0.5)]
+                if self.endPause else [0])  # pause
+
     def getwavdata(self, wavgenerationdata):
         """
         returns the wav file data as if this TZX Block were being
@@ -903,40 +912,7 @@ afterwards: {}ms".format(self.flag, self.getpayloadlength(), self.endPause)
         containing details of how the wav file data is to be formatted.
         """
 
-        output = bytearray()
-
-        # do pilot tone
-        for i in range(0, self.lenPilotTone):
-            output += wavgenerationdata.pulse(self.lenPilotPulse)
-
-        # do sync pulses
-        output += wavgenerationdata.pulse(self.lenSyncPulse1)
-        output += wavgenerationdata.pulse(self.lenSyncPulse2)
-
-        # do data
-        for i in self.data[:-1]:
-            # bit by bit
-            for b in range(7, -1, -1):
-                t = (self.lenZeroPulse if ((i >> b) & 1) == 0
-                     else self.lenOnePulse)
-                output += wavgenerationdata.pulse(t)
-                output += wavgenerationdata.pulse(t)
-        # do last byte
-        for b in range(7, self.lastByteUsedBits - 1, -1):
-            t = (self.lenZeroPulse if ((self.data[-1] >> b) & 1) == 0
-                 else self.lenOnePulse)
-            output += wavgenerationdata.pulse(t)
-            output += wavgenerationdata.pulse(t)
-
-        # ensure have end edge so can tell end of last data bit pulse
-        output += wavgenerationdata.pulse(None)
-
-        if self.endPause:
-            samples = floor((self.endPause / 1000.0 *
-                             wavgenerationdata.frequency) + 0.5)
-            output += bytearray(wavgenerationdata.currentsample() * samples)
-
-        return output
+        return wavgenerationdata.pulses(self.getaspulses())
 
 
 class SpectrumTZXPureToneBlock(SpectrumTapeBlock):
@@ -989,6 +965,14 @@ Pulses:{}".format(self.lenPulse, self.numberOfPulses)
             word_to_bytes(self.lenPilot, 2) + \
             word_to_bytes(self.numberOfPulses, 2)
 
+    def getaspulses(self):
+        """
+        returns a list of pulse lengths in T-states as if this Block
+        were being played.
+        """
+
+        return [self.lenPilot] * self.numberOfPulses
+
     def getwavdata(self, wavgenerationdata):
         """
         returns the wav file data as if this TZX Block were being
@@ -996,13 +980,7 @@ Pulses:{}".format(self.lenPulse, self.numberOfPulses)
         containing details of how the wav file data is to be formatted.
         """
 
-        output = bytearray()
-
-        # do pilot tone
-        for i in range(0, self.numberOfPulses):
-            output += wavgenerationdata.pulse(self.lenPilot)
-
-        return output
+        return wavgenerationdata.pulses(self.getaspulses())
 
 
 class SpectrumTZXPulseSequenceBlock(SpectrumTapeBlock):
@@ -1056,19 +1034,22 @@ class SpectrumTZXPulseSequenceBlock(SpectrumTapeBlock):
         return bytearray([0x13]) + \
             word_to_bytes(len(self.pulses), 1) + self.pulses
 
+    def getaspulses(self):
+        """
+        returns a list of pulse lengths in T-states as if this TapBlock
+        were being played.
+        """
+
+        return list(self.pulses)
+
     def getwavdata(self, wavgenerationdata):
         """
-        returns the wav file data as if this TZX Block were being
+        returns the wav file data as if this TapBlock were being
         played.  wavgenerationdata is a WavGenerationData object
         containing details of how the wav file data is to be formatted.
         """
 
-        output = bytearray()
-
-        for i in self.pulses:
-            output += wavgenerationdata.pulse(i)
-
-        return output
+        return wavgenerationdata.pulses(self.getaspulses())
 
 
 class SpectrumTZXPureDataBlock(SpectrumTapeBlock):
@@ -1176,6 +1157,22 @@ afterwards: {}ms".format(self.flag, self.getpayloadlength(), self.endPause)
             word_to_bytes(self.endPause, 2) + \
             word_to_bytes(len(self.data), 3) + self.data
 
+    def getaspulses(self):
+        """
+        returns a list of pulse lengths in T-states as if this Block
+        were being played.
+        """
+
+        return ([self.lenPilotPulse] * self.self.lenPilotTone +  # leader
+                [self.lenSyncPulse1, self.lenSyncPulse2] +  # sync
+                SpectrumTapeGeneratorStream.bytesToPulses(
+                    self.data,
+                    [[self.lenZeroPulse, self.lenZeroPulse],
+                     [self.lenOnePulse, self.lenOnePulse]],
+                    self.lastByteUsedBits) +  # data
+                [floor((self.endPause / 1000.0 * 3500000) + 0.5)]
+                if self.endPause else [0])  # pause
+
     def getwavdata(self, wavgenerationdata):
         """
         returns the wav file data as if this TZX Block were being
@@ -1183,32 +1180,7 @@ afterwards: {}ms".format(self.flag, self.getpayloadlength(), self.endPause)
         containing details of how the wav file data is to be formatted.
         """
 
-        output = bytearray()
-
-        # do data
-        for i in self.data[:-1]:
-            # bit by bit
-            for b in range(7, -1, -1):
-                t = (self.lenZeroPulse if ((i >> b) & 1) == 0
-                     else self.lenOnePulse)
-                output += wavgenerationdata.pulse(t)
-                output += wavgenerationdata.pulse(t)
-        # do last byte
-        for b in range(7, self.lastByteUsedBits - 1, -1):
-            t = (self.lenZeroPulse if ((self.data[-1] >> b) & 1) == 0
-                 else self.lenOnePulse)
-            output += wavgenerationdata.pulse(t)
-            output += wavgenerationdata.pulse(t)
-
-        # ensure have end edge so can tell end of last data bit pulse
-        output += wavgenerationdata.pulse(None)
-
-        if self.endPause:
-            samples = floor((self.endPause / 1000.0 *
-                             wavgenerationdata.frequency) + 0.5)
-            output += bytearray(wavgenerationdata.currentsample() * samples)
-
-        return output
+        return wavgenerationdata.pulses(self.getaspulses())
 
 
 class SpectrumTZXDirectRecordingBlock(SpectrumTapeBlock):
@@ -1280,6 +1252,35 @@ afterwards:{}ms".format(len(self.sampleData), self.endPause)
             word_to_bytes(self.lastByteUsedBits, 1) + \
             word_to_bytes(len(self.sampleData), 3) + self.sampleData
 
+    def getaspulses(self):
+        """
+        returns a list of pulse lengths in T-states as if this Block
+        were being played.
+        """
+
+        # level that's not possible so forces level set on first bit
+        level = -1
+        # force level oposite so toggles to correct level on first pulse
+        output = [self.sampleData[0] & 128 == 0]
+
+        last = len(self.sampleData) - 1
+
+        for i, d in self.sampleData[:-1]:
+            for b in range(7,
+                           -1 if i < last else 7 - self.lastByteUsedBits,
+                           -1):
+                bitlevel = (i >> b) & 1
+                if bitlevel == level:
+                    output[-1] += self.TPerSample
+                else:
+                    level = bitlevel
+                    output += [self.TPerSample]
+
+        if self.endPause:
+            output += [floor((self.endPause / 1000.0 * 3500000) + 0.5)]
+
+        return output
+
     def getwavdata(self, wavgenerationdata):
         """
         returns the wav file data as if this TZX Block were being
@@ -1287,26 +1288,7 @@ afterwards:{}ms".format(len(self.sampleData), self.endPause)
         containing details of how the wav file data is to be formatted.
         """
 
-        output = bytearray()
-
-        for i in self.sampleData[:-1]:
-            for b in range(7, -1, -1):
-                output += bytearray(wavgenerationdata.volumes[(i >> b) & 1] *
-                                    self.TPerSample)
-        # do last byte
-        for b in range(7, self.lastByteUsedBits - 1, -1):
-            output += bytearray(
-                wavgenerationdata.volumes[(self.sampleData[-1] >> b) & 1] *
-                self.TPerSample)
-
-        if self.endPause:
-            # ensure have end edge so can tell end of last data bit pulse
-            output += wavgenerationdata.pulse(None)
-            samples = floor(
-                (self.endPause / 1000.0 * wavgenerationdata.frequency) + 0.5)
-            output += bytearray(wavgenerationdata.currentsample() * samples)
-
-        return output
+        return wavgenerationdata.pulses(self.getaspulses())
 
 
 class SpectrumTZXCSWRecording(SpectrumTapeBlock):
@@ -1381,7 +1363,7 @@ afterwards:{}ms".format(self.storedPulses, self.endPause)
             word_to_bytes(self.storedPulses, 4) + \
             self.CSWData
 
-    def getwavdata(self, wavgenerationdata, pause):
+    def getwavdata(self, wavgenerationdata):
         """
         not supported.  Can't find any examples to test against.
         """
@@ -1493,36 +1475,36 @@ afterwards:{}ms".format(self.symbolsInDataBlock, self.endPause)
             word_to_bytes(self.alphabetSizeData & 0xFF, 1) + \
             symdefasp + prle + symdefasd + self.dataStreamData
 
-    def getwavdata(self, wavgenerationdata):
+    def getaspulses(self):
         """
-        returns the wav file data as if this TZX Block were being
-        played.  wavgenerationdata is a WavGenerationData object
-        containing details of how the wav file data is to be formatted.
+        returns a list of pulse lengths in T-states as if this Block
+        were being played.
         """
 
-        output = bytearray()
-
-        # do pilot / sync
-        for (i, reps) in self.dataStreamPilot:
-            # i is index in pilot/sync alphabet, rep is repetitions
-            for x in range(reps):
-                # adjust start mic level if needed (1 = no change)
-                if self.symbolDefinitionsPilot[i][0] & 3 == 0:
-                    wavgenerationdata.togglemic()
-                elif self.symbolDefinitionsPilot[i][0] & 3 == 2:
-                    wavgenerationdata.currentmiclevel = 0
-                elif self.symbolDefinitionsPilot[i][0] & 3 == 3:
-                    wavgenerationdata.currentmiclevel = 1
-                # iterate through pulse lengths
-                notfirst = False
-                for t in self.symbolDefinitionsPilot[i][1]:
+        def getAlphabet(symbolDefinitions):
+            alphabet = []
+            for entry in symbolDefinitions:
+                toggleOrNot = 1 if entry[0] == 0 else -1
+                run = [] if entry[0] < 2 else [entry[0] == 3]
+                for t in entry[1]:
                     # exit pulse list if reached end
                     if t == 0:
                         break
-                    wavgenerationdata.pulse(t, notfirst)
-                    notfirst = True
+                    run += [t * toggleOrNot]
+                    toggleOrNot = 1
+                alphabet += [run]
+            return alphabet
+
+        output = []
+
+        # do pilot / sync
+        alphabet = getAlphabet(self.symbolDefinitionsPilot)
+        for (i, reps) in self.dataStreamPilot:
+            # i is index in pilot/sync alphabet, rep is repetitions
+            output += alphabet[i] * reps
 
         # do data
+        alphabet = getAlphabet(self.symbolDefinitionsData)
         symbolbitlength = (self.alphabetSizeData - 1).bit_length()
         bitmask = (1 << symbolbitlength) - 1
         for s in range(self.symbolsInDataBlock):
@@ -1534,31 +1516,21 @@ afterwards:{}ms".format(self.symbolsInDataBlock, self.endPause)
             else:
                 s = ((self.dataStreamData[i] << e) |
                      (self.dataStreamData[i + 1] >> (8 - e)))
-            p = self.symbolDefinitionsData[s & bitmask]
-            # adjust start mic level if needed (1 = no change)
-            if p[0] & 3 == 0:
-                wavgenerationdata.togglemic()
-            elif p[0] & 3 == 2:
-                wavgenerationdata.currentmiclevel = 0
-            elif p[0] & 3 == 3:
-                wavgenerationdata.currentmiclevel = 1
-            # iterate through pulse lengths
-            notfirst = False
-            for t in p[1]:
-                # exit pulse list if reached end
-                if t == 0:
-                    break
-                wavgenerationdata.pulse(t, notfirst)
-                notfirst = True
+            output += alphabet[s & bitmask]
 
         if self.endPause:
-            # ensure have end edge so can tell end of last data bit pulse
-            output += wavgenerationdata.pulse(None)
-            samples = floor(
-                (self.endPause / 1000.0 * wavgenerationdata.frequency) + 0.5)
-            output += bytearray(wavgenerationdata.currentsample() * samples)
+            output += [floor((self.endPause / 1000.0 * 3500000) + 0.5)]
 
         return output
+
+    def getwavdata(self, wavgenerationdata):
+        """
+        returns the wav file data as if this TZX Block were being
+        played.  wavgenerationdata is a WavGenerationData object
+        containing details of how the wav file data is to be formatted.
+        """
+
+        return wavgenerationdata.pulses(self.getaspulses())
 
 
 class SpectrumTZXPauseOrStopBlock(SpectrumTapeBlock):
@@ -1622,18 +1594,26 @@ class SpectrumTZXPauseOrStopBlock(SpectrumTapeBlock):
 
         return bytearray([0x20]) + word_to_bytes(self.pause, 2)
 
+    def getaspulses(self):
+        """
+        returns a list of pulse lengths in T-states as if this Block
+        were being played.
+        """
+
+        return [
+            False,
+            -floor((self.endPause / 1000.0 * 3500000) + 0.5)
+            if self.endPause else -3500000
+        ]
+
     def getwavdata(self, wavgenerationdata):
         """
         returns the wav file data as if this TZX Block were being
         played.  wavgenerationdata is a WavGenerationData object
         containing details of how the wav file data is to be formatted.
-        If pause is 0 (stop) then will insert 1 second silence
         """
 
-        wavgenerationdata.currentmiclevel = 0
-        samples = floor(((1.0 if self.pause == 0 else self.pause /
-                          1000.0) * wavgenerationdata.frequency) + 0.5)
-        return bytearray(wavgenerationdata.currentsample() * samples)
+        return wavgenerationdata.pulses(self.getaspulses())
 
 
 class SpectrumTZXGroupStartBlock(SpectrumTapeBlock):
@@ -2187,17 +2167,22 @@ class SpectrumTZXStopTapeIf48KBlock(SpectrumTapeBlock):
 
         return bytearray([0x2A]) + word_to_bytes(0, 4)
 
+    def getaspulses(self):
+        """
+        returns a list of pulse lengths in T-states as if this Block
+        were being played.
+        """
+
+        return [False, -3500000]
+
     def getwavdata(self, wavgenerationdata):
         """
         returns the wav file data as if this TZX Block were being
         played.  wavgenerationdata is a WavGenerationData object
         containing details of how the wav file data is to be formatted.
-        Will insert a 1 second pause
         """
 
-        wavgenerationdata.currentmiclevel = 0
-        samples = floor(wavgenerationdata.frequenc + 0.5)
-        return bytearray(wavgenerationdata.currentsample() * samples)
+        return wavgenerationdata.pulses(self.getaspulses())
 
 
 class SpectrumTZXSetSignalLevelBlock(SpectrumTapeBlock):
@@ -2258,6 +2243,14 @@ class SpectrumTZXSetSignalLevelBlock(SpectrumTapeBlock):
             word_to_bytes(1, 4) + \
             word_to_bytes(self.level, 1)
 
+    def getaspulses(self):
+        """
+        returns a list of pulse lengths in T-states as if this Block
+        were being played.
+        """
+
+        return [self.level == 1]
+
     def getwavdata(self, wavgenerationdata):
         """
         returns the wav file data as if this TZX Block were being
@@ -2265,8 +2258,7 @@ class SpectrumTZXSetSignalLevelBlock(SpectrumTapeBlock):
         containing details of how the wav file data is to be formatted.
         """
 
-        wavgenerationdata.currentmiclevel = self.level
-        return bytearray()
+        return wavgenerationdata.pulses(self.getaspulses())
 
 
 class SpectrumTZXTextDescriptionBlock(SpectrumTapeBlock):
@@ -3418,14 +3410,35 @@ standard bits per sample.')
         by a change in the microphone level as the next pulse starts.
         If there are no more pulses after this, a single sample needs to
         be output at the alternative microphone level.  You can do this
-        by calling this method with a t value of None.
+        by calling this method with a t value of 0.
         toggle determines if the microphone level is toggled before the
         pulse is generated.  Defaults to True."""
 
         if toggle:
             self.currentmiclevel = 1 - self.currentmiclevel
-        samples = 1 if t is None else floor(t * self.spt + 0.5)
+        samples = 1 if t == 0 else floor(t * self.spt + 0.5)
         return bytearray(self.volumes[self.currentmiclevel] * samples)
+
+    def pulses(self, pulselist):
+        """
+        Returns wav sound data for the specified array of pulse lengths.
+        The microphone level will automatically be toggled before every
+        new pulse unless it is negative.
+        A pulse of 0 will output a single sample after toggling the microphone.
+        Microphone toggling doesn't matter whether the level was high or
+        low to begin with.
+        You can set the volume level by using a bool value. True for
+        high, and False for low.
+        Remember that it will toggle on the next pulse unless it is negative.
+        """
+
+        output = bytearray()
+        for p in pulselist:
+            if type(p) is bool:
+                self.currentmiclevel = 1 if p else 0
+                continue
+            output += self.pulse(abs(p), p >= 0)
+        return output
 
 
 def writewavfile(f, wavgenerationdata, data):

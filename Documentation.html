@@ -722,6 +722,8 @@
     <dd>Is this Block object probably a data block? of a file. Returns True if this is probably a data, or False if probably not.</dd>
     <dt><code>isheader</code></dt>
     <dd>Is this Block object probably a header block? Header blocks come before the blocks holding the actual file data and contain information such as the filename, the file type, length, and other information depending on the file type. Returns True if this is probably a header, or False if probably not.</dd>
+    <dt><code>getaspulses</code></dt>
+    <dd>returns a list of pulse lengths in T-states as if this TapeBlock were being played. This does nothing for the generic block, but is over-ridden by child classes. For child classes that implement it, the list is of ints and booleans. An int value specifies the length of a pulse in T-states. Pulses are preceded automatically by a microphone level change. Make the value Negative if there is to be no microphone toggle before the pulse (in effect extending the previous pulse). <code>True</code> will set the mirophone level to michigh, and <code>False</code> will set the level to miclow.</dd>
     <dt><code>getwavdata</code></dt>
     <dd>Returns a bytearray of data for samples that would represent this tape block in a wav file. It needs a WaveGenerationData object to detail what the wav file format should be.</dd>
   </dl>
